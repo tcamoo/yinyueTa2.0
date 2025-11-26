@@ -215,10 +215,11 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
 
-  // Detect if current song is from Netease (needs special CORS handling)
+  // Detect if current song is from Netease (needs special CORS handling to prevent failure)
+  // If it's a proxy link (djuu stream), we treat it as safe for CORS
   const isNetease = useMemo(() => {
     if (!currentSong) return false;
-    return !!currentSong.neteaseId || (currentSong.fileUrl || '').includes('music.163.com');
+    return (!!currentSong.neteaseId || (currentSong.fileUrl || '').includes('music.163.com')) && !(currentSong.fileUrl || '').includes('/api/');
   }, [currentSong]);
 
   // --- ROBUST AUDIO DATA PROVIDER ---
@@ -480,7 +481,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                 ref={audioRef}
                 src={currentSong.fileUrl}
                 // Important: Netease redirects fail with CORS, so we remove crossOrigin for them.
-                // This will result in a tainted canvas for visualizer (opaque source), triggering fallback to simulated visualizer.
+                // For our proxy links (which add CORS headers), we enable anonymous mode to allow AudioContext analysis.
                 crossOrigin={isNetease ? undefined : "anonymous"} 
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={handleEnded}
