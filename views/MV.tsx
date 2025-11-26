@@ -29,9 +29,6 @@ export const MVView: React.FC<MVViewProps> = ({ mvs, headerConfig }) => {
   const categories = ['All', 'Cinematic', 'Animation', 'Sci-Fi', 'Live', 'VFX', 'Surreal', 'Promo'];
   const [activeCategory, setActiveCategory] = useState('All');
 
-  // Check for featured MV passed from library (though activeMv state manages current view)
-  // If we wanted to default to a featured one on load, we'd do it in init state or useEffect.
-  
   const filteredMvs = activeCategory === 'All' 
     ? mvs 
     : mvs.filter(mv => mv.category === activeCategory || mv.tags.includes(activeCategory));
@@ -139,17 +136,22 @@ export const MVView: React.FC<MVViewProps> = ({ mvs, headerConfig }) => {
   return (
     <div className="pb-40 animate-in slide-in-from-right-8 duration-700">
       
-      {/* HERO VIDEO PLAYER - Adjusted Layout Height to match navigation visual flow */}
+      {/* HERO VIDEO PLAYER - Optimized: rounded corners enforced, no negative margin */}
       <div 
         ref={containerRef}
         className={`relative w-full overflow-hidden mb-8 group border-b border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.8)] bg-black cursor-pointer select-none transition-all duration-500 
             ${isFullscreen 
                 ? 'fixed inset-0 z-[100] rounded-none border-0' 
-                : 'rounded-[2rem] h-[calc(100vh-6rem)] -mt-6' /* Pull up slightly to align top with sidebar padding visual if needed, currently filling vertical space */
+                : 'rounded-[2rem] aspect-[16/9] md:aspect-[21/9] lg:h-[70vh]' /* Ensure height is managed but respects aspect */
             }`}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => isPlaying && setShowControls(false)}
         onClick={togglePlay} // Container handles the click
+        style={{
+            // Force border radius clipping on some browsers
+            borderRadius: isFullscreen ? '0' : '2rem',
+            isolation: 'isolate',
+        }}
       >
          {/* Video Element */}
          <video 
@@ -182,7 +184,7 @@ export const MVView: React.FC<MVViewProps> = ({ mvs, headerConfig }) => {
             {/* Top Bar - Minimalist */}
             <div className="flex justify-between items-start pointer-events-auto">
                 <div className="flex gap-2">
-                   {/* Removed Text Headers per request for cleaner look */}
+                   {/* Headers removed for cleaner look */}
                 </div>
                 <div className="flex gap-2">
                     <button className="p-3 rounded-full bg-black/40 hover:bg-white hover:text-black border border-white/10 transition-all backdrop-blur-md" onClick={(e) => e.stopPropagation()}>
