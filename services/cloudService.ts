@@ -1,3 +1,5 @@
+
+
 // This service communicates with the Worker API endpoints defined in worker.js
 
 export interface AppData {
@@ -18,8 +20,13 @@ export const cloudService = {
   loadData: async (): Promise<AppData | null> => {
     try {
       const res = await fetch(`${API_BASE}/sync`);
-      if (!res.ok) throw new Error('Failed to fetch data');
+      if (!res.ok) {
+          // If 503 or other error, it means backend not ready or errored
+          console.warn("Cloud sync endpoint returned status:", res.status);
+          return null;
+      }
       const data = await res.json();
+      if (data.warning) console.warn(data.warning);
       if (data.empty) return null; // No data in KV yet
       return data as AppData;
     } catch (error) {
@@ -36,7 +43,13 @@ export const cloudService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      return res.ok;
+      
+      if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          if (err.error) alert(`保存失败: ${err.error}`);
+          return false;
+      }
+      return true;
     } catch (error) {
       console.error("Cloud Save Error:", error);
       return false;
@@ -55,7 +68,12 @@ export const cloudService = {
         body: file, // Send raw binary
       });
 
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          if (err.error) alert(`上传失败: ${err.error}`);
+          return null;
+      }
+      
       const data = await res.json();
       return data.url;
     } catch (error) {
