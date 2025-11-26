@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid } from 'lucide-react';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem, NavItem } from '../types';
 import { THEMES, MOODS } from '../constants';
 import { cloudService } from '../services/cloudService';
@@ -91,6 +91,7 @@ export const Library: React.FC<LibraryProps> = ({
       linkedSongId: '',
       fontFamily: 'sans' as 'sans'|'serif'|'mono'|'art',
       neteaseId: '',
+      djuuId: '',
       videoUrl: ''
   });
 
@@ -367,6 +368,32 @@ export const Library: React.FC<LibraryProps> = ({
       }
   };
 
+  // --- DJUU PARSER ---
+  const handleDjuuParse = (input: string) => {
+      // Try to extract ID from URL like https://www.djuu.com/play/290470.html
+      const regex = /djuu\.com\/play\/(\d+)/;
+      const match = input.match(regex);
+      
+      if (match && match[1]) {
+          const id = match[1];
+          setFormData(prev => ({
+              ...prev,
+              djuuId: id,
+              // DJUU often uses a predictable cover structure, though it varies. 
+              // This is a best-effort guess or placeholder.
+              // If not accurate, user can still upload manually.
+              cover: prev.cover || `http://img.djuu.com/adj/cover/${id}.jpg` 
+          }));
+          notify('success', `已提取 DJUU ID: ${id}`);
+      } else if (/^\d+$/.test(input)) {
+          // If input is just digits
+          setFormData(prev => ({ ...prev, djuuId: input }));
+      } else {
+          // Just verify it's stored even if not parsed
+          setFormData(prev => ({ ...prev, djuuId: input }));
+      }
+  };
+
   const wrapSelection = (prefix: string, suffix: string) => {
       if (articleContentRef.current) {
           const start = articleContentRef.current.selectionStart;
@@ -407,7 +434,7 @@ export const Library: React.FC<LibraryProps> = ({
       setFormData({ 
           title: '', artist: '', url: '', cover: '', desc: '', tag: '', duration: '', bpm: '128', 
           content: '', lyrics: '', mood: MOODS[0].color, linkedSongId: '',
-          fontFamily: 'sans', neteaseId: '', videoUrl: ''
+          fontFamily: 'sans', neteaseId: '', djuuId: '', videoUrl: ''
       });
       setEditMode(false);
       setEditingId(null);
@@ -455,6 +482,7 @@ export const Library: React.FC<LibraryProps> = ({
           form.url = item.fileUrl;
           form.bpm = item.bpm || 128;
           form.duration = item.duration;
+          form.djuuId = item.djuuId || '';
       } else if (type === 'gallery') {
           form.artist = item.photographer;
       }
@@ -521,16 +549,23 @@ export const Library: React.FC<LibraryProps> = ({
           updatedData = { songs: next };
       }
       else if (editingType === 'dj') {
+          // AUTO PROXY GENERATION FOR DJUU
+          let finalUrl = formData.url;
+          if (formData.djuuId) {
+             finalUrl = `/api/djuu/stream?id=${formData.djuuId}`;
+          }
+
           const newSet: DJSet = {
               id: newId,
               title: formData.title,
               djName: formData.artist,
               coverUrl: formData.cover,
-              fileUrl: formData.url,
+              fileUrl: finalUrl, // Use the proxy url if DJUU ID exists
               duration: formData.duration,
               bpm: parseInt(formData.bpm.toString()) || 128,
               tags: ['Mix'],
-              plays: 0
+              plays: 0,
+              djuuId: formData.djuuId 
           };
           const next = editMode ? djSets.map(d => d.id === editingId ? newSet : d) : [newSet, ...djSets];
           setDjSets(next);
@@ -712,7 +747,12 @@ export const Library: React.FC<LibraryProps> = ({
                       <div className="space-y-2">
                           {djSets.map((item) => (
                               <div key={item.id} className="flex items-center gap-4 p-3 bg-white/5 rounded-xl border border-transparent hover:border-white/20 group">
-                                  <div className="w-12 h-12 rounded bg-black overflow-hidden shrink-0"><img src={item.coverUrl} className="w-full h-full object-cover" /></div>
+                                  <div className="w-12 h-12 rounded bg-black overflow-hidden shrink-0 relative">
+                                     <img src={item.coverUrl} className="w-full h-full object-cover" />
+                                     {item.djuuId && (
+                                         <div className="absolute top-0 right-0 bg-blue-600 text-[8px] font-bold px-1 text-white">DJUU</div>
+                                     )}
+                                  </div>
                                   <div className="flex-1 min-w-0">
                                       <div className="font-bold text-white truncate">{item.title}</div>
                                       <div className="text-xs text-gray-500 truncate">{item.djName} | {item.bpm} BPM</div>
@@ -994,7 +1034,7 @@ export const Library: React.FC<LibraryProps> = ({
                       {editingType === 'dj' && (
                           <>
                              <div>
-                                <label className="text-xs text-gray-500 mb-1 block">Mix 音频文件 URL</label>
+                                <label className="text-xs text-gray-500 mb-1 block">Mix 音频文件 URL (手动直链)</label>
                                 <div className="flex gap-2">
                                     <input type="text" value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="https://..." />
                                     <button disabled={isUploading} onClick={() => audioFileInputRef.current?.click()} className="px-4 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold text-xs flex items-center gap-2 transition-colors disabled:opacity-50">
@@ -1002,6 +1042,32 @@ export const Library: React.FC<LibraryProps> = ({
                                     </button>
                                 </div>
                              </div>
+
+                             {/* DJUU SPECIAL INPUT */}
+                             <div className="bg-[#050505] p-3 rounded-lg border border-white/10">
+                                <label className="text-xs text-blue-400 font-bold mb-1 block flex items-center gap-2">
+                                    <Disc className="w-3 h-3" /> DJUU 页面链接 / ID (自动解析)
+                                </label>
+                                <div className="flex gap-2">
+                                    <input 
+                                        type="text" 
+                                        value={formData.djuuId} 
+                                        onChange={e => handleDjuuParse(e.target.value)} 
+                                        className="w-full bg-black border border-white/10 p-3 rounded-lg text-white font-mono text-sm focus:border-blue-500 outline-none" 
+                                        placeholder="例如: https://www.djuu.com/play/290470.html" 
+                                    />
+                                    {formData.djuuId && (
+                                        <a href={`https://www.djuu.com/play/${formData.djuuId}.html`} target="_blank" className="px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg flex items-center justify-center hover:bg-blue-500 hover:text-white transition-colors" title="前往源站获取直链">
+                                            <ExternalLink className="w-4 h-4" />
+                                        </a>
+                                    )}
+                                </div>
+                                <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">
+                                    输入 ID 或链接后，系统将自动配置云端代理，解决 403 防盗链问题。
+                                    <br/>支持频谱分析与进度拖拽。
+                                </p>
+                             </div>
+
                              <div className="grid grid-cols-2 gap-4">
                                  <div>
                                     <label className="text-xs text-gray-500 mb-1 block">BPM</label>
