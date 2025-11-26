@@ -30,6 +30,7 @@ export interface Song {
   description?: string;
   neteaseId?: string;
   lyrics?: string;
+  djuuId?: string; 
 }
 
 export interface Album {
@@ -81,6 +82,7 @@ export interface DJSet {
   plays: number;
   description?: string;
   neteaseId?: string;
+  djuuId?: string;
 }
 
 export interface ArticleContentStyle {
