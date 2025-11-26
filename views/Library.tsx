@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle } from 'lucide-react';
-import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View } from '../types';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning } from 'lucide-react';
+import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist } from '../types';
 import { THEMES, MOODS } from '../constants';
+import { cloudService } from '../services/cloudService';
 
 interface LibraryProps {
   songs: Song[];
@@ -15,6 +16,7 @@ interface LibraryProps {
   setDjSets?: React.Dispatch<React.SetStateAction<DJSet[]>>;
   articles?: Article[];
   setArticles?: React.Dispatch<React.SetStateAction<Article[]>>;
+  playlists: Playlist[];
   onPlaySong: (song: Song) => void;
   currentTheme: Theme;
   setTheme: (theme: Theme) => void;
@@ -28,6 +30,7 @@ export const Library: React.FC<LibraryProps> = ({
     galleryItems, setGalleryItems,
     djSets = [], setDjSets = (_: React.SetStateAction<DJSet[]>) => {},
     articles = [], setArticles = (_: React.SetStateAction<Article[]>) => {},
+    playlists,
     onPlaySong, 
     currentTheme, setTheme,
     pageHeaders, setPageHeaders
@@ -40,6 +43,10 @@ export const Library: React.FC<LibraryProps> = ({
   const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingType, setEditingType] = useState<'media' | 'article'>('media');
+  
+  // Cloud State
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Form Fields
   const [formData, setFormData] = useState({
@@ -51,10 +58,10 @@ export const Library: React.FC<LibraryProps> = ({
       tag: '',
       duration: '',
       bpm: '128',
-      content: '', // For Articles
-      lyrics: '', // For Songs
-      mood: MOODS[0].color, // For Articles
-      linkedSongId: '', // For Articles
+      content: '', 
+      lyrics: '', 
+      mood: MOODS[0].color, 
+      linkedSongId: '',
       fontFamily: 'sans' as 'sans'|'serif'|'mono'|'art',
       fontSize: 'base' as 'sm'|'base'|'lg'|'xl',
       neteaseId: ''
@@ -70,8 +77,8 @@ export const Library: React.FC<LibraryProps> = ({
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
-  // Populate form when selectedPage changes
   useEffect(() => {
      if (pageHeaders[selectedPage]) {
          setHeaderFormData({
@@ -83,6 +90,45 @@ export const Library: React.FC<LibraryProps> = ({
      }
   }, [selectedPage, pageHeaders]);
 
+  // --- CLOUD SYNC FUNCTION ---
+  const syncToCloud = async (overrideData?: any) => {
+      setIsSyncing(true);
+      const dataToSave = {
+          songs, mvs, galleryItems, djSets, articles, playlists, pageHeaders, 
+          themeId: currentTheme.id,
+          ...overrideData // Merge latest changes immediately
+      };
+      
+      const success = await cloudService.saveData(dataToSave);
+      if (success) {
+          // alert('Cloud Sync Successful'); 
+          // Too intrusive, maybe a toast? For now just visual indicator
+      } else {
+          alert('Cloud Sync Failed. Check network.');
+      }
+      setTimeout(() => setIsSyncing(false), 800);
+  };
+
+  const handleManualSync = () => {
+      syncToCloud();
+  };
+
+  // --- FILE UPLOAD HANDLER ---
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'url' | 'cover') => {
+      const file = e.target.files?.[0];
+      if (file) {
+          setIsUploading(true);
+          const uploadedUrl = await cloudService.uploadFile(file);
+          setIsUploading(false);
+
+          if (uploadedUrl) {
+              setFormData(prev => ({ ...prev, [field]: uploadedUrl }));
+          } else {
+              alert('File upload failed.');
+          }
+      }
+  };
+
   const resetForm = () => {
       setFormData({ 
           title: '', artist: '', url: '', cover: '', desc: '', tag: '', duration: '', bpm: '128', 
@@ -91,22 +137,6 @@ export const Library: React.FC<LibraryProps> = ({
       });
       setEditMode(false);
       setEditingId(null);
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-              const result = reader.result as string;
-              if (mediaType === 'image') {
-                  setFormData(prev => ({ ...prev, url: result, cover: result }));
-              } else {
-                  setFormData(prev => ({ ...prev, cover: result }));
-              }
-          };
-          reader.readAsDataURL(file);
-      }
   };
 
   const handleOpenCreateMedia = () => {
@@ -181,13 +211,12 @@ export const Library: React.FC<LibraryProps> = ({
 
   const handleSave = async () => {
       let finalUrl = formData.url;
-      // NetEase Hack
       if (formData.neteaseId && mediaType === 'audio') {
           finalUrl = `https://music.163.com/song/media/outer/url?id=${formData.neteaseId}.mp3`;
       }
 
-      // Generate ID
       const newId = editMode && editingId ? editingId : Date.now().toString();
+      let updatedData = {}; // Object to hold the specific array updated
 
       if (editingType === 'article') {
           const newArticle: Article = {
@@ -207,11 +236,15 @@ export const Library: React.FC<LibraryProps> = ({
                   lineHeight: 'normal'
               }
           };
+          
+          let nextArticles;
           if (editMode) {
-              setArticles(prev => prev.map(a => a.id === editingId ? { ...a, ...newArticle } : a));
+            nextArticles = articles.map(a => a.id === editingId ? { ...a, ...newArticle } : a);
           } else {
-              setArticles(prev => [newArticle, ...prev]);
+            nextArticles = [newArticle, ...articles];
           }
+          setArticles(nextArticles);
+          updatedData = { articles: nextArticles };
       } 
       else {
           const common = {
@@ -231,7 +264,14 @@ export const Library: React.FC<LibraryProps> = ({
                   neteaseId: formData.neteaseId,
                   lyrics: formData.lyrics
               };
-              editMode ? setSongs(p => p.map(x => x.id === editingId ? newSong : x)) : setSongs(p => [newSong, ...p]);
+              let nextSongs;
+              if (editMode) {
+                  nextSongs = songs.map(x => x.id === editingId ? newSong : x);
+              } else {
+                  nextSongs = [newSong, ...songs];
+              }
+              setSongs(nextSongs);
+              updatedData = { songs: nextSongs };
           } 
           else if (mediaType === 'video') {
               const newMV: MV = {
@@ -243,7 +283,14 @@ export const Library: React.FC<LibraryProps> = ({
                   tags: ['New', formData.tag],
                   category: formData.tag || 'Upload'
               };
-               editMode ? setMvs(p => p.map(x => x.id === editingId ? newMV : x)) : setMvs(p => [newMV, ...p]);
+              let nextMvs;
+              if(editMode) {
+                  nextMvs = mvs.map(x => x.id === editingId ? newMV : x);
+              } else {
+                  nextMvs = [newMV, ...mvs];
+              }
+              setMvs(nextMvs);
+              updatedData = { mvs: nextMvs };
           }
           else if (mediaType === 'dj') {
             const newDJ: DJSet = {
@@ -256,36 +303,82 @@ export const Library: React.FC<LibraryProps> = ({
                   plays: 0,
                   neteaseId: formData.neteaseId
               };
-               editMode ? setDjSets(p => p.map(x => x.id === editingId ? newDJ : x)) : setDjSets(p => [newDJ, ...p]);
+               let nextDjs;
+               if(editMode) {
+                   nextDjs = djSets.map(x => x.id === editingId ? newDJ : x);
+               } else {
+                   nextDjs = [newDJ, ...djSets];
+               }
+               setDjSets(nextDjs);
+               updatedData = { djSets: nextDjs };
           }
           else if (mediaType === 'image') {
               const newGalleryItem: GalleryItem = {
                   id: newId,
                   title: formData.title || 'Untitled',
                   photographer: formData.artist || 'Unknown',
-                  imageUrl: formData.cover || formData.url || `https://picsum.photos/seed/${newId}/800/600`, // Support URL input
+                  imageUrl: formData.cover || formData.url || `https://picsum.photos/seed/${newId}/800/600`,
                   spanClass: 'col-span-1 row-span-1'
               };
-              editMode ? setGalleryItems(p => p.map(x => x.id === editingId ? newGalleryItem : x)) : setGalleryItems(p => [newGalleryItem, ...p]);
+              let nextGallery;
+              if(editMode) {
+                  nextGallery = galleryItems.map(x => x.id === editingId ? newGalleryItem : x);
+              } else {
+                  nextGallery = [newGalleryItem, ...galleryItems];
+              }
+              setGalleryItems(nextGallery);
+              updatedData = { galleryItems: nextGallery };
           }
       }
 
       setIsModalOpen(false);
       resetForm();
+      
+      // TRIGGER CLOUD SYNC
+      syncToCloud(updatedData);
   };
 
   const handleSavePageHeader = () => {
-      setPageHeaders(prev => ({ ...prev, [selectedPage]: { ...headerFormData } }));
-      alert("页面装修已保存！");
+      const nextHeaders = { ...pageHeaders, [selectedPage]: { ...headerFormData } };
+      setPageHeaders(nextHeaders);
+      syncToCloud({ pageHeaders: nextHeaders });
+  };
+  
+  const handleThemeChange = (theme: Theme) => {
+      setTheme(theme);
+      syncToCloud({ themeId: theme.id });
   };
 
   const handleDelete = (id: string, type: string) => {
       if (window.confirm('确定要从库中永久删除此项目吗？')) {
-        if (type === 'article') setArticles(prev => prev.filter(a => a.id !== id));
-        else if (mediaType === 'audio') setSongs(prev => prev.filter(s => s.id !== id));
-        else if (mediaType === 'video') setMvs(prev => prev.filter(m => m.id !== id));
-        else if (mediaType === 'image') setGalleryItems(prev => prev.filter(g => g.id !== id));
-        else if (mediaType === 'dj') setDjSets(prev => prev.filter(d => d.id !== id));
+        let updatedData = {};
+        if (type === 'article') {
+            const next = articles.filter(a => a.id !== id);
+            setArticles(next);
+            updatedData = { articles: next };
+        }
+        else if (mediaType === 'audio') {
+            const next = songs.filter(s => s.id !== id);
+            setSongs(next);
+            updatedData = { songs: next };
+        }
+        else if (mediaType === 'video') {
+             const next = mvs.filter(m => m.id !== id);
+             setMvs(next);
+             updatedData = { mvs: next };
+        }
+        else if (mediaType === 'image') {
+            const next = galleryItems.filter(g => g.id !== id);
+            setGalleryItems(next);
+            updatedData = { galleryItems: next };
+        }
+        else if (mediaType === 'dj') {
+            const next = djSets.filter(d => d.id !== id);
+            setDjSets(next);
+            updatedData = { djSets: next };
+        }
+        
+        syncToCloud(updatedData);
       }
   };
 
@@ -297,11 +390,22 @@ export const Library: React.FC<LibraryProps> = ({
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-lime/10 border border-brand-lime/30 rounded-full mb-4">
              <Settings2 className="w-3 h-3 text-brand-lime" />
-             <span className="text-xs text-brand-lime font-bold tracking-wider">CMS V3.8 PRO</span>
+             <span className="text-xs text-brand-lime font-bold tracking-wider">CMS V4.0 CLOUD</span>
           </div>
           <h1 className="text-5xl lg:text-7xl font-display font-bold mb-4">
             创作 <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-lime to-brand-cyan">控制台</span>
           </h1>
+        </div>
+        
+        {/* CLOUD SYNC INDICATOR */}
+        <div className="flex items-center gap-4">
+            <button 
+                onClick={handleManualSync}
+                className={`px-6 py-3 rounded-xl border flex items-center gap-3 transition-all ${isSyncing ? 'bg-brand-lime border-brand-lime text-black' : 'bg-white/5 border-white/10 hover:border-brand-lime/50 text-white'}`}
+            >
+                {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CloudLightning className="w-5 h-5" />}
+                <span className="font-bold text-sm">{isSyncing ? '同步中...' : '同步到云端'}</span>
+            </button>
         </div>
       </header>
 
@@ -361,8 +465,9 @@ export const Library: React.FC<LibraryProps> = ({
                 </button>
            </div>
            
-           {/* CMS Data Grid */}
+           {/* CMS Data Grid (Same as before but with updated handlers) */}
            <div className="space-y-1">
+               {/* Header Row */}
                <div className="grid grid-cols-12 gap-4 px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-white/5">
                 <div className="col-span-5 md:col-span-4">名称 / 信息</div>
                 <div className="col-span-3 md:col-span-3 hidden md:block">元数据</div>
@@ -370,6 +475,7 @@ export const Library: React.FC<LibraryProps> = ({
                 <div className="col-span-3 md:col-span-3 text-right">操作</div>
                </div>
 
+                {/* Render Logic - Image */}
                 {mediaType === 'image' && galleryItems.map((item) => (
                     <div key={item.id} className="grid grid-cols-12 gap-4 p-4 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-transparent hover:border-brand-cyan/20 items-center group transition-all">
                         <div className="col-span-7 md:col-span-4 flex items-center gap-4">
@@ -378,13 +484,12 @@ export const Library: React.FC<LibraryProps> = ({
                             </div>
                             <div className="min-w-0">
                                 <h4 className="font-bold text-white text-sm truncate">{item.title}</h4>
-                                <p className="text-xs text-gray-500 truncate">{item.photographer}</p>
                             </div>
                         </div>
                         <div className="col-span-3 hidden md:flex flex-col justify-center text-xs text-gray-400">
-                             <span className="flex items-center gap-1 mt-1"><Maximize2 className="w-3 h-3" /> {item.spanClass.replace('col-span-', 'W:').replace('row-span-', ' H:')}</span>
+                             <span className="flex items-center gap-1 mt-1"><Maximize2 className="w-3 h-3" /> R2 Object</span>
                         </div>
-                        <div className="col-span-2 hidden md:flex items-center"><span className="text-brand-cyan text-[10px]">IMG</span></div>
+                        <div className="col-span-2 hidden md:flex items-center"><span className="text-brand-cyan text-[10px]">SYNCED</span></div>
                         <div className="col-span-5 md:col-span-3 flex items-center justify-end gap-2">
                              <button onClick={() => handleOpenEdit(item, 'image')} className="p-2 hover:bg-white hover:text-black rounded-lg text-gray-500 transition-colors"><Edit3 className="w-4 h-4" /></button>
                              <button onClick={() => handleDelete(item.id, 'media')} className="p-2 hover:bg-red-500/20 hover:text-red-500 rounded-lg text-gray-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
@@ -392,7 +497,7 @@ export const Library: React.FC<LibraryProps> = ({
                     </div>
                 ))}
                 
-                {/* Fallback for other media types (Using Song List as visual template for now) */}
+                {/* Render Logic - Audio */}
                 {mediaType === 'audio' && songs.map((song) => (
                     <div key={song.id} className="grid grid-cols-12 gap-4 p-4 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-transparent hover:border-brand-lime/20 items-center group transition-all">
                         <div className="col-span-7 md:col-span-4 flex items-center gap-4">
@@ -415,6 +520,7 @@ export const Library: React.FC<LibraryProps> = ({
                     </div>
                 ))}
 
+                 {/* Render Logic - Video */}
                 {mediaType === 'video' && mvs.map((mv) => (
                     <div key={mv.id} className="grid grid-cols-12 gap-4 p-4 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-transparent hover:border-brand-pink/20 items-center group transition-all">
                          <div className="col-span-7 md:col-span-4 flex items-center gap-4">
@@ -423,11 +529,7 @@ export const Library: React.FC<LibraryProps> = ({
                             </div>
                             <div className="min-w-0">
                                 <h4 className="font-bold text-white text-sm truncate">{mv.title}</h4>
-                                <p className="text-xs text-gray-500 truncate">{mv.artist}</p>
                             </div>
-                        </div>
-                        <div className="col-span-3 hidden md:flex flex-col justify-center text-xs text-gray-400">
-                             <span className="flex items-center gap-1 mt-1"><Film className="w-3 h-3" /> {mv.category}</span>
                         </div>
                         <div className="col-span-2 hidden md:flex items-center"><span className="text-blue-500 text-[10px]">HD</span></div>
                         <div className="col-span-5 md:col-span-3 flex items-center justify-end gap-2">
@@ -437,6 +539,7 @@ export const Library: React.FC<LibraryProps> = ({
                     </div>
                 ))}
 
+                {/* Render Logic - DJ */}
                 {mediaType === 'dj' && djSets.map((dj) => (
                     <div key={dj.id} className="grid grid-cols-12 gap-4 p-4 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-transparent hover:border-brand-accent/20 items-center group transition-all">
                         <div className="col-span-7 md:col-span-4 flex items-center gap-4">
@@ -445,11 +548,7 @@ export const Library: React.FC<LibraryProps> = ({
                             </div>
                             <div className="min-w-0">
                                 <h4 className="font-bold text-white text-sm truncate">{dj.title}</h4>
-                                <p className="text-xs text-gray-500 truncate">{dj.djName}</p>
                             </div>
-                        </div>
-                        <div className="col-span-3 hidden md:flex flex-col justify-center text-xs text-gray-400">
-                             <span className="flex items-center gap-1 mt-1">{dj.bpm} BPM</span>
                         </div>
                         <div className="col-span-2 hidden md:flex items-center"><span className="text-purple-500 text-[10px]">MIX</span></div>
                         <div className="col-span-5 md:col-span-3 flex items-center justify-end gap-2">
@@ -479,7 +578,6 @@ export const Library: React.FC<LibraryProps> = ({
                       <div key={article.id} className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex items-center gap-6 group hover:border-brand-lime/30 transition-all">
                            <div className="relative w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
                                <img src={article.coverUrl} className="w-full h-full object-cover" />
-                               <div className="absolute top-2 right-2 w-3 h-3 rounded-full" style={{ backgroundColor: article.mood }}></div>
                            </div>
                            <div className="flex-1 min-w-0">
                                <h4 className="text-lg font-bold text-white truncate mb-1">{article.title}</h4>
@@ -504,7 +602,7 @@ export const Library: React.FC<LibraryProps> = ({
                        {THEMES.map(theme => (
                            <button 
                                 key={theme.id}
-                                onClick={() => setTheme(theme)}
+                                onClick={() => handleThemeChange(theme)}
                                 className={`relative p-4 rounded-2xl border transition-all text-left group ${currentTheme.id === theme.id ? 'border-brand-lime bg-white/5 ring-1 ring-brand-lime' : 'border-white/10 bg-black hover:border-white/30'}`}
                            >
                                <div className="h-24 rounded-xl mb-4 overflow-hidden relative shadow-lg">
@@ -539,6 +637,10 @@ export const Library: React.FC<LibraryProps> = ({
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">主标题 (Big Title)</label>
                         <input type="text" value={headerFormData.title} onChange={e => setHeaderFormData({...headerFormData, title: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl p-4 text-2xl font-black text-white focus:border-brand-lime outline-none" />
                    </div>
+                   <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">副标题 / 描述</label>
+                        <input type="text" value={headerFormData.description} onChange={e => setHeaderFormData({...headerFormData, description: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl p-4 text-white focus:border-brand-lime outline-none" />
+                   </div>
                    <button onClick={handleSavePageHeader} className="w-full py-4 bg-brand-lime text-black font-bold rounded-xl shadow-[0_0_20px_rgba(204,255,0,0.3)]">保存页面设置</button>
               </div>
           </div>
@@ -572,12 +674,12 @@ export const Library: React.FC<LibraryProps> = ({
                                 </div>
                             </div>
 
-                            {/* Image Upload Area with Explicit URL Support */}
+                            {/* Image/File Upload Area */}
                              <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
                                     <label className="block text-xs font-bold text-brand-lime mb-1 flex items-center gap-2">
                                         <Link className="w-3 h-3" /> 
-                                        {mediaType === 'image' ? '图片链接 (URL) - 支持第三方链接' : '封面链接'}
+                                        {mediaType === 'image' ? '图片链接 (URL)' : '封面链接'}
                                     </label>
                                     <div className="flex gap-2">
                                         <input 
@@ -595,34 +697,82 @@ export const Library: React.FC<LibraryProps> = ({
                                             placeholder="https://example.com/image.jpg" 
                                         />
                                         <button 
-                                            onClick={() => fileInputRef.current?.click()}
+                                            onClick={() => coverInputRef.current?.click()}
+                                            disabled={isUploading}
                                             className="px-4 bg-white/10 rounded-lg hover:bg-white hover:text-black transition-colors flex items-center gap-1 min-w-max"
-                                            title="本地上传"
                                         >
-                                            <Upload className="w-4 h-4" /> <span className="text-xs">本地</span>
+                                            {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                            <span className="text-xs">R2上传</span>
                                         </button>
                                         <input 
-                                            ref={fileInputRef}
+                                            ref={coverInputRef}
                                             type="file" 
                                             accept="image/*" 
                                             className="hidden"
-                                            onChange={handleImageUpload}
+                                            onChange={(e) => handleFileUpload(e, 'cover')}
                                         />
                                     </div>
-                                    <p className="text-[10px] text-gray-500 mt-1">* 推荐使用 Unsplash 或图床外链以获得最佳性能。</p>
                                 </div>
                             </div>
 
-                            {/* ARTICLE SPECIFIC FIELDS */}
+                            {/* MEDIA Specifics */}
+                            {editingType === 'media' && mediaType !== 'image' && (
+                                <>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 mb-1 flex justify-between">
+                                            资源文件链接 (MP3/MP4/URL)
+                                            {isUploading && <span className="text-brand-lime text-[10px] animate-pulse">UPLOADING...</span>}
+                                        </label>
+                                        <div className="flex gap-2">
+                                            <input type="text" value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:border-brand-lime outline-none" placeholder="https://..." />
+                                            <button 
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={isUploading}
+                                                className="px-4 bg-white/10 rounded-lg hover:bg-white hover:text-black transition-colors flex items-center gap-1 min-w-max"
+                                            >
+                                                <UploadCloud className="w-4 h-4" />
+                                            </button>
+                                            <input 
+                                                ref={fileInputRef}
+                                                type="file" 
+                                                accept={mediaType === 'video' ? 'video/*' : 'audio/*'} 
+                                                className="hidden"
+                                                onChange={(e) => handleFileUpload(e, 'url')}
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    {(mediaType === 'audio' || mediaType === 'dj') && (
+                                        <>
+                                            <div className="bg-red-900/10 border border-red-500/20 p-4 rounded-xl">
+                                                <label className="block text-xs font-bold text-red-400 mb-1 flex items-center gap-1">
+                                                    <Music className="w-3 h-3" /> 网易云音乐 ID (覆盖上方链接)
+                                                </label>
+                                                <input type="text" value={formData.neteaseId} onChange={e => setFormData({...formData, neteaseId: e.target.value})} className="w-full bg-black border border-red-500/30 rounded-lg p-3 text-white focus:border-red-500 outline-none" placeholder="例如: 186016" />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-400 mb-1">歌词</label>
+                                                <textarea 
+                                                    value={formData.lyrics} 
+                                                    onChange={e => setFormData({...formData, lyrics: e.target.value})} 
+                                                    className="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:border-brand-lime outline-none h-32 text-xs font-mono" 
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+                                </>
+                            )}
+
+                            {/* ARTICLE FIELDS */}
                             {editingType === 'article' && (
                                 <>
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-400 mb-1">正文内容 (支持分段)</label>
+                                        <label className="block text-xs font-bold text-gray-400 mb-1">正文</label>
                                         <textarea 
                                             value={formData.content} 
                                             onChange={e => setFormData({...formData, content: e.target.value})} 
-                                            className="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:border-brand-lime outline-none h-48 resize-none leading-relaxed" 
-                                            placeholder="在此输入文章正文..." 
+                                            className="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:border-brand-lime outline-none h-48 resize-none" 
                                         />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
@@ -635,73 +785,16 @@ export const Library: React.FC<LibraryProps> = ({
                                                         onClick={() => setFormData({...formData, mood: m.color})}
                                                         className={`w-8 h-8 rounded-full border-2 ${formData.mood === m.color ? 'border-white scale-110' : 'border-transparent opacity-50 hover:opacity-100'}`}
                                                         style={{ backgroundColor: m.color }}
-                                                        title={m.label}
                                                     />
                                                 ))}
                                             </div>
                                          </div>
-                                         <div className="space-y-2">
-                                            <div>
-                                                <label className="block text-xs font-bold text-gray-400 mb-1 flex items-center gap-1"><FontIcon className="w-3 h-3" /> 字体风格</label>
-                                                <select 
-                                                    value={formData.fontFamily} 
-                                                    onChange={e => setFormData({...formData, fontFamily: e.target.value as any})}
-                                                    className="w-full bg-black border border-white/10 rounded-lg p-2 text-white text-xs outline-none"
-                                                >
-                                                    <option value="sans">Sans-Serif (Default)</option>
-                                                    <option value="serif">Serif (Classic)</option>
-                                                    <option value="mono">Monospace (Tech)</option>
-                                                    <option value="art">Artistic (Zcool)</option>
-                                                </select>
-                                            </div>
-                                         </div>
                                     </div>
-                                </>
-                            )}
-
-                            {/* MEDIA Specifics (Not needed for pure Image type) */}
-                            {editingType === 'media' && mediaType !== 'image' && (
-                                <>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-400 mb-1">资源链接 (URL)</label>
-                                        <input type="text" value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:border-brand-lime outline-none" placeholder="https://..." />
-                                    </div>
-                                    
-                                    {(mediaType === 'audio' || mediaType === 'dj') && (
-                                        <>
-                                            <div className="bg-red-900/10 border border-red-500/20 p-4 rounded-xl">
-                                                <label className="block text-xs font-bold text-red-400 mb-1 flex items-center gap-1">
-                                                    <Music className="w-3 h-3" /> 网易云音乐 ID (优先)
-                                                </label>
-                                                <div className="relative">
-                                                    <input type="text" value={formData.neteaseId} onChange={e => setFormData({...formData, neteaseId: e.target.value})} className="w-full bg-black border border-red-500/30 rounded-lg p-3 text-white focus:border-red-500 outline-none pl-10" placeholder="例如: 186016" />
-                                                    <span className="absolute left-3 top-3.5 text-red-500 font-bold text-xs">N</span>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-xs font-bold text-gray-400 mb-1 flex items-center gap-1">
-                                                    <FileText className="w-3 h-3" /> 歌词 (LRC 或 纯文本)
-                                                </label>
-                                                <textarea 
-                                                    value={formData.lyrics} 
-                                                    onChange={e => setFormData({...formData, lyrics: e.target.value})} 
-                                                    className="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:border-brand-lime outline-none h-32 text-xs font-mono" 
-                                                    placeholder="[00:12.34] 歌词内容..." 
-                                                />
-                                            </div>
-                                        </>
-                                    )}
                                 </>
                             )}
                             
-                            {/* Tags/Desc */}
-                             <div>
-                                 <label className="block text-xs font-bold text-gray-400 mb-1">标签 / 分类</label>
-                                 <input type="text" value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:border-brand-lime outline-none" />
-                            </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-1">{editingType === 'article' ? '摘要' : '描述'}</label>
+                                <label className="block text-xs font-bold text-gray-400 mb-1">描述</label>
                                 <input type="text" value={formData.desc} onChange={e => setFormData({...formData, desc: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:border-brand-lime outline-none" />
                             </div>
                         </div>
@@ -714,24 +807,21 @@ export const Library: React.FC<LibraryProps> = ({
                                   <div className="w-full max-w-xs bg-white/5 rounded-2xl p-4 border border-white/10">
                                        <div className="aspect-square rounded-xl overflow-hidden mb-4 relative bg-black">
                                             {formData.cover ? (
-                                                <img src={formData.cover} className="w-full h-full object-cover" onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/300?text=Error')} />
+                                                <img src={formData.cover} className="w-full h-full object-cover" />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-gray-600">No Image</div>
                                             )}
-                                            {editingType === 'article' && (
-                                                <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold text-black" style={{ backgroundColor: formData.mood }}>Mood</div>
-                                            )}
                                        </div>
                                        <div className="text-center">
-                                           <h4 className={`font-bold text-white mb-1 ${editingType === 'article' && formData.fontFamily === 'serif' ? 'font-serif' : ''}`}>{formData.title || 'Title'}</h4>
-                                           <p className="text-xs text-gray-400">{formData.artist || 'Artist/Author'}</p>
+                                           <h4 className="font-bold text-white mb-1">{formData.title || 'Title'}</h4>
+                                           <p className="text-xs text-gray-400">{formData.artist || 'Artist'}</p>
                                        </div>
                                   </div>
                              </div>
 
                             <div className="mt-4 pt-4 border-t border-white/10 text-center">
-                                <button onClick={handleSave} className="w-full py-3 bg-white text-black font-bold rounded-xl hover:bg-brand-lime transition-colors">
-                                    保存并发布
+                                <button onClick={handleSave} disabled={isUploading} className="w-full py-3 bg-white text-black font-bold rounded-xl hover:bg-brand-lime transition-colors disabled:opacity-50">
+                                    {isUploading ? '正在上传文件...' : '保存并同步到云端'}
                                 </button>
                             </div>
                         </div>
