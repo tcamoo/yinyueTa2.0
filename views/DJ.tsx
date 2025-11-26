@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { DJSet, Song, PageHeaderConfig } from '../types';
-import { Play, Disc, Activity, Zap, Headphones, BarChart, Mic2, Pause, TrendingUp, Sparkles, Speaker } from 'lucide-react';
+import { Play, Disc, Activity, Zap, Headphones, Mic2, Pause, TrendingUp, Sparkles, Speaker } from 'lucide-react';
 
 interface DJViewProps {
   djSets: DJSet[];
