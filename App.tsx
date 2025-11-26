@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Player } from './components/Player';
 import { LyricsOverlay } from './components/LyricsOverlay';
+import { NotificationContainer, NotificationItem, NotificationType } from './components/Notification';
 import { Home } from './views/Home';
 import { Charts } from './views/Charts';
 import { Gallery } from './views/Gallery';
@@ -39,6 +40,22 @@ const App: React.FC = () => {
   // Theme State
   const [currentTheme, setCurrentTheme] = useState<Theme>(THEMES[0]);
 
+  // Notifications
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
+  const addNotification = (type: NotificationType, message: string) => {
+     const id = Date.now().toString() + Math.random();
+     setNotifications(prev => [...prev, { id, type, message }]);
+     // Auto dismiss
+     setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+     }, 4000);
+  };
+
+  const removeNotification = (id: string) => {
+     setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
   // --- INITIAL DATA LOAD ---
   useEffect(() => {
     const initData = async () => {
@@ -47,21 +64,20 @@ const App: React.FC = () => {
       
       if (cloudData) {
         console.log("Loaded data from Cloudflare KV");
-        setUserSongs(cloudData.songs || []);
-        setMvs(cloudData.mvs || []);
-        setGalleryItems(cloudData.galleryItems || []);
-        setDjSets(cloudData.djSets || []);
-        setArticles(cloudData.articles || []);
-        setPlaylists(cloudData.playlists || []);
-        setPageHeaders(cloudData.pageHeaders || DEFAULT_HEADERS);
-        if(cloudData.themeId) {
+        if (cloudData.songs) setUserSongs(cloudData.songs);
+        if (cloudData.mvs) setMvs(cloudData.mvs);
+        if (cloudData.galleryItems) setGalleryItems(cloudData.galleryItems);
+        if (cloudData.djSets) setDjSets(cloudData.djSets);
+        if (cloudData.articles) setArticles(cloudData.articles);
+        if (cloudData.playlists) setPlaylists(cloudData.playlists);
+        if (cloudData.pageHeaders) setPageHeaders(cloudData.pageHeaders);
+        if (cloudData.themeId) {
           const t = THEMES.find(t => t.id === cloudData.themeId);
           if(t) setCurrentTheme(t);
         }
       } else {
-        console.log("No cloud data found, using Mock Data");
-        // Optional: Auto-save mock data to cloud so next time it exists?
-        // cloudService.saveData({ ... });
+        // Just keep mock data
+        // We don't auto-save here to prevent overwriting cloud with mock if it was just a network error
       }
       setIsLoading(false);
     };
@@ -121,7 +137,7 @@ const App: React.FC = () => {
         songCount: 0
      };
      setPlaylists([newPlaylist, ...playlists]);
-     // Sync will happen in Library or we can auto-trigger save here if we pass down the save function
+     addNotification('success', `歌单 "${name}" 创建成功`);
   };
 
   const handleReadArticle = (article: Article) => {
@@ -198,12 +214,13 @@ const App: React.FC = () => {
             setDjSets={setDjSets}
             articles={articles}
             setArticles={setArticles}
-            playlists={playlists} // Pass playlists for syncing
+            playlists={playlists} 
             onPlaySong={handlePlaySong}
             currentTheme={currentTheme}
             setTheme={setCurrentTheme}
             pageHeaders={pageHeaders}
             setPageHeaders={setPageHeaders}
+            notify={addNotification}
           />
         );
       default:
@@ -227,7 +244,7 @@ const App: React.FC = () => {
        <div className="fixed inset-0 bg-black flex items-center justify-center text-brand-lime">
           <div className="flex flex-col items-center gap-4">
              <Loader2 className="w-10 h-10 animate-spin" />
-             <span className="text-sm font-bold tracking-[0.3em] animate-pulse">SYNCING CLOUD</span>
+             <span className="text-sm font-bold tracking-[0.3em] animate-pulse">CONNECTING CLOUD</span>
           </div>
        </div>
     );
@@ -244,6 +261,8 @@ const App: React.FC = () => {
         '--bg-surface': currentTheme.colors.bgSurface,
       } as React.CSSProperties}
     >
+      <NotificationContainer notifications={notifications} onDismiss={removeNotification} />
+
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
          <div className="absolute inset-0 bg-noise opacity-[0.05]"></div>
          <div 
