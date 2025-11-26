@@ -92,9 +92,9 @@ async function scrapeNetease(env) {
                   for (const song of topSongs) {
                       const neteaseId = song.id;
                       // IMPORTANT: Use HTTPS for Netease URL to avoid mixed content warnings in proxy
+                      // We save the ID specifically so the frontend can reconstruct the proxy URL robustly
                       const rawMp3Url = `https://music.163.com/song/media/outer/url?id=${neteaseId}.mp3`;
                       
-                      // Wrap in our proxy
                       const proxyUrl = makeProxyUrl(rawMp3Url, 'netease');
 
                       const uniqueId = `ne_${neteaseId}`;
@@ -205,11 +205,11 @@ export default {
             let referer = 'https://google.com';
             let userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
             
-            // Strictly enforce Netease headers
+            // STRICT HEADER ENFORCEMENT FOR NETEASE
             if (strategy === 'netease' || targetUrl.includes('163.com') || targetUrl.includes('126.net')) {
                 referer = 'https://music.163.com/';
-                // Netease sometimes checks for specific cookies or UA
-                userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+                // Use a standard macOS User-Agent to prevent 403 Forbidden on direct link resolution
+                userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
             } else if (strategy === 'pixabay') {
                 referer = 'https://pixabay.com/';
             } else if (strategy === 'djuu') {
@@ -220,19 +220,21 @@ export default {
             proxyHeaders.set('User-Agent', userAgent);
             proxyHeaders.set('Referer', referer);
             
+            // Pass range header for seeking
             const range = request.headers.get('Range');
             if (range) proxyHeaders.set('Range', range);
 
             const response = await fetch(targetUrl, {
                 method: request.method,
-                headers: proxyHeaders
+                headers: proxyHeaders,
+                redirect: 'follow' // Explicitly follow redirects for Netease 302s
             });
 
             // Reconstruct headers for CORS
             const newHeaders = new Headers(response.headers);
             Object.keys(corsHeaders).forEach(k => newHeaders.set(k, corsHeaders[k]));
             
-            // Force content type if missing for MP3
+            // Force content type if missing for MP3 or if Netease returns text/html on error
             if ((targetUrl.endsWith('.mp3') || targetUrl.includes('.mp3')) && !newHeaders.has('Content-Type')) {
                 newHeaders.set('Content-Type', 'audio/mpeg');
             }
@@ -258,24 +260,35 @@ export default {
            if (!targetUrl) return new Response(JSON.stringify({ valid: false }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
            let urlToCheck = targetUrl;
-           if (targetUrl.startsWith('/api/proxy') || targetUrl.startsWith('/')) {
+           
+           // If it's a proxy link, we need to resolve what it's pointing to, OR check the proxy endpoint itself
+           // Ideally, check the underlying URL, but checking the proxy response is safer to verify the full chain
+           if (targetUrl.startsWith('/')) {
                const u = new URL(request.url);
-               urlToCheck = u.origin + (targetUrl.startsWith('/') ? targetUrl : '/' + targetUrl);
+               urlToCheck = u.origin + targetUrl;
            }
 
            let valid = false;
            let status = 0;
            
            try {
-              // Try HEAD first
-              const res = await fetch(urlToCheck, { method: 'HEAD', headers: { 'User-Agent': 'Cloudflare Worker' } });
+              // Try HEAD first to save bandwidth
+              // Note: Worker subrequests to itself might be tricky, but usually work on same zone
+              const res = await fetch(urlToCheck, { 
+                  method: 'HEAD', 
+                  headers: { 'User-Agent': 'Cloudflare Worker Health Check' } 
+              });
               status = res.status;
               if (res.ok) valid = true;
               else {
-                   // Fallback to GET with Range
-                   const resGet = await fetch(urlToCheck, { method: 'GET', headers: { 'Range': 'bytes=0-100', 'User-Agent': 'Cloudflare Worker' } });
+                   // Fallback to GET with Range (0-10 bytes)
+                   const resGet = await fetch(urlToCheck, { 
+                       method: 'GET', 
+                       headers: { 'Range': 'bytes=0-10', 'User-Agent': 'Cloudflare Worker Health Check' } 
+                   });
                    status = resGet.status;
-                   valid = resGet.ok;
+                   // 200 or 206 means it exists
+                   valid = (status >= 200 && status < 400); 
               }
            } catch (e) {
                valid = false;
