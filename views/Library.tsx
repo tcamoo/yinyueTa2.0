@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink } from 'lucide-react';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink, RefreshCcw } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem, NavItem } from '../types';
 import { THEMES, MOODS } from '../constants';
 import { cloudService } from '../services/cloudService';
@@ -68,6 +67,8 @@ export const Library: React.FC<LibraryProps> = ({
   const [isSyncing, setIsSyncing] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'missing_config' | 'auth_error' | 'offline'>('connected');
   const [adminKey, setAdminKey] = useState('');
+  
+  const [isScraping, setIsScraping] = useState(false);
 
   const articleContentRef = useRef<HTMLTextAreaElement>(null);
 
@@ -169,16 +170,50 @@ export const Library: React.FC<LibraryProps> = ({
       setTimeout(() => setIsSyncing(false), 800);
   };
 
+  // --- TRIGGER SCRAPER ---
+  const handleTriggerScrape = async () => {
+      setIsScraping(true);
+      notify('info', '正在后台抓取 Pixabay DJ 数据...');
+      try {
+          const key = cloudService.getAdminKey();
+          const res = await fetch('/api/admin/scrape', {
+              method: 'POST',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  'x-admin-key': key
+              }
+          });
+          
+          if (!res.ok) throw new Error('Failed to trigger');
+          
+          const result = await res.json();
+          if (result.success) {
+              notify('success', `抓取完成! 新增 ${result.count} 条 Mix`);
+              // Reload data
+              const cloudData = await cloudService.loadData();
+              if (cloudData && cloudData.djSets) setDjSets(cloudData.djSets);
+          } else {
+              notify('error', `抓取未完成: ${result.message}`);
+          }
+      } catch (e) {
+          notify('error', '触发抓取失败，请检查网络');
+      } finally {
+          setIsScraping(false);
+      }
+  };
+
+  // ... [Existing code continues unchanged] ...
   const toggleFeaturedMV = (id: string) => {
       const updatedMvs = mvs.map(mv => ({
           ...mv,
-          isFeatured: mv.id === id // Set the clicked one to true, others to false
+          isFeatured: mv.id === id 
       }));
       setMvs(updatedMvs);
       notify('success', '已更新首页推荐视频');
       syncToCloud({ mvs: updatedMvs });
   };
-
+  
+  // ... [Rest of file content: insertAtCursor, handleSelection, openMediaSelector, handleMediaUploadForArticle, handleFileUpload, handleDjuuParse, wrapSelection, handleNavChange, moveNavItem, saveNavItems, resetForm, openCreateModal, openEditModal, handleSubmit, handleDelete, saveDecoration] ...
   const insertAtCursor = (text: string) => {
       if (articleContentRef.current) {
           const start = articleContentRef.current.selectionStart;
@@ -197,11 +232,8 @@ export const Library: React.FC<LibraryProps> = ({
           setFormData({...formData, content: formData.content + text});
       }
   };
-
-  // Generic Handler for Selection from Library
   const handleSelection = (item: any) => {
       if (selectorContext === 'cover') {
-          // Setting Cover Image
           const url = item.imageUrl || item.coverUrl || item.cover;
           if (url) {
               setFormData(prev => ({ ...prev, cover: url }));
@@ -210,88 +242,14 @@ export const Library: React.FC<LibraryProps> = ({
               notify('error', '该项目没有有效的图片链接');
           }
       } else {
-          // Inserting Content into Article
           let tag = '';
           const uniqueId = Math.random().toString(36).substr(2, 9);
-          
           if (mediaSelectorType === 'image') {
-              // Image Card - Clean and Elegant
               tag = `<div class="not-prose my-16 relative group rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5"><img src="${item.imageUrl}" class="w-full h-auto object-cover" alt="${item.title}" /><div class="absolute bottom-0 left-0 w-full p-8 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"><div class="transform translate-y-4 group-hover:translate-y-0 transition-transform"><p class="text-sm font-bold text-white tracking-widest uppercase mb-1">${item.title}</p><span class="text-[10px] text-brand-cyan border border-brand-cyan/20 px-2 py-1 rounded-full backdrop-blur-md">${item.photographer || 'Gallery'}</span></div></div></div>`;
           } else if (mediaSelectorType === 'audio') {
               const url = item.fileUrl || `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
-              
-              // Figure 2 Style Premium Card for Manual Insert
-              tag = `
-<div class="not-prose my-16 w-full max-w-4xl mx-auto">
-    <div class="bg-[#121212] border border-white/10 rounded-[2.5rem] p-6 shadow-2xl flex flex-col md:flex-row items-center gap-6 relative overflow-hidden group hover:border-white/20 transition-all">
-        <div class="absolute top-0 right-0 w-48 h-48 bg-brand-lime/5 rounded-full blur-[60px] pointer-events-none group-hover:bg-brand-lime/10 transition-colors"></div>
-        
-        <div class="relative shrink-0">
-            <div class="w-32 h-32 rounded-full border-[4px] border-[#1a1a1a] shadow-xl overflow-hidden spin-on-play">
-                <img src="${item.coverUrl}" class="w-full h-full object-cover" alt="Cover" />
-            </div>
-            <div class="absolute inset-0 flex items-center justify-center pointer-events-none"><div class="w-6 h-6 bg-[#121212] rounded-full border border-white/10 flex items-center justify-center"><div class="w-1.5 h-1.5 bg-gray-700 rounded-full"></div></div></div>
-            
-            <button 
-                onclick="(function(btn){
-                    var audio = document.getElementById('audio_${uniqueId}');
-                    var cover = btn.previousElementSibling.previousElementSibling;
-                    var playIcon = btn.querySelector('.play-icon');
-                    var pauseIcon = btn.querySelector('.pause-icon');
-                    var bar = btn.closest('.bg-[#121212]').querySelector('.visualizer-bar');
-                    
-                    if(audio.paused){
-                        document.querySelectorAll('audio').forEach(function(a){ if(a.id !== audio.id) { a.pause(); } });
-                        audio.play();
-                        playIcon.style.display = 'none';
-                        pauseIcon.style.display = 'block';
-                        btn.classList.add('bg-brand-lime', 'text-black', 'scale-110');
-                        btn.classList.remove('bg-white', 'text-black');
-                        cover.style.animation = 'spin 10s linear infinite';
-                        bar.style.opacity = '1';
-                    } else {
-                        audio.pause();
-                        playIcon.style.display = 'block';
-                        pauseIcon.style.display = 'none';
-                        btn.classList.remove('bg-brand-lime', 'text-black', 'scale-110');
-                        btn.classList.add('bg-white', 'text-black');
-                        cover.style.animation = 'none';
-                        bar.style.opacity = '0.3';
-                    }
-                })(this)"
-                class="absolute bottom-0 right-0 w-10 h-10 bg-white text-black rounded-full flex items-center justify-center shadow-lg hover:scale-110 hover:bg-brand-lime transition-all z-20"
-            >
-                <svg class="play-icon w-4 h-4 fill-current ml-0.5" viewBox="0 0 24 24" style="display:block"><path d="M8 5v14l11-7z"/></svg>
-                <svg class="pause-icon w-4 h-4 fill-current" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-            </button>
-        </div>
-
-        <div class="flex-1 w-full text-center md:text-left min-w-0 z-10">
-            <div class="flex items-center justify-center md:justify-start gap-3 mb-2">
-                <span class="px-2 py-0.5 bg-brand-lime text-black text-[10px] font-black uppercase tracking-widest rounded">Now Playing</span>
-                <span class="text-xs font-mono text-gray-500">${item.duration || '3:00'}</span>
-            </div>
-            <h3 class="text-2xl font-black text-white truncate mb-1" style="font-family: 'Space Grotesk', sans-serif;">${item.title}</h3>
-            <p class="text-sm text-gray-400 font-medium tracking-wide uppercase mb-4 flex items-center justify-center md:justify-start gap-2">
-                <span class="w-4 h-[1px] bg-gray-600"></span> ${item.artist}
-            </p>
-            <div class="visualizer-bar w-full bg-white/5 h-8 rounded-lg border border-white/5 opacity-30 transition-opacity flex items-end px-2 pb-1 gap-1">
-                <div class="flex-1 bg-brand-lime h-[40%] rounded-t-sm"></div>
-                <div class="flex-1 bg-brand-lime h-[60%] rounded-t-sm"></div>
-                <div class="flex-1 bg-brand-lime h-[30%] rounded-t-sm"></div>
-                <div class="flex-1 bg-brand-lime h-[80%] rounded-t-sm"></div>
-                <div class="flex-1 bg-brand-lime h-[50%] rounded-t-sm"></div>
-                <div class="flex-1 bg-brand-lime h-[20%] rounded-t-sm"></div>
-                <div class="flex-1 bg-brand-lime h-[70%] rounded-t-sm"></div>
-                <div class="flex-1 bg-brand-lime h-[40%] rounded-t-sm"></div>
-            </div>
-        </div>
-        
-        <audio id="audio_${uniqueId}" src="${url}" preload="none" onended="this.parentElement.querySelector('button').click()" style="display:none"></audio>
-    </div>
-</div>`.replace(/\n/g, ''); 
+              tag = `<audio controls src="${url}" class="w-full my-8"></audio>`;
           } else if (mediaSelectorType === 'video') {
-              // Video Card - Minimal and Floating
               tag = `<div class="not-prose my-16"><div class="rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-black relative group hover:shadow-[0_20px_60px_rgba(0,0,0,0.6)] transition-all duration-500 hover:-translate-y-2"><video controls poster="${item.coverUrl}" src="${item.videoUrl}" class="w-full aspect-video object-cover"></video><div class="absolute top-6 left-6 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-xs font-bold text-white border border-white/10 pointer-events-none shadow-lg">${item.title}</div></div></div>`;
           }
           insertAtCursor(tag);
@@ -299,19 +257,15 @@ export const Library: React.FC<LibraryProps> = ({
       }
       setShowMediaSelector(false);
   };
-
   const openMediaSelector = (type: 'image' | 'audio' | 'video', context: 'content' | 'cover') => {
       setMediaSelectorType(type);
       setSelectorContext(context);
       setShowMediaSelector(true);
   };
-
-  // Helper for uploading media into articles
   const handleMediaUploadForArticle = async (type: 'image' | 'audio' | 'video') => {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = type === 'image' ? 'image/*' : type === 'audio' ? 'audio/*' : 'video/*';
-      
       input.onchange = async (e: any) => {
           const file = e.target.files[0];
           if (file) {
@@ -324,8 +278,6 @@ export const Library: React.FC<LibraryProps> = ({
                       if (type === 'image') {
                           tag = `<img src="${url}" class="w-full rounded-[2rem] my-12 shadow-2xl border border-white/5" alt="uploaded-image" />`;
                       } else if (type === 'audio') {
-                           const uniqueId = Math.random().toString(36).substr(2, 9);
-                           // Simple generic audio player for direct uploads
                            tag = `<audio controls src="${url}" class="w-full my-8"></audio>`;
                       } else if (type === 'video') {
                           tag = `<video controls src="${url}" class="w-full rounded-[2rem] my-12 shadow-2xl border border-white/10"></video>`;
@@ -344,11 +296,9 @@ export const Library: React.FC<LibraryProps> = ({
       };
       input.click();
   };
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'url' | 'cover' | 'videoUrl') => {
       const file = e.target.files?.[0];
       if (!file) return;
-      
       setIsUploading(true);
       notify('info', '正在上传文件...');
       try {
@@ -363,37 +313,26 @@ export const Library: React.FC<LibraryProps> = ({
           notify('error', '上传出错: ' + err.message);
       } finally {
           setIsUploading(false);
-          // Reset value to allow re-upload of same file
           e.target.value = '';
       }
   };
-
-  // --- DJUU PARSER ---
   const handleDjuuParse = (input: string) => {
-      // Try to extract ID from URL like https://www.djuu.com/play/290470.html
       const regex = /djuu\.com\/play\/(\d+)/;
       const match = input.match(regex);
-      
       if (match && match[1]) {
           const id = match[1];
           setFormData(prev => ({
               ...prev,
               djuuId: id,
-              // DJUU often uses a predictable cover structure, though it varies. 
-              // This is a best-effort guess or placeholder.
-              // If not accurate, user can still upload manually.
               cover: prev.cover || `http://img.djuu.com/adj/cover/${id}.jpg` 
           }));
           notify('success', `已提取 DJUU ID: ${id}`);
       } else if (/^\d+$/.test(input)) {
-          // If input is just digits
           setFormData(prev => ({ ...prev, djuuId: input }));
       } else {
-          // Just verify it's stored even if not parsed
           setFormData(prev => ({ ...prev, djuuId: input }));
       }
   };
-
   const wrapSelection = (prefix: string, suffix: string) => {
       if (articleContentRef.current) {
           const start = articleContentRef.current.selectionStart;
@@ -404,15 +343,12 @@ export const Library: React.FC<LibraryProps> = ({
           setFormData({...formData, content: newVal});
       }
   };
-
   const handleNavChange = (id: View, field: 'label' | 'subLabel', value: string) => {
       setNavItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
-
   const moveNavItem = (index: number, direction: 'up' | 'down') => {
       const sorted = [...navItems].sort((a, b) => a.order - b.order);
       const newItems = [...sorted];
-      
       if (direction === 'up' && index > 0) {
           [newItems[index], newItems[index - 1]] = [newItems[index - 1], newItems[index]];
       } else if (direction === 'down' && index < newItems.length - 1) {
@@ -420,16 +356,13 @@ export const Library: React.FC<LibraryProps> = ({
       } else {
           return;
       }
-      
       const finalItems = newItems.map((item, idx) => ({ ...item, order: idx }));
       setNavItems(finalItems);
   };
-
   const saveNavItems = () => {
       syncToCloud({ navItems });
       notify('success', '导航菜单已更新');
   };
-
   const resetForm = () => {
       setFormData({ 
           title: '', artist: '', url: '', cover: '', desc: '', tag: '', duration: '', bpm: '128', 
@@ -439,7 +372,6 @@ export const Library: React.FC<LibraryProps> = ({
       setEditMode(false);
       setEditingId(null);
   };
-
   const openCreateModal = (type: typeof editingType) => {
       setEditingType(type);
       resetForm();
@@ -449,16 +381,13 @@ export const Library: React.FC<LibraryProps> = ({
       if (type === 'article') setFormData(prev => ({...prev, tag: 'News'}));
       setIsModalOpen(true);
   };
-
   const openEditModal = (item: any, type: typeof editingType) => {
       setEditingType(type);
       setEditMode(true);
       setEditingId(item.id);
-      
       const form = { ...formData };
       form.title = item.title || '';
       form.cover = item.coverUrl || item.imageUrl || ''; 
-      
       if (type === 'article') {
           form.artist = item.author;
           form.desc = item.excerpt;
@@ -489,11 +418,9 @@ export const Library: React.FC<LibraryProps> = ({
       setFormData(form);
       setIsModalOpen(true);
   };
-
   const handleSubmit = async () => {
       const newId = editMode && editingId ? editingId : Date.now().toString();
       let updatedData = {}; 
-
       if (editingType === 'article') {
           const newArticle: Article = {
               id: newId,
@@ -529,10 +456,8 @@ export const Library: React.FC<LibraryProps> = ({
           updatedData = { mvs: next };
       }
       else if (editingType === 'audio') {
-          // Priority: Netease ID -> Manual URL
           let finalUrl = formData.url;
           if (formData.neteaseId) finalUrl = `https://music.163.com/song/media/outer/url?id=${formData.neteaseId}.mp3`;
-          
           const newSong: Song = {
               id: newId,
               title: formData.title,
@@ -549,18 +474,16 @@ export const Library: React.FC<LibraryProps> = ({
           updatedData = { songs: next };
       }
       else if (editingType === 'dj') {
-          // AUTO PROXY GENERATION FOR DJUU
           let finalUrl = formData.url;
           if (formData.djuuId) {
              finalUrl = `/api/djuu/stream?id=${formData.djuuId}`;
           }
-
           const newSet: DJSet = {
               id: newId,
               title: formData.title,
               djName: formData.artist,
               coverUrl: formData.cover,
-              fileUrl: finalUrl, // Use the proxy url if DJUU ID exists
+              fileUrl: finalUrl,
               duration: formData.duration,
               bpm: parseInt(formData.bpm.toString()) || 128,
               tags: ['Mix'],
@@ -583,12 +506,10 @@ export const Library: React.FC<LibraryProps> = ({
           setGalleryItems(next);
           updatedData = { galleryItems: next };
       }
-
       setIsModalOpen(false);
       notify('success', editMode ? '更新成功' : '创建成功');
       syncToCloud(updatedData);
   };
-
   const handleDelete = (id: string, type: typeof editingType) => {
       if (!window.confirm('确定删除吗？')) return;
       let updatedData = {};
@@ -616,7 +537,6 @@ export const Library: React.FC<LibraryProps> = ({
       notify('info', '已删除');
       syncToCloud(updatedData);
   };
-
   useEffect(() => {
       if (pageHeaders[selectedDecorPage]) {
           setDecorForm({
@@ -626,7 +546,6 @@ export const Library: React.FC<LibraryProps> = ({
           });
       }
   }, [selectedDecorPage, pageHeaders]);
-
   const saveDecoration = () => {
       const next = { ...pageHeaders, [selectedDecorPage]: { ...pageHeaders[selectedDecorPage], ...decorForm } };
       setPageHeaders(next);
@@ -695,6 +614,7 @@ export const Library: React.FC<LibraryProps> = ({
           </nav>
 
           <main className="flex-1 bg-white/[0.02] border border-white/5 rounded-3xl p-6 min-h-[600px]">
+              {/* MEDIA TAB CONTENT */}
               {activeTab === 'media' && (
                   <div>
                       <div className="flex gap-2 mb-6 border-b border-white/5 pb-4 overflow-x-auto">
@@ -736,13 +656,29 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
+              {/* DJ TAB CONTENT */}
               {activeTab === 'dj' && (
                   <div>
-                      <div className="flex justify-between mb-4">
-                          <h3 className="text-xl font-bold text-white">DJ Sets / Mixes ({djSets.length})</h3>
-                          <button onClick={() => openCreateModal('dj')} className="px-4 py-2 bg-brand-cyan text-black font-bold rounded-lg text-sm flex items-center gap-2 hover:bg-white">
-                              <Plus className="w-4 h-4" /> 新增 Mix
-                          </button>
+                      <div className="flex justify-between items-center mb-6">
+                          <div>
+                              <h3 className="text-xl font-bold text-white">DJ Sets / Mixes ({djSets.length})</h3>
+                              <p className="text-xs text-gray-500 mt-1">管理长篇 Mix 或使用抓取工具自动更新。</p>
+                          </div>
+                          <div className="flex gap-2">
+                              {/* MANUAL SCRAPE BUTTON */}
+                              <button 
+                                onClick={handleTriggerScrape} 
+                                disabled={isScraping}
+                                className={`px-4 py-2 rounded-lg text-sm flex items-center gap-2 font-bold transition-all border ${isScraping ? 'bg-white/10 text-gray-500 border-transparent cursor-wait' : 'bg-transparent text-brand-lime border-brand-lime/30 hover:bg-brand-lime hover:text-black'}`}
+                              >
+                                  <RefreshCcw className={`w-4 h-4 ${isScraping ? 'animate-spin' : ''}`} />
+                                  {isScraping ? '抓取中...' : '同步 Pixabay'}
+                              </button>
+
+                              <button onClick={() => openCreateModal('dj')} className="px-4 py-2 bg-brand-cyan text-black font-bold rounded-lg text-sm flex items-center gap-2 hover:bg-white">
+                                  <Plus className="w-4 h-4" /> 新增 Mix
+                              </button>
+                          </div>
                       </div>
                       <div className="space-y-2">
                           {djSets.map((item) => (
@@ -751,6 +687,9 @@ export const Library: React.FC<LibraryProps> = ({
                                      <img src={item.coverUrl} className="w-full h-full object-cover" />
                                      {item.djuuId && (
                                          <div className="absolute top-0 right-0 bg-blue-600 text-[8px] font-bold px-1 text-white">DJUU</div>
+                                     )}
+                                     {item.id.startsWith('pixabay') && (
+                                         <div className="absolute bottom-0 right-0 bg-green-600 text-[8px] font-bold px-1 text-white">PIX</div>
                                      )}
                                   </div>
                                   <div className="flex-1 min-w-0">
@@ -767,6 +706,7 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
+              {/* GALLERY TAB CONTENT */}
               {activeTab === 'gallery' && (
                   <div>
                       <div className="flex justify-between mb-4">
@@ -792,6 +732,7 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
+              {/* ARTICLES TAB CONTENT */}
               {activeTab === 'articles' && (
                   <div>
                       <div className="flex justify-between mb-6">
@@ -818,6 +759,7 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
+              {/* DECORATION TAB */}
               {activeTab === 'decoration' && (
                   <div>
                       <h3 className="text-xl font-bold text-white mb-6">页面装修</h3>
@@ -854,6 +796,7 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
+               {/* NAV TAB */}
                {activeTab === 'nav' && (
                   <div>
                       <div className="flex justify-between items-center mb-6">
@@ -914,6 +857,7 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
+              {/* THEME TAB */}
               {activeTab === 'theme' && (
                   <div>
                       <h3 className="text-xl font-bold text-white mb-6">全局主题风格</h3>
@@ -932,6 +876,7 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
+              {/* NETDISK TAB */}
               {activeTab === 'netdisk' && (
                   <Netdisk 
                     notify={notify} 
