@@ -153,21 +153,22 @@ export const MVView: React.FC<MVViewProps> = ({ mvs, headerConfig }) => {
   return (
     <div className="pb-40 animate-in slide-in-from-right-8 duration-700">
       
-      {/* HERO VIDEO PLAYER - Optimized: rounded corners enforced, no negative margin */}
+      {/* HERO VIDEO PLAYER - Optimized: rounded corners enforced with overflow hidden and webkit mask */}
       <div 
         ref={containerRef}
-        className={`relative w-full overflow-hidden mb-8 group border-b border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.8)] bg-black cursor-pointer select-none transition-all duration-500 
+        className={`relative w-full mb-8 group border-b border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.8)] bg-black cursor-pointer select-none transition-all duration-500 
             ${isFullscreen 
                 ? 'fixed inset-0 z-[100] rounded-none border-0' 
-                : 'rounded-[2rem] aspect-[16/9] md:aspect-[21/9] lg:h-[70vh]' /* Ensure height is managed but respects aspect */
+                : 'rounded-[2rem] aspect-[16/9] md:aspect-[21/9] lg:h-[70vh] overflow-hidden' 
             }`}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => isPlaying && setShowControls(false)}
-        onClick={togglePlay} // Container handles the click
+        onClick={togglePlay} 
         style={{
-            // Force border radius clipping on some browsers
             borderRadius: isFullscreen ? '0' : '2rem',
             isolation: 'isolate',
+            transform: 'translateZ(0)', // Force GPU layer to help with clipping
+            WebkitMaskImage: isFullscreen ? 'none' : '-webkit-radial-gradient(white, black)' // Safari border-radius fix
         }}
       >
          {/* Video Element */}
@@ -176,6 +177,9 @@ export const MVView: React.FC<MVViewProps> = ({ mvs, headerConfig }) => {
             src={activeMv.videoUrl}
             poster={activeMv.coverUrl}
             className="w-full h-full object-cover pointer-events-none bg-black"
+            style={{
+                borderRadius: isFullscreen ? '0' : '2rem',
+            }}
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleTimeUpdate}
             onEnded={() => { setIsPlaying(false); setShowControls(true); }}
@@ -193,7 +197,10 @@ export const MVView: React.FC<MVViewProps> = ({ mvs, headerConfig }) => {
          )}
 
          {/* Dark Gradient Overlay for readability */}
-         <div className={`absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/30 transition-opacity duration-500 pointer-events-none z-10 ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}></div>
+         <div 
+            className={`absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/30 transition-opacity duration-500 pointer-events-none z-10 ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}
+            style={{ borderRadius: isFullscreen ? '0' : '2rem' }}
+         ></div>
 
          {/* Controls Layer */}
          <div className={`absolute inset-0 z-20 flex flex-col justify-between p-6 md:p-10 transition-opacity duration-500 ${showControls || !isPlaying ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
