@@ -120,7 +120,8 @@ const DraggableSpirit = ({ isPlaying, getVisualData }: { isPlaying: boolean, get
             for (let i = 0; i <= 360; i += 10) {
                 const angle = (i * Math.PI) / 180;
                 // Complex organic shape deformation
-                const r = (radius * scale) + idleBreath + (Math.sin(i * 0.2 + Date.now()/100) * jitter) + (Math.cos(i * 0.5) * (bass/20));
+                // Accelerated time factor for smoother animation
+                const r = (radius * scale) + idleBreath + (Math.sin(i * 0.2 + Date.now()/50) * jitter) + (Math.cos(i * 0.5) * (bass/20));
                 const x = centerX + Math.cos(angle) * r;
                 const y = centerY + Math.sin(angle) * r;
                 if (i === 0) ctx.moveTo(x, y);
@@ -195,19 +196,21 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
       if (analyserRef.current) {
           const bufferLength = analyserRef.current.frequencyBinCount;
           rawData = new Uint8Array(bufferLength);
-          // @ts-ignore
+          
+          // @ts-ignore - TS sometimes complains about array types here
           analyserRef.current.getByteFrequencyData(rawData);
           
-          // Calculate bands
           // Check if data is empty (all zeros) which implies CORS silence
           let sum = 0;
           for(let i=0; i<bufferLength; i++) sum += rawData[i];
           
           if (sum > 0) {
               // We have real data!
+              // Lower buckets usually contain bass
               const bassSlice = rawData.slice(0, 10);
               const midSlice = rawData.slice(10, 50);
               const highSlice = rawData.slice(50, 100);
+              
               bass = bassSlice.reduce((a, b) => a + b, 0) / bassSlice.length;
               mid = midSlice.reduce((a, b) => a + b, 0) / midSlice.length;
               high = highSlice.reduce((a, b) => a + b, 0) / highSlice.length;
@@ -215,40 +218,46 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
           }
       }
 
-      // 2. Fallback: Rhythm Simulation (BPM based)
+      // 2. Fallback: Rhythm Simulation (Faster BPM based)
       // This runs if analyser is null OR if data is all zeros (CORS)
       const now = Date.now();
       
-      // Simulate Kick Drum (approx 128 BPM = ~468ms per beat)
-      // Use a sharp sine wave power for "kick" effect
-      const beatInterval = 468;
+      // Simulate Kick Drum (130 BPM = ~461ms per beat)
+      const beatInterval = 461;
       const beatOffset = now % beatInterval;
       const beatProgress = beatOffset / beatInterval;
       
-      // Sharp attack, fast decay
+      // Sharper attack, fast decay for punchier feel
       let kick = 0;
       if (beatProgress < 0.1) {
           kick = 255 * (beatProgress * 10); // Attack
       } else {
-          kick = 255 * Math.max(0, 1 - (beatProgress - 0.1) * 2); // Decay
+          // Faster decay curve (multiply by 4 instead of 2)
+          kick = 255 * Math.max(0, 1 - (beatProgress - 0.1) * 4); 
       }
 
-      // Add secondary rhythms (Hi-hats on off-beats)
-      const hat = (now % (beatInterval/2)) < 50 ? 150 : 0;
+      // Secondary rhythms (Hi-hats on off-beats)
+      // Every half beat
+      const hat = (now % (beatInterval/2)) < 50 ? 180 : 0;
       
-      // Add noise/jitter
-      const noise = Math.random() * 30;
+      // Add noise/jitter that is time-dependent to look organic
+      const noise = (Math.sin(now / 30) + 1) * 20;
 
       bass = Math.min(255, kick * 0.9 + noise);
       mid = Math.min(255, kick * 0.5 + hat + noise);
-      high = Math.min(255, hat + noise + Math.random() * 20);
+      high = Math.min(255, hat + noise + Math.random() * 30);
 
       // Generate fake raw data array for the spectrum visualizer
       if (!rawData) rawData = new Uint8Array(32).fill(0);
       for(let i=0; i<32; i++) {
-          // Create a wave that moves
-          const val = (Math.sin(i * 0.5 + now/100) + 1) * 100;
-          rawData[i] = Math.min(255, val + (i < 5 ? bass : i > 20 ? high : mid) * 0.5);
+          // Create a wave that moves faster
+          const val = (Math.sin(i * 0.5 + now/50) + 1) * 100;
+          // Mix beat into the wave
+          let modifier = mid;
+          if (i < 5) modifier = bass;
+          if (i > 20) modifier = high;
+          
+          rawData[i] = Math.min(255, val + modifier * 0.6);
       }
 
       return { bass, mid, high, rawData };
@@ -271,8 +280,8 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                         const ctx = new AudioContext();
                         audioContextRef.current = ctx;
                         const analyser = ctx.createAnalyser();
-                        analyser.fftSize = 256; 
-                        analyser.smoothingTimeConstant = 0.7; // Snappier response
+                        analyser.fftSize = 128; // Smaller FFT size for faster reaction
+                        analyser.smoothingTimeConstant = 0.5; // Lower = more responsive/jumpy (Default 0.8)
                         analyserRef.current = analyser;
                         
                         // Prevent connecting source twice
