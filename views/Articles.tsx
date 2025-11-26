@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { Article, Song, DJSet, PageHeaderConfig } from '../types';
 import { FileText, ArrowLeft, Play, Pause, Music, User, Calendar, Tag } from 'lucide-react';
@@ -50,6 +49,12 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
           case 'xl': return 'prose-2xl';
           default: return 'prose-lg';
       }
+  };
+
+  const formatContent = (content: string) => {
+      // Simple transform to allow line breaks while preserving HTML
+      // We assume the user inputs HTML blocks or newlines for paragraphs
+      return content.replace(/\n/g, '<br/>');
   };
 
   if (selectedArticle) {
@@ -115,16 +120,14 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                       {selectedArticle.excerpt}
                   </p>
                   
-                  <div className={`prose prose-invert ${contentSize} max-w-none prose-headings:font-display prose-a:text-brand-lime hover:prose-a:text-white ${contentFont}`}>
-                      {/* Simulating HTML Content rendering */}
-                      {selectedArticle.content.split('\n').map((paragraph, idx) => (
-                          <p key={idx} className="mb-6 text-gray-300 leading-8 font-light tracking-wide">
-                              {paragraph}
-                          </p>
-                      ))}
-                      <p className="text-gray-300 leading-8 text-lg font-light tracking-wide opacity-50 text-center mt-12">
-                          ***
-                      </p>
+                  {/* 使用 dangerouslySetInnerHTML 渲染 HTML 内容 */}
+                  <div 
+                    className={`prose prose-invert ${contentSize} max-w-none prose-headings:font-display prose-a:text-brand-lime hover:prose-a:text-white ${contentFont} prose-img:rounded-2xl prose-img:shadow-xl prose-video:rounded-2xl prose-audio:w-full prose-p:text-gray-300 prose-p:leading-8 prose-p:font-light prose-p:tracking-wide`}
+                    dangerouslySetInnerHTML={{ __html: formatContent(selectedArticle.content) }}
+                  />
+
+                  <div className="text-gray-300 leading-8 text-lg font-light tracking-wide opacity-50 text-center mt-12">
+                      ***
                   </div>
 
                   {/* Tags */}
