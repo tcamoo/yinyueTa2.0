@@ -1,47 +1,36 @@
 
 import React from 'react';
-import { Home, Image, Radio, Film, LayoutGrid, Disc, FileText, Globe, Download } from 'lucide-react';
-import { View } from '../types';
+import { Home, Image, Radio, Film, LayoutGrid, Disc, FileText, Globe, Download, Menu } from 'lucide-react';
+import { View, NavItem } from '../types';
 
 interface SidebarProps {
   currentView: View;
   onChangeView: (view: View) => void;
+  navItems: NavItem[];
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
-  const mainNavItems = [
-    { id: View.HOME, label: '首映', sub: 'Premiere', icon: Home },
-    { id: View.MV, label: '视界', sub: 'Visuals', icon: Film },
-    { id: View.GALLERY, label: '画廊', sub: 'Gallery', icon: Image },
-    { id: View.CHARTS, label: '榜单', sub: 'Charts', icon: Globe },
-    { id: View.DJ, label: '电音', sub: 'Club', icon: Disc },
-    { id: View.SOFTWARE, label: '资源', sub: 'Downloads', icon: Download }, // New Item
-    { id: View.ARTICLES, label: '专栏', sub: 'Read', icon: FileText },
-    { id: View.LIBRARY, label: '管理', sub: 'Admin', icon: LayoutGrid },
-  ];
+const ICON_MAP: Record<string, React.ElementType> = {
+    [View.HOME]: Home,
+    [View.MV]: Film,
+    [View.GALLERY]: Image,
+    [View.CHARTS]: Globe,
+    [View.DJ]: Disc,
+    [View.SOFTWARE]: Download,
+    [View.ARTICLES]: FileText,
+    [View.LIBRARY]: LayoutGrid,
+    [View.PLAYLISTS]: Menu
+};
 
-  // Mobile nav priority
-  const mobileNavItems = [
-      mainNavItems[0], // Home
-      mainNavItems[1], // MV
-      mainNavItems[5], // Software (Important for mobile downloads)
-      mainNavItems[2], // Gallery 
-      mainNavItems[7]  // Library
-  ];
+export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, navItems }) => {
+  const sortedNavItems = [...navItems].sort((a, b) => a.order - b.order).filter(i => i.isVisible !== false);
+  const mobileNavItems = sortedNavItems.slice(0, 5);
 
-  // Desktop Sidebar
   return (
     <>
-      {/* --- DESKTOP SIDEBAR (Hidden on Mobile) --- */}
       <aside className="hidden lg:flex w-72 h-screen flex-col justify-between fixed left-0 top-0 z-40 bg-transparent pl-6 py-6 transition-all duration-300">
-        
-        {/* Glass Panel Container */}
         <div className="w-full h-full glass rounded-[2rem] flex flex-col relative overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-          
-          {/* Background Ambient Light */}
           <div className="absolute top-0 left-0 w-full h-40 bg-gradient-to-b from-brand-lime/10 to-transparent pointer-events-none transition-colors duration-500"></div>
 
-          {/* LOGO AREA */}
           <div className="h-32 flex items-center justify-start px-8 relative z-10">
             <div className="relative group cursor-pointer" onClick={() => onChangeView(View.HOME)}>
                <div className="absolute inset-0 -inset-x-4 bg-brand-lime/20 blur-2xl opacity-0 group-hover:opacity-40 transition-opacity duration-500"></div>
@@ -72,11 +61,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) =
             </div>
           </div>
 
-          {/* NAVIGATION */}
           <nav className="flex-1 flex flex-col gap-3 px-6 mt-4 overflow-y-auto scrollbar-hide">
-            {mainNavItems.map((item) => {
+            {sortedNavItems.map((item) => {
               const isActive = currentView === item.id;
-              const Icon = item.icon;
+              const Icon = ICON_MAP[item.id] || Home;
               return (
                 <button
                   key={item.id}
@@ -92,14 +80,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) =
                   <Icon className={`w-5 h-5 relative z-10 ${isActive ? 'text-white' : 'group-hover:text-brand-lime'} transition-colors`} />
                   <div className="flex flex-col ml-4 text-left relative z-10">
                      <span className={`font-bold text-base ${isActive ? 'text-white' : 'text-gray-300'}`}>{item.label}</span>
-                     <span className={`text-[10px] uppercase font-display tracking-wider transition-colors ${isActive ? 'text-white/80' : 'text-gray-600 group-hover:text-gray-400'}`}>{item.sub}</span>
+                     <span className={`text-[10px] uppercase font-display tracking-wider transition-colors ${isActive ? 'text-white/80' : 'text-gray-600 group-hover:text-gray-400'}`}>{item.subLabel}</span>
                   </div>
                 </button>
               );
             })}
           </nav>
 
-          {/* VIP BADGE */}
           <div className="p-6 pb-8 relative z-10">
             <div className="p-5 rounded-2xl bg-black border border-brand-lime/30 relative overflow-hidden group cursor-pointer hover:border-brand-lime transition-all shadow-[0_5px_20px_rgba(0,0,0,0.5)]">
               <div className="absolute -right-10 -bottom-10 w-24 h-24 bg-brand-lime blur-[40px] opacity-20 group-hover:opacity-40 transition-opacity"></div>
@@ -115,12 +102,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) =
         </div>
       </aside>
 
-      {/* --- MOBILE BOTTOM NAV (Visible only on Mobile) --- */}
       <nav className="lg:hidden fixed bottom-0 left-0 w-full bg-black/80 backdrop-blur-2xl border-t border-white/10 z-50 pb-safe safe-area-bottom">
           <div className="flex justify-around items-center h-16 px-2">
               {mobileNavItems.map((item) => {
                   const isActive = currentView === item.id;
-                  const Icon = item.icon;
+                  const Icon = ICON_MAP[item.id] || Home;
                   return (
                       <button 
                         key={item.id}
