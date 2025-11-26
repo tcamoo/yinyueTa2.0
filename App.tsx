@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Player } from './components/Player';
@@ -12,8 +13,8 @@ import { MVView } from './views/MV';
 import { DJView } from './views/DJ';
 import { ArticlesView } from './views/Articles';
 import { SoftwareView } from './views/Software'; // Import SoftwareView
-import { View, Song, Playlist, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, SoftwareItem } from './types';
-import { MOCK_SONGS, MOCK_PLAYLISTS, THEMES, MOCK_MVS, GALLERY_ITEMS, MOCK_DJ_SETS, MOCK_ARTICLES, DEFAULT_HEADERS, MOCK_SOFTWARE } from './constants';
+import { View, Song, Playlist, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, SoftwareItem, NavItem } from './types';
+import { MOCK_SONGS, MOCK_PLAYLISTS, THEMES, MOCK_MVS, GALLERY_ITEMS, MOCK_DJ_SETS, MOCK_ARTICLES, DEFAULT_HEADERS, MOCK_SOFTWARE, DEFAULT_NAV_ITEMS } from './constants';
 import { cloudService } from './services/cloudService';
 import { Loader2 } from 'lucide-react';
 
@@ -34,6 +35,7 @@ const App: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>(MOCK_ARTICLES);
   const [softwareItems, setSoftwareItems] = useState<SoftwareItem[]>(MOCK_SOFTWARE); // New State
   const [pageHeaders, setPageHeaders] = useState<PageHeaders>(DEFAULT_HEADERS);
+  const [navItems, setNavItems] = useState<NavItem[]>(DEFAULT_NAV_ITEMS); // New Nav State
   
   // Navigation State
   const [currentArticle, setCurrentArticle] = useState<Article | null>(null);
@@ -71,15 +73,13 @@ const App: React.FC = () => {
         if (cloudData.djSets) setDjSets(cloudData.djSets);
         if (cloudData.articles) setArticles(cloudData.articles);
         if (cloudData.playlists) setPlaylists(cloudData.playlists);
-        if (cloudData.softwareItems) setSoftwareItems(cloudData.softwareItems); // Load software
+        if (cloudData.softwareItems) setSoftwareItems(cloudData.softwareItems);
         if (cloudData.pageHeaders) setPageHeaders(cloudData.pageHeaders);
+        if (cloudData.navItems) setNavItems(cloudData.navItems); // Load Nav config
         if (cloudData.themeId) {
           const t = THEMES.find(t => t.id === cloudData.themeId);
           if(t) setCurrentTheme(t);
         }
-      } else {
-        // Just keep mock data
-        // We don't auto-save here to prevent overwriting cloud with mock if it was just a network error
       }
       setIsLoading(false);
     };
@@ -217,6 +217,8 @@ const App: React.FC = () => {
             pageHeaders={pageHeaders}
             setPageHeaders={setPageHeaders}
             notify={addNotification}
+            navItems={navItems} // Pass Nav
+            setNavItems={setNavItems} // Pass SetNav
           />
         );
       default:
@@ -292,7 +294,7 @@ const App: React.FC = () => {
          />
       </div>
 
-      <Sidebar currentView={currentView} onChangeView={setCurrentView} />
+      <Sidebar currentView={currentView} onChangeView={setCurrentView} navItems={navItems} />
 
       <main className="flex-1 lg:ml-72 p-4 lg:p-12 pt-24 lg:pt-12 min-h-screen relative z-10 transition-colors duration-500">
         <div className="max-w-[1600px] mx-auto">
