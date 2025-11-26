@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { Play, TrendingUp, ArrowRight, Zap, FileText, Mic2, Calendar, MapPin, Aperture } from 'lucide-react';
+import { Play, TrendingUp, ArrowRight, Zap, FileText, Mic2, Calendar, MapPin, Aperture, Disc, Star, ExternalLink, Activity } from 'lucide-react';
 import { Song, MV, View, Article, PageHeaderConfig, GalleryItem } from '../types';
 import { MOODS } from '../constants';
 
@@ -8,7 +8,7 @@ interface HomeProps {
   songs: Song[];
   mvs: MV[];
   articles: Article[];
-  galleryItems: GalleryItem[]; // Added
+  galleryItems: GalleryItem[];
   onPlaySong: (song: Song) => void;
   currentSongId?: string;
   onChangeView: (view: View) => void;
@@ -17,7 +17,7 @@ interface HomeProps {
 }
 
 export const Home: React.FC<HomeProps> = ({ songs = [], mvs = [], articles = [], galleryItems = [], onPlaySong, currentSongId, onChangeView, onReadArticle, headerConfig }) => {
-  const trendingSongs = Array.isArray(songs) ? songs.slice(0, 4) : [];
+  const trendingSongs = Array.isArray(songs) ? songs.slice(0, 5) : [];
   
   const featuredMV = useMemo(() => {
       if (!Array.isArray(mvs) || mvs.length === 0) return null;
@@ -26,247 +26,185 @@ export const Home: React.FC<HomeProps> = ({ songs = [], mvs = [], articles = [],
 
   const featuredArticles = Array.isArray(articles) ? articles.slice(0, 3) : [];
 
-  const handleHeroClick = () => {
-    onChangeView(View.MV);
-  };
-
   const UPCOMING_EVENTS = [
-      { id: 1, title: 'Neon Nights', date: 'OCT 24', location: 'Tokyo, JP', artist: 'Kavinsky' },
-      { id: 2, title: 'Deep Bass', date: 'NOV 02', location: 'Berlin, DE', artist: 'Recondite' },
-      { id: 3, title: 'Synthwave', date: 'NOV 15', location: 'LA, US', artist: 'Midnight' },
+      { id: 1, title: 'Neon Nights', date: '10.24', location: 'Tokyo', artist: 'Kavinsky', status: 'Sold Out' },
+      { id: 2, title: 'Deep Bass', date: '11.02', location: 'Berlin', artist: 'Recondite', status: 'Selling' },
+      { id: 3, title: 'Synthwave', date: '11.15', location: 'Los Angeles', artist: 'Midnight', status: 'Selling' },
   ];
 
   return (
-    <div className="pb-48 lg:pb-32 animate-in fade-in duration-700">
+    <div className="pb-40 animate-in fade-in duration-700">
       
-      {/* 1. HERO SECTION: Immersive MV Card */}
+      {/* 1. HERO SECTION: Full Width Impact */}
       {featuredMV && (
-        <div className="relative w-full aspect-[4/5] md:aspect-[16/9] lg:aspect-[2.4/1] rounded-[2rem] md:rounded-[2.5rem] overflow-hidden mb-12 lg:mb-16 group border border-white/5 shadow-[0_30px_100px_rgba(0,0,0,0.8)] cursor-pointer" onClick={handleHeroClick}>
+        <div className="relative w-full h-[60vh] md:h-[70vh] rounded-[2.5rem] overflow-hidden mb-8 group cursor-pointer shadow-2xl border border-white/5" onClick={() => onChangeView(View.MV)}>
+           {/* Dynamic Video Background Simulator */}
            <img 
              src={featuredMV.coverUrl} 
              alt="Hero MV" 
-             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[4000ms] ease-out"
+             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[2000ms] ease-out filter brightness-75 group-hover:brightness-90"
            />
-           <div className="absolute inset-0 bg-gradient-to-t from-dark-950 via-dark-950/20 to-transparent"></div>
+           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
+           <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-transparent"></div>
            
-           <div className="absolute bottom-0 left-0 w-full p-6 md:p-16 flex flex-col md:flex-row items-end justify-between gap-6 md:gap-8">
-              <div className="max-w-4xl z-10 w-full">
-                 <div className="flex items-center gap-3 mb-4 md:mb-6">
-                    <span className="px-3 py-1 bg-brand-lime text-black text-[10px] md:text-xs font-black uppercase tracking-widest rounded-sm">
-                       {headerConfig.subtitle}
-                    </span>
-                    <span className="px-3 py-1 bg-white/20 backdrop-blur-md text-white text-[10px] md:text-xs font-bold uppercase tracking-widest rounded-sm border border-white/20">
-                       Featured
-                    </span>
-                 </div>
-                 {/* Mobile Optimized Typography */}
-                 <h1 className="text-4xl md:text-6xl lg:text-8xl font-display font-black text-white mb-3 md:mb-4 leading-[0.9] tracking-tight italic drop-shadow-2xl">
-                    {featuredMV.title}
-                 </h1>
-                 <p className="text-sm md:text-xl lg:text-2xl font-light text-gray-300 mb-6 md:mb-8 max-w-xl line-clamp-2">
-                    {featuredMV.artist} — {headerConfig.description}
-                 </p>
-                 
-                 <div className="flex items-center gap-4">
-                    <button 
-                       className="h-12 md:h-14 px-6 md:px-8 bg-white text-black font-black text-base md:text-lg rounded-full hover:bg-brand-lime transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] flex items-center gap-2 group/btn hover:scale-105 active:scale-95"
-                    >
-                       <Play className="w-5 h-5 fill-current group-hover/btn:scale-110 transition-transform" />
-                       <span>播放</span>
-                    </button>
-                 </div>
+           <div className="absolute bottom-0 left-0 w-full p-8 md:p-16 flex flex-col justify-end items-start z-20">
+              <div className="flex items-center gap-3 mb-4 animate-in slide-in-from-left-4 duration-700 delay-100">
+                  <span className="px-3 py-1 bg-brand-lime text-black text-xs font-black uppercase tracking-widest rounded shadow-[0_0_15px_var(--brand-primary)]">
+                     {headerConfig.subtitle}
+                  </span>
+                  <div className="flex items-center gap-2 text-white/80 text-xs font-mono border border-white/20 px-3 py-1 rounded-full backdrop-blur-md">
+                      <Activity className="w-3 h-3 text-brand-lime" /> Trending Now
+                  </div>
+              </div>
+
+              <h1 className="text-5xl md:text-7xl lg:text-9xl font-display font-black text-white mb-6 leading-[0.85] tracking-tighter italic drop-shadow-2xl animate-in slide-in-from-bottom-4 duration-700 delay-200">
+                 {featuredMV.title}
+              </h1>
+              
+              <div className="flex items-center gap-6 animate-in slide-in-from-bottom-4 duration-700 delay-300">
+                  <button className="h-14 px-8 bg-white text-black font-black text-lg rounded-full hover:bg-brand-lime hover:scale-105 transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] flex items-center gap-2">
+                      <Play className="w-5 h-5 fill-current" /> 立即播放
+                  </button>
+                  <div className="hidden md:flex flex-col">
+                      <span className="text-xl text-white font-bold">{featuredMV.artist}</span>
+                      <span className="text-sm text-gray-400">{headerConfig.description}</span>
+                  </div>
               </div>
            </div>
         </div>
       )}
 
-      {/* 2. MOODS (Mood Pills) */}
-      <div className="mb-12 lg:mb-20">
-          <div className="flex items-center gap-4 mb-4 md:mb-6">
-             <Zap className="w-5 h-5 md:w-6 md:h-6 text-brand-lime fill-current" />
-             <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white">今日氛围</h2>
-          </div>
-          <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
-              {MOODS.map((mood, i) => (
-                  <button 
-                    key={i} 
-                    className="group relative min-w-[140px] md:min-w-[160px] h-[50px] md:h-[60px] rounded-full border border-white/10 overflow-hidden flex items-center justify-center transition-all hover:scale-105 active:scale-95 flex-shrink-0"
-                  >
-                      <div className="absolute inset-0 opacity-20 group-hover:opacity-100 transition-opacity duration-500" style={{ backgroundColor: mood.color, filter: 'blur(20px)' }}></div>
-                      <span className="relative z-10 font-bold text-white group-hover:text-black transition-colors uppercase tracking-wider text-xs md:text-sm">{mood.label}</span>
+      {/* 2. BENTO GRID LAYOUT: High Density Content */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+          
+          {/* A. Trending List (Large Vertical) */}
+          <div className="md:col-span-2 lg:col-span-2 row-span-2 bg-[#0a0a0a] border border-white/5 rounded-[2rem] p-6 md:p-8 flex flex-col relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-brand-secondary/10 blur-[80px] pointer-events-none"></div>
+              
+              <div className="flex items-center justify-between mb-6 relative z-10">
+                  <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                      <TrendingUp className="w-6 h-6 text-brand-secondary" /> 本周飙升
+                  </h2>
+                  <button onClick={() => onChangeView(View.CHARTS)} className="text-xs font-bold text-gray-500 hover:text-white border border-white/10 px-3 py-1.5 rounded-full transition-colors">
+                      完整榜单
                   </button>
-              ))}
-          </div>
-      </div>
+              </div>
 
-      {/* 3. TRENDING SONGS + ARTIST SPOTLIGHT */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-12 lg:mb-20">
-         <div className="lg:col-span-8 bg-white/[0.02] rounded-[2rem] p-6 md:p-8 border border-white/5 relative overflow-hidden">
-            <div className="flex items-center justify-between mb-6 relative z-10">
-                <h2 className="text-2xl md:text-3xl font-display font-black flex items-center gap-3">
-                   <TrendingUp className="w-6 h-6 md:w-7 md:h-7 text-brand-pink" />
-                   本周热榜
-                </h2>
-                <button onClick={() => onChangeView(View.CHARTS)} className="text-xs font-bold text-gray-500 hover:text-white border border-white/10 px-3 py-1.5 md:px-4 md:py-2 rounded-full transition-colors">
-                    完整榜单
-                </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 relative z-10">
-               {trendingSongs.map((song, idx) => (
-                  <div 
-                     key={song.id}
-                     onClick={() => onPlaySong(song)}
-                     className={`
-                       group flex items-center gap-4 p-3 rounded-2xl transition-all cursor-pointer hover:bg-white/5 active:bg-white/10
-                       ${currentSongId === song.id ? 'bg-white/10 ring-1 ring-brand-lime/50' : ''}
-                     `}
-                  >
-                     <div className="relative w-14 h-14 md:w-16 md:h-16 rounded-xl overflow-hidden flex-shrink-0 shadow-lg group-hover:shadow-brand-primary/20">
-                        <img src={song.coverUrl} className="w-full h-full object-cover" alt={song.title} />
-                        <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${currentSongId === song.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                           {currentSongId === song.id ? (
-                               <div className="w-3 h-3 bg-brand-lime rounded-full animate-pulse"></div>
-                           ) : <Play className="w-6 h-6 fill-white text-white" />}
-                        </div>
-                     </div>
-                     
-                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className={`text-base md:text-lg font-black italic w-6 ${idx === 0 ? 'text-brand-lime' : 'text-gray-600'}`}>0{idx + 1}</span>
-                            <h3 className={`text-sm md:text-base font-bold truncate ${currentSongId === song.id ? 'text-brand-lime' : 'text-white'}`}>{song.title}</h3>
-                        </div>
-                        <p className="text-xs text-gray-500 truncate ml-8">{song.artist}</p>
-                     </div>
-                  </div>
-               ))}
-            </div>
-         </div>
-
-         {/* ARTIST SPOTLIGHT CARD */}
-         <div className="lg:col-span-4 flex flex-col gap-6">
-            <div className="flex-1 bg-black rounded-[2rem] min-h-[300px] lg:min-h-0 lg:h-auto p-0 border border-white/5 relative overflow-hidden group cursor-pointer transition-transform hover:scale-[1.02] shadow-2xl">
-                <img src="https://picsum.photos/id/338/600/800" className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-90 transition-opacity" />
-                <div className="absolute inset-0 bg-gradient-to-t from-brand-purple/90 via-transparent to-transparent"></div>
-                
-                <div className="relative z-10 flex flex-col h-full justify-between p-6 md:p-8">
-                    <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2 text-brand-purple text-[10px] font-bold tracking-wider uppercase bg-black/30 backdrop-blur-md px-3 py-1 rounded-full border border-brand-purple/30">
-                            <Mic2 className="w-3 h-3 fill-current" /> Artist Spotlight
-                        </div>
-                    </div>
-                    
-                    <div>
-                         <h3 className="text-3xl md:text-4xl font-black text-white leading-[0.9] italic mb-2 drop-shadow-lg">
-                           The <br/> Weeknd
-                        </h3>
-                        <p className="text-xs md:text-sm text-gray-300 line-clamp-2 mb-4">
-                            探索 Synth-pop 复兴的领军人物，感受复古与未来的碰撞。
-                        </p>
-                         <div className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-full flex items-center justify-center text-black group-hover:bg-brand-purple group-hover:text-white transition-colors">
-                            <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-         </div>
-      </div>
-
-      {/* 4. GALLERY PREVIEW (REPLACED PLAYLISTS) */}
-      <div className="mb-12 lg:mb-20">
-          <div className="flex items-center justify-between mb-6">
-             <div className="flex items-center gap-3">
-                 <Aperture className="w-6 h-6 md:w-7 md:h-7 text-brand-cyan" />
-                 <h2 className="text-xl md:text-2xl font-bold text-white">光影瞬间</h2>
-             </div>
-             <button onClick={() => onChangeView(View.GALLERY)} className="text-xs font-bold text-gray-500 hover:text-white border border-white/10 px-3 py-1.5 rounded-full transition-colors">
-                 进入画廊
-             </button>
-          </div>
-
-          <div className="flex overflow-x-auto gap-4 md:gap-6 pb-6 scrollbar-hide snap-x snap-mandatory">
-              {galleryItems.slice(0, 6).map((item) => (
-                  <div key={item.id} className="snap-center min-w-[280px] md:min-w-[320px] aspect-[4/3] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden group cursor-pointer border border-white/5 relative" onClick={() => onChangeView(View.GALLERY)}>
-                      <img src={item.imageUrl} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 filter brightness-90 group-hover:brightness-100" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                      <div className="absolute bottom-6 left-6 translate-y-4 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                          <h3 className="font-bold text-white text-lg leading-none mb-1">{item.title}</h3>
-                          <p className="text-xs text-brand-cyan font-bold uppercase tracking-wider">{item.photographer}</p>
+              <div className="flex-1 space-y-2 overflow-y-auto pr-2 custom-scrollbar relative z-10">
+                  {trendingSongs.map((song, idx) => (
+                      <div 
+                         key={song.id}
+                         onClick={() => onPlaySong(song)}
+                         className={`group flex items-center gap-4 p-3 rounded-xl transition-all cursor-pointer hover:bg-white/5 border border-transparent hover:border-white/5 ${currentSongId === song.id ? 'bg-white/10 border-brand-lime/30' : ''}`}
+                      >
+                          <span className={`text-xl font-black italic w-6 text-center ${idx < 3 ? 'text-brand-secondary' : 'text-gray-700'}`}>{idx + 1}</span>
+                          <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0">
+                              <img src={song.coverUrl} className="w-full h-full object-cover" />
+                              <div className={`absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 ${currentSongId === song.id ? 'opacity-100' : ''}`}>
+                                  {currentSongId === song.id ? <div className="w-1.5 h-1.5 bg-brand-lime rounded-full animate-ping"></div> : <Play className="w-5 h-5 text-white fill-current" />}
+                              </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                              <h4 className={`font-bold text-sm truncate ${currentSongId === song.id ? 'text-brand-lime' : 'text-white'}`}>{song.title}</h4>
+                              <p className="text-xs text-gray-500 truncate">{song.artist}</p>
+                          </div>
+                          <span className="text-xs font-mono text-gray-600 hidden md:block">{song.duration}</span>
                       </div>
+                  ))}
+              </div>
+          </div>
+
+          {/* B. Artist Spotlight (Square) */}
+          <div className="bg-white text-black rounded-[2rem] p-6 relative overflow-hidden group cursor-pointer hover:scale-[1.02] transition-transform shadow-xl">
+              <img src="https://picsum.photos/id/338/400/400" className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-30 transition-opacity mix-blend-multiply" />
+              <div className="relative z-10 h-full flex flex-col justify-between">
+                  <div className="flex justify-between items-start">
+                      <div className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center">
+                          <Mic2 className="w-5 h-5" />
+                      </div>
+                      <span className="px-2 py-1 bg-black/10 rounded text-[10px] font-bold uppercase tracking-wider">Spotlight</span>
                   </div>
-              ))}
-               <div onClick={() => onChangeView(View.GALLERY)} className="snap-center min-w-[100px] flex items-center justify-center rounded-[2rem] bg-white/5 hover:bg-white/10 cursor-pointer border border-white/10 group">
-                    <div className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center text-gray-400 group-hover:text-white group-hover:border-white transition-all">
-                        <ArrowRight className="w-6 h-6" />
-                    </div>
+                  <div>
+                      <h3 className="text-3xl font-black italic leading-none mb-1">The<br/>Weeknd</h3>
+                      <p className="text-xs font-bold opacity-60">Synth-Pop Revival</p>
+                  </div>
+              </div>
+          </div>
+
+          {/* C. Mood Pills (Square) */}
+          <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 relative overflow-hidden flex flex-col">
+              <div className="flex items-center gap-2 mb-4 text-brand-lime">
+                  <Zap className="w-5 h-5 fill-current" />
+                  <span className="font-bold text-white">Vibe Check</span>
+              </div>
+              <div className="flex-1 flex flex-wrap content-start gap-2">
+                  {MOODS.slice(0, 6).map((mood, i) => (
+                      <div key={i} className="px-3 py-1.5 rounded-full border border-white/10 text-xs font-bold text-gray-300 hover:bg-brand-lime hover:text-black hover:border-brand-lime cursor-pointer transition-colors">
+                          {mood.label}
+                      </div>
+                  ))}
+              </div>
+          </div>
+
+          {/* D. Latest Articles (Horizontal Span 2) */}
+          <div className="md:col-span-2 bg-[#0f0f0f] border border-white/5 rounded-[2rem] p-0 relative overflow-hidden group">
+               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-accent via-brand-purple to-brand-secondary"></div>
+               <div className="p-6 h-full flex flex-col">
+                   <div className="flex items-center justify-between mb-4">
+                       <h3 className="font-bold text-white flex items-center gap-2">
+                           <FileText className="w-5 h-5 text-brand-accent" /> 深度阅读
+                       </h3>
+                       <ArrowRight className="w-5 h-5 text-gray-600 group-hover:text-white transition-colors cursor-pointer" onClick={() => onChangeView(View.ARTICLES)} />
+                   </div>
+                   <div className="flex-1 flex flex-col gap-3">
+                       {featuredArticles.slice(0, 2).map(article => (
+                           <div key={article.id} onClick={() => onReadArticle(article)} className="flex gap-4 items-center cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-colors">
+                               <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
+                                   <img src={article.coverUrl} className="w-full h-full object-cover" />
+                               </div>
+                               <div className="min-w-0">
+                                   <h4 className="font-bold text-white text-sm truncate group-hover:text-brand-accent transition-colors">{article.title}</h4>
+                                   <p className="text-xs text-gray-500 line-clamp-1 mt-1">{article.excerpt}</p>
+                               </div>
+                           </div>
+                       ))}
+                   </div>
+               </div>
+          </div>
+
+          {/* E. Visual Gallery Preview (Horizontal Span 2) */}
+          <div className="md:col-span-2 bg-dark-900 border border-white/5 rounded-[2rem] p-6 relative overflow-hidden cursor-pointer group" onClick={() => onChangeView(View.GALLERY)}>
+               <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+               <div className="flex justify-between items-end relative z-10 h-full">
+                   <div>
+                       <div className="text-brand-cyan mb-2">
+                           <Aperture className="w-8 h-8 animate-spin-slow" />
+                       </div>
+                       <h3 className="text-3xl font-display font-black text-white leading-none">Visual<br/>Archive</h3>
+                   </div>
+                   <div className="flex -space-x-4">
+                       {galleryItems.slice(0, 4).map((item, i) => (
+                           <div key={item.id} className="w-16 h-16 rounded-full border-2 border-[#111] overflow-hidden relative z-10 transition-transform group-hover:translate-x-2" style={{ zIndex: 10 - i }}>
+                               <img src={item.imageUrl} className="w-full h-full object-cover" />
+                           </div>
+                       ))}
+                       <div className="w-16 h-16 rounded-full border-2 border-[#111] bg-white/10 flex items-center justify-center text-white text-xs font-bold relative z-0 group-hover:bg-brand-cyan group-hover:text-black transition-colors">
+                           +42
+                       </div>
+                   </div>
                </div>
           </div>
       </div>
 
-      {/* 5. MAGAZINE / ARTICLES SECTION */}
-      <div className="mb-12 lg:mb-20">
-            <div className="flex items-center justify-between mb-8">
-               <h2 className="text-2xl md:text-3xl font-display font-black flex items-center gap-3">
-                  <FileText className="w-6 h-6 md:w-8 md:h-8 text-brand-accent" />
-                  深度专栏
-               </h2>
-               <button onClick={() => onChangeView(View.ARTICLES)} className="flex items-center gap-2 text-xs font-bold text-white hover:text-brand-lime transition-colors uppercase tracking-widest">
-                  View All <ArrowRight className="w-4 h-4" />
-               </button>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-               {featuredArticles.map((article) => (
-                  <div 
-                     key={article.id} 
-                     onClick={() => onReadArticle(article)}
-                     className="group relative h-[350px] md:h-[450px] rounded-[2rem] overflow-hidden cursor-pointer border border-white/5 hover:border-white/20 transition-all hover:-translate-y-2 shadow-xl"
-                  >
-                     <img src={article.coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 filter brightness-75 group-hover:brightness-100" alt={article.title} />
-                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
-                     
-                     <div className="absolute top-6 right-6">
-                        <div className="px-3 py-1 rounded-full text-[10px] font-bold text-black uppercase shadow-lg" style={{ backgroundColor: article.mood }}>
-                            Mood
-                        </div>
-                     </div>
-
-                     <div className="absolute bottom-0 left-0 p-6 md:p-8 w-full">
-                         <div className="flex items-center gap-3 mb-3 text-[10px] md:text-xs font-bold uppercase tracking-wider text-gray-300">
-                             <span className="text-brand-lime">{article.tags[0]}</span>
-                             <span>•</span>
-                             <span>{article.date}</span>
-                         </div>
-                         <h3 className="text-xl md:text-2xl font-black text-white leading-tight mb-2 line-clamp-2 group-hover:text-brand-lime transition-colors">
-                            {article.title}
-                         </h3>
-                         <p className="text-xs md:text-sm text-gray-400 line-clamp-2 leading-relaxed opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 hidden md:block">
-                            {article.excerpt}
-                         </p>
-                     </div>
-                  </div>
-               ))}
-            </div>
-      </div>
-
-      {/* 6. UPCOMING EVENTS */}
-      <div className="mb-24 bg-white/[0.03] rounded-[2rem] p-6 md:p-12 border border-white/5 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-brand-primary/10 blur-[80px] rounded-full pointer-events-none"></div>
-          
-          <div className="flex items-center gap-4 mb-6 md:mb-8 relative z-10">
-              <Calendar className="w-6 h-6 md:w-8 md:h-8 text-brand-lime" />
-              <h2 className="text-2xl md:text-3xl font-bold text-white">现场演出</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
-              {UPCOMING_EVENTS.map(event => (
-                  <div key={event.id} className="group bg-black/40 border border-white/10 p-5 md:p-6 rounded-2xl hover:border-brand-lime/50 transition-colors cursor-pointer">
-                      <div className="text-xs font-bold text-brand-lime mb-2 tracking-widest">{event.date}</div>
-                      <h3 className="text-lg md:text-xl font-black text-white mb-1 group-hover:text-brand-lime transition-colors">{event.title}</h3>
-                      <div className="text-sm text-gray-400 mb-4">{event.artist}</div>
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <MapPin className="w-3 h-3" /> {event.location}
-                      </div>
+      {/* 3. LIVE EVENTS TICKER */}
+      <div className="w-full bg-brand-lime text-black py-3 overflow-hidden mb-8 transform -rotate-1 shadow-[0_0_20px_var(--brand-primary)]">
+          <div className="flex animate-marquee whitespace-nowrap gap-12 items-center">
+              {[...UPCOMING_EVENTS, ...UPCOMING_EVENTS, ...UPCOMING_EVENTS].map((event, i) => (
+                  <div key={i} className="flex items-center gap-4 text-sm font-bold uppercase tracking-wider">
+                      <span className="w-2 h-2 bg-black rounded-full"></span>
+                      <span>{event.title} // {event.artist}</span>
+                      <span className="px-2 py-0.5 border border-black rounded-full text-xs">{event.location} {event.date}</span>
+                      <span className={`${event.status === 'Sold Out' ? 'line-through opacity-50' : 'text-red-600'}`}>{event.status}</span>
                   </div>
               ))}
           </div>
