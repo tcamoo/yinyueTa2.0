@@ -211,18 +211,104 @@ export const Library: React.FC<LibraryProps> = ({
       } else {
           // Inserting Content into Article
           let tag = '';
+          const uniqueId = Math.random().toString(36).substr(2, 9);
+          
           if (mediaSelectorType === 'image') {
-              // Image Card
-              tag = `<div class="not-prose my-10 relative group rounded-2xl overflow-hidden bg-black/20 border border-white/5"><div class="absolute inset-0 bg-noise opacity-[0.05]"></div><img src="${item.imageUrl}" class="w-full h-auto object-cover" alt="${item.title}" /><div class="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-between"><span class="text-xs font-bold text-white tracking-widest uppercase">${item.title}</span><span class="text-[10px] text-brand-cyan border border-brand-cyan/20 px-2 py-0.5 rounded-full backdrop-blur-sm">${item.photographer || 'Gallery'}</span></div></div>`;
+              // Image Card - Clean and Elegant
+              tag = `<div class="not-prose my-12 relative group rounded-2xl overflow-hidden shadow-2xl"><img src="${item.imageUrl}" class="w-full h-auto object-cover" alt="${item.title}" /><div class="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"><div class="transform translate-y-4 group-hover:translate-y-0 transition-transform"><p class="text-sm font-bold text-white tracking-widest uppercase mb-1">${item.title}</p><span class="text-[10px] text-brand-cyan border border-brand-cyan/20 px-2 py-1 rounded-full backdrop-blur-md">${item.photographer || 'Gallery'}</span></div></div></div>`;
           } else if (mediaSelectorType === 'audio') {
               const url = item.fileUrl || `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
               
-              // Premium Audio Card Design
-              tag = `<div class="not-prose my-10 relative group rounded-[2rem] overflow-hidden bg-[#0f0f0f] border border-white/10 p-6 shadow-2xl transition-all hover:border-brand-lime/30 hover:shadow-[0_20px_60px_rgba(0,0,0,0.6)]"><div class="absolute -top-24 -right-24 w-64 h-64 bg-brand-lime/5 blur-[80px] rounded-full pointer-events-none group-hover:bg-brand-lime/10 transition-colors duration-700"></div><div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-brand-lime/50 to-transparent opacity-50"></div><div class="flex flex-col sm:flex-row gap-6 items-center relative z-10"><div class="relative w-32 h-32 shrink-0"><div class="absolute inset-0 rounded-full bg-black border-[4px] border-[#222] shadow-xl overflow-hidden group-hover:rotate-[360deg] transition-transform duration-[10s] ease-linear"><img src="${item.coverUrl}" class="w-full h-full object-cover opacity-90" alt="${item.title}" /><div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-[#0f0f0f] rounded-full border border-white/10 flex items-center justify-center"><div class="w-2 h-2 bg-brand-lime/50 rounded-full"></div></div></div></div><div class="flex-1 min-w-0 w-full text-center sm:text-left space-y-4"><div><div class="flex items-center justify-center sm:justify-start gap-3 mb-2"><span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-brand-lime text-black">Now Playing</span><span class="text-xs font-mono text-gray-500">${item.duration || '00:00'}</span></div><h4 class="text-2xl md:text-3xl font-black text-white leading-none tracking-tight mb-1 truncate">${item.title}</h4><p class="text-sm font-bold text-gray-400 uppercase tracking-widest truncate">${item.artist}</p></div><div class="w-full relative h-10 bg-white/5 rounded-full flex items-center px-1 border border-white/5 group-hover:border-white/10 transition-colors"><audio controls src="${url}" class="w-full h-8 opacity-90" style="filter: invert(0.9) hue-rotate(180deg) saturate(0); mix-blend-mode: screen;"></audio></div></div></div></div>`;
+              // Compact "Pill" Style Audio Card (Matching Figure 2 from request)
+              tag = `
+<div class="not-prose my-10 w-full max-w-lg mx-auto transform transition-all hover:scale-[1.01]">
+    <div class="relative group rounded-[2rem] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 shadow-2xl overflow-hidden">
+        <div class="absolute inset-0 bg-noise opacity-[0.05]"></div>
+        <div class="relative flex items-center gap-4 bg-[#0a0a0a] p-3 pr-4 rounded-[1.8rem]">
+            <!-- Album Art -->
+            <div class="relative w-14 h-14 shrink-0 rounded-xl overflow-hidden border border-white/10 shadow-lg group-hover:shadow-[0_0_20px_rgba(204,255,0,0.2)] transition-shadow">
+                <img src="${item.coverUrl}" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" alt="Cover" />
+                
+                <!-- Playing Animation Overlay -->
+                <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 transition-opacity" id="overlay_${uniqueId}">
+                   <div class="flex gap-0.5 items-end h-3">
+                       <div class="w-1 bg-brand-lime animate-[bounceVisualizer_0.5s_infinite] h-2"></div>
+                       <div class="w-1 bg-brand-lime animate-[bounceVisualizer_0.7s_infinite] h-3"></div>
+                       <div class="w-1 bg-brand-lime animate-[bounceVisualizer_0.4s_infinite] h-2"></div>
+                   </div>
+                </div>
+            </div>
 
+            <!-- Info -->
+            <div class="flex-1 min-w-0 flex flex-col justify-center">
+                <div class="flex items-center gap-2 mb-0.5">
+                   <span class="text-[9px] font-black text-brand-lime bg-brand-lime/10 px-1.5 py-0.5 rounded uppercase tracking-wider border border-brand-lime/10">Track</span>
+                </div>
+                <h4 class="text-base font-bold text-white truncate leading-tight group-hover:text-brand-lime transition-colors">${item.title}</h4>
+                <p class="text-xs text-gray-500 truncate font-mono mt-0.5">${item.artist}</p>
+            </div>
+
+            <!-- Play Button -->
+            <button 
+                onclick="(function(btn){
+                    var audio = document.getElementById('audio_${uniqueId}');
+                    var overlay = document.getElementById('overlay_${uniqueId}');
+                    var playIcon = btn.querySelector('.play-icon');
+                    var pauseIcon = btn.querySelector('.pause-icon');
+                    
+                    if(audio.paused){
+                        // Pause all other audios first
+                        document.querySelectorAll('audio').forEach(function(a){ if(a.id !== audio.id) { a.pause(); } });
+
+                        audio.play();
+                        playIcon.style.display = 'none';
+                        pauseIcon.style.display = 'block';
+                        overlay.style.opacity = '1';
+                        btn.classList.add('bg-brand-lime', 'text-black', 'scale-110', 'shadow-[0_0_20px_rgba(204,255,0,0.4)]');
+                        btn.classList.remove('bg-white/10', 'text-white');
+                    } else {
+                        audio.pause();
+                        playIcon.style.display = 'block';
+                        pauseIcon.style.display = 'none';
+                        overlay.style.opacity = '0';
+                        btn.classList.remove('bg-brand-lime', 'text-black', 'scale-110', 'shadow-[0_0_20px_rgba(204,255,0,0.4)]');
+                        btn.classList.add('bg-white/10', 'text-white');
+                    }
+                })(this)"
+                class="w-12 h-12 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white hover:text-black transition-all duration-300 shrink-0 border border-white/5"
+            >
+                <svg class="play-icon w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24" style="display:block"><path d="M8 5v14l11-7z"/></svg>
+                <svg class="pause-icon w-5 h-5 fill-current" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+        </div>
+        
+        <audio id="audio_${uniqueId}" src="${url}" preload="none" onended="
+            var btn = document.getElementById('audio_${uniqueId}').parentElement.querySelector('button');
+            btn.querySelector('.play-icon').style.display = 'block';
+            btn.querySelector('.pause-icon').style.display = 'none';
+            document.getElementById('overlay_${uniqueId}').style.opacity = '0';
+            btn.classList.remove('bg-brand-lime', 'text-black', 'scale-110', 'shadow-[0_0_20px_rgba(204,255,0,0.4)]');
+            btn.classList.add('bg-white/10', 'text-white');
+        " onpause="
+             var btn = document.getElementById('audio_${uniqueId}').parentElement.querySelector('button');
+             btn.querySelector('.play-icon').style.display = 'block';
+             btn.querySelector('.pause-icon').style.display = 'none';
+             document.getElementById('overlay_${uniqueId}').style.opacity = '0';
+             btn.classList.remove('bg-brand-lime', 'text-black', 'scale-110', 'shadow-[0_0_20px_rgba(204,255,0,0.4)]');
+             btn.classList.add('bg-white/10', 'text-white');
+        " onplay="
+             var btn = document.getElementById('audio_${uniqueId}').parentElement.querySelector('button');
+             btn.querySelector('.play-icon').style.display = 'none';
+             btn.querySelector('.pause-icon').style.display = 'block';
+             document.getElementById('overlay_${uniqueId}').style.opacity = '1';
+             btn.classList.add('bg-brand-lime', 'text-black', 'scale-110', 'shadow-[0_0_20px_rgba(204,255,0,0.4)]');
+             btn.classList.remove('bg-white/10', 'text-white');
+        "></audio>
+    </div>
+</div>`.replace(/\n/g, ''); // Minify string to prevent accidental newlines in template
           } else if (mediaSelectorType === 'video') {
-              // Video Card
-              tag = `<div class="not-prose my-10"><div class="rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl bg-black relative group"><video controls poster="${item.coverUrl}" src="${item.videoUrl}" class="w-full aspect-video object-cover"></video><div class="absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-xs font-bold text-white border border-white/10 pointer-events-none">${item.title}</div></div></div>`;
+              // Video Card - Minimal and Floating
+              tag = `<div class="not-prose my-12"><div class="rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl bg-black relative group hover:shadow-[0_20px_60px_rgba(0,0,0,0.6)] transition-all duration-500 hover:-translate-y-2"><video controls poster="${item.coverUrl}" src="${item.videoUrl}" class="w-full aspect-video object-cover"></video><div class="absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-xs font-bold text-white border border-white/10 pointer-events-none shadow-lg">${item.title}</div></div></div>`;
           }
           insertAtCursor(tag);
           notify('success', '媒体已插入文章');
@@ -252,11 +338,30 @@ export const Library: React.FC<LibraryProps> = ({
                   if (url) {
                       let tag = '';
                       if (type === 'image') {
-                          tag = `<img src="${url}" class="w-full rounded-xl my-4 shadow-lg" alt="image" />`;
+                          tag = `<img src="${url}" class="w-full rounded-2xl my-8 shadow-2xl border border-white/5" alt="uploaded-image" />`;
                       } else if (type === 'audio') {
-                           tag = `<div class="not-prose my-8 p-4 bg-white/5 rounded-2xl border border-white/10"><audio controls src="${url}" class="w-full"></audio></div>`;
+                           // Use the same refined audio card logic here, but with generic info
+                           const uniqueId = Math.random().toString(36).substr(2, 9);
+                           tag = `
+<div class="not-prose my-10 w-full max-w-lg mx-auto">
+    <div class="relative group rounded-[2rem] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 shadow-2xl overflow-hidden">
+        <div class="relative flex items-center gap-4 bg-[#0a0a0a] p-3 pr-4 rounded-[1.8rem]">
+            <div class="relative w-14 h-14 shrink-0 rounded-xl bg-gray-800 flex items-center justify-center border border-white/10">
+                <svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
+            </div>
+            <div class="flex-1 min-w-0 flex flex-col justify-center">
+                <h4 class="text-base font-bold text-white truncate">Uploaded Audio</h4>
+                <p class="text-xs text-gray-500 truncate font-mono mt-0.5">Audio File</p>
+            </div>
+            <button onclick="var a=document.getElementById('a_${uniqueId}'); if(a.paused){a.play();this.classList.add('bg-brand-lime','text-black');this.classList.remove('bg-white/10','text-white')}else{a.pause();this.classList.remove('bg-brand-lime','text-black');this.classList.add('bg-white/10','text-white')}" class="w-12 h-12 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white hover:text-black transition-all">
+                <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <audio id="a_${uniqueId}" src="${url}" preload="none"></audio>
+        </div>
+    </div>
+</div>`.replace(/\n/g, '');
                       } else if (type === 'video') {
-                          tag = `<video controls src="${url}" class="w-full rounded-xl my-4 shadow-lg"></video>`;
+                          tag = `<video controls src="${url}" class="w-full rounded-2xl my-8 shadow-2xl border border-white/10"></video>`;
                       }
                       insertAtCursor(tag);
                       notify('success', `${type} 已插入`);
