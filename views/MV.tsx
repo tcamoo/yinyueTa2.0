@@ -38,6 +38,18 @@ export const MVView: React.FC<MVViewProps> = ({ mvs, headerConfig }) => {
     ? mvs 
     : mvs.filter(mv => mv.category === activeCategory || mv.tags.includes(activeCategory));
 
+  // Sync activeMv when mvs data changes (e.g. loaded from cloud)
+  useEffect(() => {
+    if (mvs.length > 0) {
+        // If the current activeMv is just a placeholder (not found in new list), or if we are initial load
+        const exists = mvs.find(m => m.id === activeMv.id);
+        if (!exists) {
+            const featured = mvs.find(mv => mv.isFeatured) || mvs[0];
+            if (featured) setActiveMv(featured);
+        }
+    }
+  }, [mvs, activeMv.id]);
+
   // Auto-play when activeMv changes
   useEffect(() => {
     setIsPlaying(true);
