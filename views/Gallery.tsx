@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GalleryItem } from '../types';
-import { Camera, Maximize2, Aperture, X, Download, Share2, Heart, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react';
+import { Camera, Maximize2, Aperture, X, Download, Share2, Heart, ZoomIn, ZoomOut, Move } from 'lucide-react';
 
 interface GalleryProps {
   items: GalleryItem[];
@@ -11,17 +11,26 @@ export const Gallery: React.FC<GalleryProps> = ({ items }) => {
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  
+  // Drag State
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const lastOffsetRef = useRef({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const clickStartRef = useRef({ x: 0, y: 0, time: 0 });
 
   useEffect(() => {
     setLoaded(true);
   }, []);
 
-  // Reset zoom when item changes
+  // Reset zoom and pan when item changes or closes
   useEffect(() => {
       setIsZoomed(false);
+      setOffset({ x: 0, y: 0 });
   }, [selectedItem]);
 
-  // Prevent scrolling when modal is open
+  // Prevent background scroll
   useEffect(() => {
     if (selectedItem) {
       document.body.style.overflow = 'hidden';
@@ -32,6 +41,58 @@ export const Gallery: React.FC<GalleryProps> = ({ items }) => {
       document.body.style.overflow = 'unset';
     };
   }, [selectedItem]);
+
+  // --- DRAG HANDLERS ---
+  const handleMouseDown = (e: React.MouseEvent) => {
+      if (!isZoomed) return;
+      e.preventDefault();
+      setIsDragging(true);
+      dragStartRef.current = { x: e.clientX, y: e.clientY };
+      lastOffsetRef.current = { ...offset };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+      if (!isDragging || !isZoomed) return;
+      e.preventDefault();
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+      setOffset({
+          x: lastOffsetRef.current.x + dx,
+          y: lastOffsetRef.current.y + dy
+      });
+  };
+
+  const handleMouseUp = () => {
+      setIsDragging(false);
+  };
+
+  // --- CLICK HANDLING (Distinguish Drag vs Click) ---
+  const handleImageMouseDown = (e: React.MouseEvent) => {
+      clickStartRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+      handleMouseDown(e); // Also start drag logic potentially
+  };
+
+  const handleImageMouseUp = (e: React.MouseEvent) => {
+      handleMouseUp();
+      const dx = Math.abs(e.clientX - clickStartRef.current.x);
+      const dy = Math.abs(e.clientY - clickStartRef.current.y);
+      const dt = Date.now() - clickStartRef.current.time;
+
+      // If moved less than 5px and quickly, consider it a click to toggle zoom
+      if (dx < 5 && dy < 5 && dt < 300) {
+          toggleZoom();
+      }
+  };
+
+  const toggleZoom = () => {
+      if (isZoomed) {
+          setIsZoomed(false);
+          setOffset({ x: 0, y: 0 }); // Reset position
+      } else {
+          setIsZoomed(true);
+          // Zoom into center by default (offset 0,0 is center in our logic)
+      }
+  };
 
   return (
     <div className="pb-40 min-h-screen">
@@ -112,13 +173,19 @@ export const Gallery: React.FC<GalleryProps> = ({ items }) => {
 
       {/* FULLSCREEN LIGHTBOX MODAL */}
       {selectedItem && (
-        <div className="fixed inset-0 z-[100] bg-black/98 backdrop-blur-xl flex flex-col animate-in fade-in duration-300">
-           
-           {/* Lightbox Controls */}
-           <div className={`absolute top-0 left-0 w-full p-6 flex justify-between items-start z-50 pointer-events-none transition-opacity duration-300 ${isZoomed ? 'opacity-0 hover:opacity-100' : 'opacity-100'}`}>
-              <div className="pointer-events-auto bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-3">
-                 <div className="w-2 h-2 rounded-full bg-brand-cyan animate-pulse"></div>
-                 <span className="text-xs font-bold text-gray-300">Viewing Mode</span>
+        <div 
+            className="fixed inset-0 z-[100] bg-black animate-in fade-in duration-300 flex flex-col"
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+        >
+           {/* Lightbox Top Bar */}
+           <div className={`absolute top-0 left-0 w-full p-6 flex justify-between items-start z-50 pointer-events-none transition-opacity duration-300 ${isZoomed && isDragging ? 'opacity-0' : 'opacity-100'}`}>
+              <div className="pointer-events-auto bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-3">
+                 <div className={`w-2 h-2 rounded-full ${isZoomed ? 'bg-brand-lime animate-pulse' : 'bg-brand-cyan'}`}></div>
+                 <span className="text-xs font-bold text-gray-300 flex items-center gap-2">
+                     {isZoomed ? <><Move className="w-3 h-3"/> Drag to Pan</> : 'Fit to Screen'}
+                 </span>
               </div>
 
               <div className="flex gap-4 pointer-events-auto">
@@ -134,50 +201,51 @@ export const Gallery: React.FC<GalleryProps> = ({ items }) => {
               </div>
            </div>
 
-           {/* Image Container with Zoom Logic */}
+           {/* Main Image Container */}
            <div 
-                className={`flex-1 w-full h-full overflow-hidden flex ${isZoomed ? 'cursor-zoom-out overflow-auto block' : 'items-center justify-center cursor-zoom-in'}`}
-                onClick={() => setIsZoomed(!isZoomed)}
+               ref={containerRef}
+               className="flex-1 w-full h-full overflow-hidden flex items-center justify-center bg-black select-none"
            >
               <img 
                  src={selectedItem.imageUrl} 
                  alt={selectedItem.title} 
-                 className={`
-                    transition-all duration-300 select-none
-                    ${isZoomed 
-                        ? 'min-w-full min-h-full object-none w-auto h-auto' // Actual size, might overflow
-                        : 'max-w-full max-h-full object-contain shadow-[0_0_100px_rgba(0,0,0,0.8)]' // Fit screen
-                    }
-                 `}
-                 onClick={(e) => e.stopPropagation()} 
+                 className={`transition-transform duration-300 ease-out will-change-transform ${isZoomed ? '' : 'max-w-full max-h-full object-contain'}`}
+                 style={{
+                     cursor: isZoomed ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
+                     transform: isZoomed 
+                        ? `translate3d(${offset.x}px, ${offset.y}px, 0) scale(1)` // Scale 1 means "Native Size" if we remove object-contain
+                        : `translate3d(0,0,0) scale(1)`,
+                     // If zoomed, remove constraints to allow native resolution
+                     maxWidth: isZoomed ? 'none' : '100%',
+                     maxHeight: isZoomed ? 'none' : '100%'
+                 }}
+                 draggable={false}
+                 onMouseDown={handleImageMouseDown}
+                 onMouseUp={handleImageMouseUp}
               />
-              
-              {/* Tap anywhere else to toggle zoom too */}
-              <div className="absolute inset-0 z-[-1]" onClick={() => setIsZoomed(!isZoomed)}></div>
            </div>
 
            {/* Zoom Hint Icon (Centered overlay when not zoomed) */}
            {!isZoomed && (
-               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 hover:opacity-100 transition-opacity">
-                   <div className="bg-black/50 rounded-full p-4 backdrop-blur-md">
-                        <ZoomIn className="w-8 h-8 text-white" />
+               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 hover:opacity-100 transition-opacity z-40">
+                   <div className="bg-black/50 rounded-full p-6 backdrop-blur-md border border-white/10">
+                        <ZoomIn className="w-10 h-10 text-white" />
                    </div>
                </div>
            )}
 
            {/* Bottom Details Panel (Hidden when zoomed for immersion) */}
-           <div className={`absolute bottom-0 left-0 w-full bg-gradient-to-t from-black via-black/90 to-transparent pt-20 pb-8 px-8 md:px-16 pointer-events-none transition-transform duration-500 ${isZoomed ? 'translate-y-full' : 'translate-y-0'}`}>
+           <div className={`absolute bottom-0 left-0 w-full bg-gradient-to-t from-black via-black/90 to-transparent pt-32 pb-8 px-8 md:px-16 pointer-events-none transition-transform duration-500 z-50 ${isZoomed ? 'translate-y-full' : 'translate-y-0'}`}>
               <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-end justify-between gap-6 pointer-events-auto">
                  
                  {/* Left Info */}
                  <div>
-                    <h2 className="text-4xl md:text-5xl font-black text-white mb-2 leading-tight">{selectedItem.title}</h2>
+                    <h2 className="text-4xl md:text-5xl font-black text-white mb-2 leading-tight drop-shadow-lg">{selectedItem.title}</h2>
                     <div className="flex items-center gap-6 text-sm">
-                       <div className="flex items-center gap-2 text-brand-cyan font-bold">
+                       <div className="flex items-center gap-2 text-brand-cyan font-bold bg-brand-cyan/10 px-3 py-1 rounded-full border border-brand-cyan/20">
                           <Camera className="w-4 h-4" />
                           {selectedItem.photographer}
                        </div>
-                       <span className="text-gray-500">|</span>
                        <span className="text-gray-400 font-mono">ISO 400 · f/2.8 · 1/200s</span>
                     </div>
                  </div>
