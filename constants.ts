@@ -1,6 +1,18 @@
 
 
-import { Song, GalleryItem, MV, Playlist, Theme, DJSet, Article, PageHeaders, View, SoftwareItem } from './types';
+import { Song, GalleryItem, MV, Playlist, Theme, DJSet, Article, PageHeaders, View, SoftwareItem, NavItem } from './types';
+
+// --- DEFAULT NAVIGATION CONFIG ---
+export const DEFAULT_NAV_ITEMS: NavItem[] = [
+  { id: View.HOME, label: '首映', subLabel: 'Premiere', isVisible: true, order: 0 },
+  { id: View.MV, label: '视界', subLabel: 'Visuals', isVisible: true, order: 1 },
+  { id: View.GALLERY, label: '画廊', subLabel: 'Gallery', isVisible: true, order: 2 },
+  { id: View.CHARTS, label: '榜单', subLabel: 'Charts', isVisible: true, order: 3 },
+  { id: View.DJ, label: '电音', subLabel: 'Club', isVisible: true, order: 4 },
+  { id: View.SOFTWARE, label: '资源', subLabel: 'Downloads', isVisible: true, order: 5 },
+  { id: View.ARTICLES, label: '专栏', subLabel: 'Read', isVisible: true, order: 6 },
+  { id: View.LIBRARY, label: '管理', subLabel: 'Admin', isVisible: true, order: 99 } // Library usually stays last or handled separately
+];
 
 // --- PAGE HEADERS ---
 export const DEFAULT_HEADERS: PageHeaders = {
