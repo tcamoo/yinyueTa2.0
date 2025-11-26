@@ -156,5 +156,25 @@ export const cloudService = {
           console.error("Storage Delete Error:", error);
           throw error;
       }
+  },
+
+  validateUrl: async (url: string): Promise<boolean> => {
+      try {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          const key = cloudService.getAdminKey();
+          if (key) headers['x-admin-key'] = key;
+
+          const res = await fetch(`${API_BASE}/admin/validate`, {
+              method: 'POST',
+              headers: headers,
+              body: JSON.stringify({ targetUrl: url })
+          });
+          
+          if (!res.ok) return false;
+          const data = await res.json();
+          return data.valid === true;
+      } catch (e) {
+          return false;
+      }
   }
 };
