@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Home, BarChart2, Image, Radio, Hexagon, Film, List, LayoutGrid, Disc, FileText, Globe } from 'lucide-react';
+import { Home, Image, Radio, Film, LayoutGrid, Disc, FileText, Globe } from 'lucide-react';
 import { View } from '../types';
 
 interface SidebarProps {
@@ -11,21 +11,21 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
   const mainNavItems = [
     { id: View.HOME, label: '首映', sub: 'Premiere', icon: Home },
-    { id: View.MV, label: '视界', sub: 'Visuals', icon: Film }, // Added MV
+    { id: View.MV, label: '视界', sub: 'Visuals', icon: Film },
+    { id: View.GALLERY, label: '画廊', sub: 'Gallery', icon: Image }, // Added Gallery
     { id: View.CHARTS, label: '榜单', sub: 'Charts', icon: Globe },
     { id: View.DJ, label: '电音', sub: 'Club', icon: Disc },
     { id: View.ARTICLES, label: '专栏', sub: 'Read', icon: FileText },
-    { id: View.PLAYLISTS, label: '歌单', sub: 'Mine', icon: List },
     { id: View.LIBRARY, label: '管理', sub: 'Admin', icon: LayoutGrid },
   ];
 
-  // Mobile nav usually fits 5 items comfortably. We prioritize content consumption.
+  // Mobile nav priority
   const mobileNavItems = [
       mainNavItems[0], // Home
       mainNavItems[1], // MV
-      mainNavItems[3], // DJ
-      mainNavItems[5], // Playlists (Mine)
-      mainNavItems[6]  // Library/Admin
+      mainNavItems[2], // Gallery (Replaced DJ/Playlists priority)
+      mainNavItems[4], // DJ
+      mainNavItems[6]  // Library
   ];
 
   // Desktop Sidebar
