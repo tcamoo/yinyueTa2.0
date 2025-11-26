@@ -1,7 +1,8 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2 } from 'lucide-react';
-import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem } from '../types';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown } from 'lucide-react';
+import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem, NavItem } from '../types';
 import { THEMES, MOODS } from '../constants';
 import { cloudService } from '../services/cloudService';
 import { NotificationType } from '../components/Notification';
@@ -27,6 +28,8 @@ interface LibraryProps {
   pageHeaders: PageHeaders;
   setPageHeaders: React.Dispatch<React.SetStateAction<PageHeaders>>;
   notify: (type: NotificationType, message: string) => void;
+  navItems: NavItem[]; // New prop
+  setNavItems: React.Dispatch<React.SetStateAction<NavItem[]>>; // New prop
 }
 
 export const Library: React.FC<LibraryProps> = ({ 
@@ -40,14 +43,15 @@ export const Library: React.FC<LibraryProps> = ({
     onPlaySong, 
     currentTheme, setTheme,
     pageHeaders, setPageHeaders,
-    notify
+    notify,
+    navItems, setNavItems
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
   
   // Tabs
-  const [activeTab, setActiveTab] = useState<'media' | 'dj' | 'gallery' | 'articles' | 'decoration' | 'theme' | 'netdisk'>('media');
+  const [activeTab, setActiveTab] = useState<'media' | 'dj' | 'gallery' | 'articles' | 'decoration' | 'theme' | 'netdisk' | 'nav'>('media');
   const [mediaSubTab, setMediaSubTab] = useState<'audio' | 'video'>('audio');
   
   // Modals & Forms
@@ -145,7 +149,7 @@ export const Library: React.FC<LibraryProps> = ({
   const syncToCloud = async (overrideData?: any) => {
       setIsSyncing(true);
       const dataToSave = {
-          songs, mvs, galleryItems, djSets, articles, playlists, pageHeaders, softwareItems, 
+          songs, mvs, galleryItems, djSets, articles, playlists, pageHeaders, softwareItems, navItems,
           themeId: currentTheme.id,
           ...overrideData 
       };
@@ -213,6 +217,33 @@ export const Library: React.FC<LibraryProps> = ({
           const newVal = currentVal.substring(0, start) + prefix + selectedText + suffix + currentVal.substring(end);
           setFormData({...formData, content: newVal});
       }
+  };
+
+  // --- NAV MANAGEMENT LOGIC ---
+  const handleNavChange = (id: View, field: 'label' | 'subLabel', value: string) => {
+      setNavItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
+  };
+
+  const moveNavItem = (index: number, direction: 'up' | 'down') => {
+      const sorted = [...navItems].sort((a, b) => a.order - b.order);
+      const newItems = [...sorted];
+      
+      if (direction === 'up' && index > 0) {
+          [newItems[index], newItems[index - 1]] = [newItems[index - 1], newItems[index]];
+      } else if (direction === 'down' && index < newItems.length - 1) {
+          [newItems[index], newItems[index + 1]] = [newItems[index + 1], newItems[index]];
+      } else {
+          return;
+      }
+      
+      // Reassign order
+      const finalItems = newItems.map((item, idx) => ({ ...item, order: idx }));
+      setNavItems(finalItems);
+  };
+
+  const saveNavItems = () => {
+      syncToCloud({ navItems });
+      notify('success', '导航菜单已更新');
   };
 
   // --- CRUD OPERATIONS ---
@@ -465,6 +496,9 @@ export const Library: React.FC<LibraryProps> = ({
               <button onClick={() => setActiveTab('decoration')} className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 transition-colors ${activeTab === 'decoration' ? 'bg-brand-lime text-black' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}>
                   <Layout className="w-5 h-5" /> 页面装修
               </button>
+              <button onClick={() => setActiveTab('nav')} className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 transition-colors ${activeTab === 'nav' ? 'bg-brand-lime text-black' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}>
+                  <Menu className="w-5 h-5" /> 导航管理
+              </button>
               <button onClick={() => setActiveTab('theme')} className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 transition-colors ${activeTab === 'theme' ? 'bg-brand-lime text-black' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}>
                   <Palette className="w-5 h-5" /> 主题风格
               </button>
@@ -623,6 +657,67 @@ export const Library: React.FC<LibraryProps> = ({
                               </div>
                           </div>
                       </div>
+                  </div>
+              )}
+
+               {/* --- NAV TAB --- */}
+               {activeTab === 'nav' && (
+                  <div>
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold text-white">导航菜单管理</h3>
+                        <button onClick={saveNavItems} className="px-4 py-2 bg-brand-lime text-black font-bold rounded-lg flex items-center gap-2 hover:bg-white">
+                            <Save className="w-4 h-4" /> 保存菜单顺序
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-2">
+                          {[...navItems].sort((a,b) => a.order - b.order).filter(n => n.id !== View.LIBRARY).map((item, index) => (
+                              <div key={item.id} className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/20 group">
+                                  <div className="flex flex-col gap-1">
+                                      <button 
+                                        onClick={() => moveNavItem(index, 'up')}
+                                        disabled={index === 0}
+                                        className="p-1 hover:bg-white/10 rounded text-gray-500 hover:text-white disabled:opacity-30"
+                                      >
+                                          <ArrowUp className="w-4 h-4" />
+                                      </button>
+                                      <button 
+                                        onClick={() => moveNavItem(index, 'down')}
+                                        disabled={index === navItems.length - 2} // -2 because Library is hidden from reorder
+                                        className="p-1 hover:bg-white/10 rounded text-gray-500 hover:text-white disabled:opacity-30"
+                                      >
+                                          <ArrowDown className="w-4 h-4" />
+                                      </button>
+                                  </div>
+                                  
+                                  <div className="w-8 h-8 rounded bg-black/30 flex items-center justify-center text-xs font-mono text-gray-500">
+                                      {index + 1}
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-4 flex-1">
+                                      <div>
+                                          <label className="text-[10px] text-gray-600 uppercase font-bold block mb-1">中文显示名</label>
+                                          <input 
+                                            type="text" 
+                                            value={item.label}
+                                            onChange={e => handleNavChange(item.id, 'label', e.target.value)}
+                                            className="w-full bg-black border border-white/10 rounded px-2 py-1 text-white text-sm focus:border-brand-lime outline-none" 
+                                          />
+                                      </div>
+                                      <div>
+                                          <label className="text-[10px] text-gray-600 uppercase font-bold block mb-1">英文副标题</label>
+                                          <input 
+                                            type="text" 
+                                            value={item.subLabel}
+                                            onChange={e => handleNavChange(item.id, 'subLabel', e.target.value)}
+                                            className="w-full bg-black border border-white/10 rounded px-2 py-1 text-white text-sm focus:border-brand-lime outline-none" 
+                                          />
+                                      </div>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-4">* "管理" 菜单默认始终固定在底部。</p>
                   </div>
               )}
 
