@@ -39,7 +39,6 @@ async function scrapeNetease(env) {
   if (!env.DB) return { success: false, message: "KV DB not bound" };
 
   // Target: "Dance" (舞曲) category playlists
-  // Using the mobile/lite web headers often yields simpler HTML, but desktop usually has the song-list textarea
   const LIST_URL = "https://music.163.com/discover/playlist/?cat=%E8%88%9E%E6%9B%B2&limit=35&order=hot";
   
   const headers = {
@@ -59,7 +58,7 @@ async function scrapeNetease(env) {
       if (!listRes.ok) throw new Error(`List fetch failed: ${listRes.status}`);
       const listHtml = await listRes.text();
 
-      // Regex to find playlist IDs: <a title="xxx" href="/playlist?id=123456"
+      // Regex to find playlist IDs
       const playlistRegex = /<a title="([^"]+)" href="\/playlist\?id=(\d+)"/g;
       const playlists = [];
       let match;
@@ -82,30 +81,26 @@ async function scrapeNetease(env) {
           const detailHtml = await detailRes.text();
 
           // 3. Extract Songs from the magical textarea
-          // Netease puts the full song list JSON in <textarea id="song-list-pre-cache">
           const jsonRegex = /<textarea id="song-list-pre-cache" style="display:none;">([\s\S]*?)<\/textarea>/;
           const jsonMatch = detailHtml.match(jsonRegex);
 
           if (jsonMatch && jsonMatch[1]) {
               try {
                   const rawSongs = JSON.parse(jsonMatch[1]);
-                  // Take top 10 songs from this playlist
                   const topSongs = rawSongs.slice(0, 10);
 
                   for (const song of topSongs) {
                       const neteaseId = song.id;
-                      // Netease MP3 URL (Official external link pattern)
-                      const rawMp3Url = `http://music.163.com/song/media/outer/url?id=${neteaseId}.mp3`;
-                      // Wrap in our proxy to handle Referer/CORS for visualizer
+                      // IMPORTANT: Use HTTPS for Netease URL to avoid mixed content warnings in proxy
+                      const rawMp3Url = `https://music.163.com/song/media/outer/url?id=${neteaseId}.mp3`;
+                      
+                      // Wrap in our proxy
                       const proxyUrl = makeProxyUrl(rawMp3Url, 'netease');
 
-                      // Construct the item
                       const uniqueId = `ne_${neteaseId}`;
                       
-                      // Artists
                       const artistName = song.artists ? song.artists.map(a => a.name).join('/') : 'Unknown DJ';
                       
-                      // Cover Image (Netease usually provides album.picUrl)
                       const coverUrl = song.album && song.album.picUrl 
                           ? song.album.picUrl.replace('http:', 'https:') + '?param=400y400' 
                           : `https://picsum.photos/seed/${uniqueId}/400/400`;
@@ -116,10 +111,10 @@ async function scrapeNetease(env) {
                               title: song.name,
                               djName: artistName,
                               coverUrl: coverUrl,
-                              fileUrl: proxyUrl, // Proxy handles the audio
+                              fileUrl: proxyUrl, 
                               neteaseId: neteaseId.toString(),
-                              duration: "03:30", // Netease JSON has duration in ms, could parse if needed
-                              bpm: 128, // Hard to guess
+                              duration: "03:30", 
+                              bpm: 128, 
                               tags: ["Dance", "Club", "Netease"],
                               plays: Math.floor(Math.random() * 20000) + 1000
                           });
@@ -151,16 +146,13 @@ async function scrapeNetease(env) {
           let currentData = currentDataStr ? JSON.parse(currentDataStr) : {};
 
           let existingSets = currentData.djSets || [];
-          // Dedupe based on ID
           const existingMap = new Map(existingSets.map(s => [s.id, s]));
           
           for (const s of newSets) {
               existingMap.set(s.id, s);
           }
           
-          // Convert back to array, shuffle slightly or sort, limit size
           let merged = Array.from(existingMap.values());
-          // Limit to 200 items to prevent KV bloat
           if (merged.length > 200) merged = merged.slice(0, 200);
 
           currentData.djSets = merged;
@@ -213,8 +205,11 @@ export default {
             let referer = 'https://google.com';
             let userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
             
-            if (strategy === 'netease' || targetUrl.includes('163.com')) {
+            // Strictly enforce Netease headers
+            if (strategy === 'netease' || targetUrl.includes('163.com') || targetUrl.includes('126.net')) {
                 referer = 'https://music.163.com/';
+                // Netease sometimes checks for specific cookies or UA
+                userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
             } else if (strategy === 'pixabay') {
                 referer = 'https://pixabay.com/';
             } else if (strategy === 'djuu') {
@@ -233,10 +228,12 @@ export default {
                 headers: proxyHeaders
             });
 
+            // Reconstruct headers for CORS
             const newHeaders = new Headers(response.headers);
             Object.keys(corsHeaders).forEach(k => newHeaders.set(k, corsHeaders[k]));
             
-            if (targetUrl.endsWith('.mp3') && !newHeaders.has('Content-Type')) {
+            // Force content type if missing for MP3
+            if ((targetUrl.endsWith('.mp3') || targetUrl.includes('.mp3')) && !newHeaders.has('Content-Type')) {
                 newHeaders.set('Content-Type', 'audio/mpeg');
             }
 
