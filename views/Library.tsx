@@ -65,6 +65,11 @@ export const Library: React.FC<LibraryProps> = ({
 
   const articleContentRef = useRef<HTMLTextAreaElement>(null);
 
+  // File Upload Handlers (Hidden Inputs)
+  const audioFileInputRef = useRef<HTMLInputElement>(null);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
+
   const [formData, setFormData] = useState({
       title: '',
       artist: '', 
@@ -204,6 +209,24 @@ export const Library: React.FC<LibraryProps> = ({
           }
       };
       input.click();
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'url' | 'cover' | 'videoUrl') => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      notify('info', '正在上传文件...');
+      try {
+          const url = await cloudService.uploadFile(file);
+          if (url) {
+              setFormData(prev => ({ ...prev, [field]: url }));
+              notify('success', '上传成功');
+          } else {
+              notify('error', '上传失败：未返回 URL');
+          }
+      } catch (err: any) {
+          notify('error', '上传出错: ' + err.message);
+      }
   };
 
   const wrapSelection = (prefix: string, suffix: string) => {
@@ -772,16 +795,28 @@ export const Library: React.FC<LibraryProps> = ({
 
                       <div>
                           <label className="text-xs text-gray-500 mb-1 block">封面/图片 URL</label>
-                          <input type="text" value={formData.cover} onChange={e => setFormData({...formData, cover: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white focus:border-brand-lime outline-none" placeholder="https://..." />
+                          <div className="flex gap-2">
+                             <input type="text" value={formData.cover} onChange={e => setFormData({...formData, cover: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white focus:border-brand-lime outline-none" placeholder="https://..." />
+                             <button onClick={() => coverFileInputRef.current?.click()} className="px-4 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold text-xs flex items-center gap-2 transition-colors">
+                                 <Upload className="w-4 h-4" /> 上传
+                             </button>
+                             <input ref={coverFileInputRef} type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'cover')} />
+                          </div>
                       </div>
 
                       {editingType === 'audio' && (
                           <>
                             <div>
                                 <label className="text-xs text-gray-500 mb-1 block">音频文件 URL (或 网易云ID)</label>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 mb-2">
                                     <input type="text" value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} className="flex-1 bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="https://example.com/song.mp3" />
-                                    <input type="text" value={formData.neteaseId} onChange={e => setFormData({...formData, neteaseId: e.target.value})} className="w-32 bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="网易云ID" />
+                                    <button onClick={() => audioFileInputRef.current?.click()} className="px-4 bg-brand-lime text-black font-bold rounded-lg text-xs flex items-center gap-2 hover:bg-white transition-colors">
+                                        <Upload className="w-4 h-4" /> 上传文件
+                                    </button>
+                                    <input ref={audioFileInputRef} type="file" className="hidden" accept="audio/*" onChange={(e) => handleFileUpload(e, 'url')} />
+                                </div>
+                                <div className="flex gap-2">
+                                    <input type="text" value={formData.neteaseId} onChange={e => setFormData({...formData, neteaseId: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white text-sm" placeholder="可选: 网易云音乐 ID (覆盖上方 URL)" />
                                 </div>
                             </div>
                             <div>
@@ -795,7 +830,13 @@ export const Library: React.FC<LibraryProps> = ({
                           <>
                              <div>
                                 <label className="text-xs text-gray-500 mb-1 block">视频文件 URL (MP4/WebM)</label>
-                                <input type="text" value={formData.videoUrl} onChange={e => setFormData({...formData, videoUrl: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="https://..." />
+                                <div className="flex gap-2">
+                                    <input type="text" value={formData.videoUrl} onChange={e => setFormData({...formData, videoUrl: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="https://..." />
+                                    <button onClick={() => videoFileInputRef.current?.click()} className="px-4 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold text-xs flex items-center gap-2 transition-colors">
+                                        <Upload className="w-4 h-4" />
+                                    </button>
+                                    <input ref={videoFileInputRef} type="file" className="hidden" accept="video/*" onChange={(e) => handleFileUpload(e, 'videoUrl')} />
+                                </div>
                              </div>
                              <div>
                                 <label className="text-xs text-gray-500 mb-1 block">标签/分类</label>
