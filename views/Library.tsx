@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown } from 'lucide-react';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem, NavItem } from '../types';
 import { THEMES, MOODS } from '../constants';
 import { cloudService } from '../services/cloudService';
@@ -155,6 +155,16 @@ export const Library: React.FC<LibraryProps> = ({
           notify('error', `同步失败: ${e.message}`);
       }
       setTimeout(() => setIsSyncing(false), 800);
+  };
+
+  const toggleFeaturedMV = (id: string) => {
+      const updatedMvs = mvs.map(mv => ({
+          ...mv,
+          isFeatured: mv.id === id // Set the clicked one to true, others to false
+      }));
+      setMvs(updatedMvs);
+      notify('success', '已更新首页推荐视频');
+      syncToCloud({ mvs: updatedMvs });
   };
 
   const insertAtCursor = (text: string) => {
@@ -509,6 +519,15 @@ export const Library: React.FC<LibraryProps> = ({
                                       <div className="text-xs text-gray-500 truncate">{item.artist}</div>
                                   </div>
                                   <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      {mediaSubTab === 'video' && (
+                                          <button 
+                                            onClick={() => toggleFeaturedMV(item.id)} 
+                                            className={`p-2 rounded transition-colors ${item.isFeatured ? 'text-brand-pink bg-brand-pink/10' : 'text-gray-500 hover:text-brand-pink hover:bg-brand-pink/10'}`}
+                                            title="设为首页推荐"
+                                          >
+                                              <Heart className={`w-4 h-4 ${item.isFeatured ? 'fill-current' : ''}`} />
+                                          </button>
+                                      )}
                                       <button onClick={() => openEditModal(item, mediaSubTab as any)} className="p-2 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500 hover:text-white"><Edit3 className="w-4 h-4" /></button>
                                       <button onClick={() => handleDelete(item.id, mediaSubTab as any)} className="p-2 bg-red-500/20 text-red-500 rounded hover:bg-red-500 hover:text-white"><Trash2 className="w-4 h-4" /></button>
                                   </div>
