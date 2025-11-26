@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { SoftwareItem, PageHeaderConfig } from '../types';
 import { Download, Monitor, Smartphone, Cloud, Globe, Search, Box, Cpu, HardDrive, Filter, CheckCircle } from 'lucide-react';
@@ -9,7 +8,7 @@ interface SoftwareViewProps {
   headerConfig: PageHeaderConfig | undefined;
 }
 
-export const SoftwareView: React.FC<SoftwareViewProps> = ({ softwareItems, headerConfig }) => {
+export const SoftwareView: React.FC<SoftwareViewProps> = ({ softwareItems = [], headerConfig }) => {
   const [filter, setFilter] = useState<'all' | 'win' | 'mac' | 'mobile'>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -17,10 +16,12 @@ export const SoftwareView: React.FC<SoftwareViewProps> = ({ softwareItems, heade
   const config = headerConfig || {
       title: '资源中心',
       subtitle: 'DOWNLOADS',
-      description: '加载中或配置缺失...'
+      description: '探索精选的音频工具与资源。'
   };
 
-  const filteredItems = softwareItems.filter(item => {
+  const safeItems = Array.isArray(softwareItems) ? softwareItems : [];
+
+  const filteredItems = safeItems.filter(item => {
       const matchesFilter = filter === 'all' || item.platform === filter;
       const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesFilter && matchesSearch;
