@@ -59,8 +59,16 @@ export const DJView: React.FC<DJViewProps> = ({ djSets, onPlaySet, currentSongId
                <div className="absolute top-0 right-1/4 w-1 h-[150%] bg-brand-pink blur-[4px] origin-top animate-[laserSwing_2.5s_infinite_alternate-reverse] mix-blend-screen opacity-60"></div>
                <div className="absolute top-0 left-1/2 w-0.5 h-[150%] bg-brand-cyan blur-[2px] origin-top animate-[laserSwing_1.5s_infinite_linear] mix-blend-screen opacity-80"></div>
 
+               {/* PULSING SPEAKERS */}
+               <div className={`absolute top-1/2 left-20 -translate-y-1/2 opacity-5 hidden lg:block transition-transform duration-100 ease-out ${isPlaying ? 'scale-110' : 'scale-100'}`}>
+                   <Speaker className="w-96 h-96 text-white" />
+               </div>
+               <div className={`absolute top-1/2 right-20 -translate-y-1/2 opacity-5 hidden lg:block transition-transform duration-100 ease-out ${isPlaying ? 'scale-110' : 'scale-100'}`}>
+                   <Speaker className="w-96 h-96 text-white transform scale-x-[-1]" />
+               </div>
+
                {/* TURNTABLE VISUAL COMPONENT */}
-               <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none transform scale-150 md:scale-100">
+               <div className="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none transform scale-150 md:scale-100 mix-blend-screen">
                    {/* Deck Base */}
                    <div className="relative w-[500px] h-[500px] rounded-[40px] border border-white/10 bg-[#111] shadow-2xl flex items-center justify-center transform rotate-x-12 rotate-z-6">
                        {/* Platter */}
@@ -73,12 +81,12 @@ export const DJView: React.FC<DJViewProps> = ({ djSets, onPlaySet, currentSongId
                            <div className="absolute inset-20 rounded-full border border-white/5 opacity-10"></div>
                            
                            {/* Label */}
-                           <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-brand-pink to-brand-purple flex items-center justify-center shadow-lg">
+                           <div className={`w-32 h-32 rounded-full bg-gradient-to-tr from-brand-pink to-brand-purple flex items-center justify-center shadow-lg ${isPlaying ? 'animate-[spin_2s_linear_infinite_reverse]' : ''}`}>
                                <div className="w-4 h-4 rounded-full bg-black"></div>
                            </div>
                        </div>
                        {/* Tone Arm */}
-                       <div className="absolute -top-10 right-10 w-8 h-64 bg-gray-800 rounded-full origin-top transform rotate-[25deg] shadow-xl border-l border-white/10 z-10 flex flex-col items-center">
+                       <div className={`absolute -top-10 right-10 w-8 h-64 bg-gray-800 rounded-full origin-top transform shadow-xl border-l border-white/10 z-10 flex flex-col items-center transition-transform duration-1000 ${isPlaying ? 'rotate-[25deg]' : 'rotate-[0deg]'}`}>
                             <div className="w-12 h-12 rounded-full bg-gray-700 -mt-4 border-2 border-gray-600"></div>
                             <div className="w-2 h-full bg-gray-600/50"></div>
                             <div className="w-10 h-16 bg-gray-900 rounded mb-2 border border-white/20"></div>
@@ -92,20 +100,20 @@ export const DJView: React.FC<DJViewProps> = ({ djSets, onPlaySet, currentSongId
                </div>
 
                {/* FLOATING NOTES ANIMATION */}
-               <div className="absolute inset-0 pointer-events-none">
-                   {[...Array(8)].map((_, i) => (
+               <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                   {[...Array(12)].map((_, i) => (
                        <div 
                          key={i}
-                         className="absolute text-brand-lime/20 animate-float-note"
+                         className="absolute text-brand-lime/30 animate-float-note"
                          style={{
                              left: `${Math.random() * 100}%`,
-                             top: '100%',
-                             animationDuration: `${4 + Math.random() * 6}s`,
+                             top: '110%',
+                             animationDuration: `${5 + Math.random() * 8}s`,
                              animationDelay: `${Math.random() * 5}s`,
-                             fontSize: `${20 + Math.random() * 40}px`
+                             fontSize: `${24 + Math.random() * 48}px`
                          }}
                        >
-                           {i % 2 === 0 ? <Music /> : <DiscIcon />}
+                           {i % 3 === 0 ? <Music /> : i % 3 === 1 ? <DiscIcon /> : <Activity />}
                        </div>
                    ))}
                </div>
