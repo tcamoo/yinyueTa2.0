@@ -1,5 +1,5 @@
 
-// This service communicates with the Worker API endpoints defined in worker.js
+import { NavItem, SoftwareItem } from '../types';
 
 export interface AppData {
   songs: any[];
@@ -8,7 +8,8 @@ export interface AppData {
   djSets: any[];
   articles: any[];
   playlists: any[];
-  softwareItems?: any[]; // Added software support
+  softwareItems?: SoftwareItem[]; 
+  navItems?: NavItem[];
   pageHeaders: any;
   themeId: string;
 }
@@ -24,7 +25,6 @@ const API_BASE = '/api';
 const ADMIN_KEY_STORAGE = 'yinyuetai_admin_key';
 
 export const cloudService = {
-  // Local Storage Management for Admin Key
   setAdminKey: (key: string) => {
     localStorage.setItem(ADMIN_KEY_STORAGE, key);
   },
@@ -33,7 +33,6 @@ export const cloudService = {
     return localStorage.getItem(ADMIN_KEY_STORAGE) || '';
   },
 
-  // 0. Verify Key (New)
   verifyKey: async (key: string): Promise<boolean> => {
       try {
           const res = await fetch(`${API_BASE}/auth`, {
@@ -52,7 +51,6 @@ export const cloudService = {
       }
   },
 
-  // 1. Sync Data (Load) - Public
   loadData: async (): Promise<AppData | null> => {
     try {
       const res = await fetch(`${API_BASE}/sync`);
@@ -62,7 +60,7 @@ export const cloudService = {
       }
       const data = await res.json();
       if (data.warning) console.warn("Backend Warning:", data.warning);
-      if (data.empty) return null; // No data in KV yet
+      if (data.empty) return null;
       return data as AppData;
     } catch (error) {
       console.error("Cloud Load Error:", error);
@@ -70,7 +68,6 @@ export const cloudService = {
     }
   },
 
-  // 2. Sync Data (Save) - Protected
   saveData: async (data: AppData): Promise<boolean> => {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -94,7 +91,6 @@ export const cloudService = {
     }
   },
 
-  // 3. Upload File to R2 - Protected
   uploadFile: async (file: File): Promise<string | null> => {
     try {
       const ext = file.name.split('.').pop();
@@ -124,7 +120,6 @@ export const cloudService = {
     }
   },
 
-  // 4. List R2 Files (New) - Protected
   listStorage: async (): Promise<{ files: R2File[] }> => {
       try {
           const headers: Record<string, string> = {};
@@ -144,7 +139,6 @@ export const cloudService = {
       }
   },
 
-  // 5. Delete R2 File (New) - Protected
   deleteStorage: async (key: string): Promise<boolean> => {
       try {
           const headers: Record<string, string> = {};
