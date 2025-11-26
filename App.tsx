@@ -9,7 +9,6 @@ import { Charts } from './views/Charts';
 import { Gallery } from './views/Gallery';
 import { Library } from './views/Library';
 import { MVView } from './views/MV';
-import { PlaylistsView } from './views/Playlists';
 import { DJView } from './views/DJ';
 import { ArticlesView } from './views/Articles';
 import { View, Song, Playlist, Theme, MV, GalleryItem, DJSet, Article, PageHeaders } from './types';
@@ -128,18 +127,6 @@ const App: React.FC = () => {
     setIsPlaying(!isPlaying);
   };
 
-  const handleCreatePlaylist = (name: string, desc: string) => {
-     const newPlaylist: Playlist = {
-        id: Date.now().toString(),
-        name,
-        description: desc,
-        coverUrl: `https://picsum.photos/seed/${Date.now()}/300/300`,
-        songCount: 0
-     };
-     setPlaylists([newPlaylist, ...playlists]);
-     addNotification('success', `歌单 "${name}" 创建成功`);
-  };
-
   const handleReadArticle = (article: Article) => {
       setCurrentArticle(article);
       setCurrentView(View.ARTICLES);
@@ -154,6 +141,7 @@ const App: React.FC = () => {
             songs={userSongs}
             mvs={mvs}
             articles={articles}
+            galleryItems={galleryItems}
             onPlaySong={handlePlaySong} 
             currentSongId={currentSong?.id} 
             onChangeView={setCurrentView} 
@@ -197,8 +185,6 @@ const App: React.FC = () => {
             headerConfig={pageHeaders[View.CHARTS]}
           />
         );
-      case View.PLAYLISTS:
-        return <PlaylistsView playlists={playlists} onCreatePlaylist={handleCreatePlaylist} />;
       case View.GALLERY:
         return <Gallery items={galleryItems} />;
       case View.LIBRARY:
@@ -229,6 +215,7 @@ const App: React.FC = () => {
             songs={userSongs}
             mvs={mvs}
             articles={articles}
+            galleryItems={galleryItems}
             onPlaySong={handlePlaySong} 
             currentSongId={currentSong?.id} 
             onChangeView={setCurrentView} 
