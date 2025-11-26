@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning } from 'lucide-react';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist } from '../types';
 import { THEMES, MOODS } from '../constants';
 import { cloudService } from '../services/cloudService';
+import { NotificationType } from '../components/Notification';
 
 interface LibraryProps {
   songs: Song[];
@@ -22,6 +23,7 @@ interface LibraryProps {
   setTheme: (theme: Theme) => void;
   pageHeaders: PageHeaders;
   setPageHeaders: React.Dispatch<React.SetStateAction<PageHeaders>>;
+  notify: (type: NotificationType, message: string) => void;
 }
 
 export const Library: React.FC<LibraryProps> = ({ 
@@ -33,7 +35,8 @@ export const Library: React.FC<LibraryProps> = ({
     playlists,
     onPlaySong, 
     currentTheme, setTheme,
-    pageHeaders, setPageHeaders
+    pageHeaders, setPageHeaders,
+    notify
 }) => {
   const [activeTab, setActiveTab] = useState<'media' | 'articles' | 'appearance' | 'pages'>('media');
   const [mediaType, setMediaType] = useState<'audio' | 'video' | 'image' | 'dj'>('audio');
@@ -47,6 +50,18 @@ export const Library: React.FC<LibraryProps> = ({
   // Cloud State
   const [isSyncing, setIsSyncing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'missing_config' | 'offline'>('connected');
+
+  // Check Connection on Mount
+  useEffect(() => {
+     const check = async () => {
+         const data = await cloudService.loadData();
+         // If loadData returns null but didn't throw network error, it might be empty or missing config
+         // In a real scenario, we'd have a specific status endpoint. 
+         // Here we assume if it works, it's connected. If it failed silently in App.tsx, we check again or rely on sync to fail.
+     };
+     check();
+  }, []);
 
   // Form Fields
   const [formData, setFormData] = useState({
@@ -100,17 +115,21 @@ export const Library: React.FC<LibraryProps> = ({
       };
       
       const success = await cloudService.saveData(dataToSave);
+      
       if (success) {
-          // alert('Cloud Sync Successful'); 
-          // Too intrusive, maybe a toast? For now just visual indicator
+          setConnectionStatus('connected');
       } else {
-          alert('Cloud Sync Failed. Check network.');
+          // If save failed, it's likely due to missing KV binding in this context
+          setConnectionStatus('missing_config');
+          notify('error', '同步失败：Cloudflare KV 未配置');
       }
       setTimeout(() => setIsSyncing(false), 800);
+      return success;
   };
 
-  const handleManualSync = () => {
-      syncToCloud();
+  const handleManualSync = async () => {
+      const success = await syncToCloud();
+      if(success) notify('success', '所有数据已同步至云端');
   };
 
   // --- FILE UPLOAD HANDLER ---
@@ -123,8 +142,10 @@ export const Library: React.FC<LibraryProps> = ({
 
           if (uploadedUrl) {
               setFormData(prev => ({ ...prev, [field]: uploadedUrl }));
+              notify('success', '文件上传成功 (R2)');
           } else {
-              alert('File upload failed.');
+              notify('error', '文件上传失败 (R2 未配置)');
+              setConnectionStatus('missing_config');
           }
       }
   };
@@ -333,6 +354,7 @@ export const Library: React.FC<LibraryProps> = ({
 
       setIsModalOpen(false);
       resetForm();
+      notify('success', editMode ? '内容已更新' : '新建成功');
       
       // TRIGGER CLOUD SYNC
       syncToCloud(updatedData);
@@ -341,6 +363,7 @@ export const Library: React.FC<LibraryProps> = ({
   const handleSavePageHeader = () => {
       const nextHeaders = { ...pageHeaders, [selectedPage]: { ...headerFormData } };
       setPageHeaders(nextHeaders);
+      notify('success', '页面配置已保存');
       syncToCloud({ pageHeaders: nextHeaders });
   };
   
@@ -378,6 +401,7 @@ export const Library: React.FC<LibraryProps> = ({
             updatedData = { djSets: next };
         }
         
+        notify('info', '项目已删除');
         syncToCloud(updatedData);
       }
   };
@@ -388,16 +412,30 @@ export const Library: React.FC<LibraryProps> = ({
       {/* Header */}
       <header className="flex flex-col xl:flex-row xl:items-end justify-between mb-8 gap-8">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-lime/10 border border-brand-lime/30 rounded-full mb-4">
-             <Settings2 className="w-3 h-3 text-brand-lime" />
-             <span className="text-xs text-brand-lime font-bold tracking-wider">CMS V4.0 CLOUD</span>
+          <div className="flex items-center gap-3 mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-lime/10 border border-brand-lime/30 rounded-full">
+                <Settings2 className="w-3 h-3 text-brand-lime" />
+                <span className="text-xs text-brand-lime font-bold tracking-wider">CMS V4.0</span>
+              </div>
+
+              {/* CLOUD STATUS INDICATOR */}
+              <div className={`
+                 inline-flex items-center gap-2 px-3 py-1 rounded-full border backdrop-blur-md transition-colors
+                 ${connectionStatus === 'connected' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-500'}
+              `}>
+                  {connectionStatus === 'connected' ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                  <span className="text-xs font-bold tracking-wider">
+                      {connectionStatus === 'connected' ? 'CLOUD ACTIVE' : 'NO DATABASE'}
+                  </span>
+              </div>
           </div>
+
           <h1 className="text-5xl lg:text-7xl font-display font-bold mb-4">
             创作 <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-lime to-brand-cyan">控制台</span>
           </h1>
         </div>
         
-        {/* CLOUD SYNC INDICATOR */}
+        {/* CLOUD SYNC BUTTON */}
         <div className="flex items-center gap-4">
             <button 
                 onClick={handleManualSync}
@@ -436,6 +474,20 @@ export const Library: React.FC<LibraryProps> = ({
           <Settings2 className="w-5 h-5" /> 主题
         </button>
       </div>
+
+      {/* WARNING BANNER IF NO CONFIG */}
+      {connectionStatus === 'missing_config' && (
+          <div className="mb-8 p-4 rounded-xl bg-yellow-900/10 border border-yellow-500/20 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
+              <div>
+                  <h4 className="font-bold text-yellow-500 mb-1">未配置云端存储</h4>
+                  <p className="text-xs text-yellow-200/70 leading-relaxed">
+                      检测到 Cloudflare KV 或 R2 未绑定。更改将仅临时保存在内存中，刷新页面后会丢失。<br/>
+                      请参考 <strong>README.md</strong> 在 <code>wrangler.json</code> 中填入您的 KV 和 R2 ID。
+                  </p>
+              </div>
+          </div>
+      )}
 
       {/* TAB: MEDIA LIBRARY */}
       {activeTab === 'media' && (
