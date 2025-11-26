@@ -215,100 +215,83 @@ export const Library: React.FC<LibraryProps> = ({
           
           if (mediaSelectorType === 'image') {
               // Image Card - Clean and Elegant
-              tag = `<div class="not-prose my-12 relative group rounded-2xl overflow-hidden shadow-2xl"><img src="${item.imageUrl}" class="w-full h-auto object-cover" alt="${item.title}" /><div class="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"><div class="transform translate-y-4 group-hover:translate-y-0 transition-transform"><p class="text-sm font-bold text-white tracking-widest uppercase mb-1">${item.title}</p><span class="text-[10px] text-brand-cyan border border-brand-cyan/20 px-2 py-1 rounded-full backdrop-blur-md">${item.photographer || 'Gallery'}</span></div></div></div>`;
+              tag = `<div class="not-prose my-16 relative group rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5"><img src="${item.imageUrl}" class="w-full h-auto object-cover" alt="${item.title}" /><div class="absolute bottom-0 left-0 w-full p-8 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"><div class="transform translate-y-4 group-hover:translate-y-0 transition-transform"><p class="text-sm font-bold text-white tracking-widest uppercase mb-1">${item.title}</p><span class="text-[10px] text-brand-cyan border border-brand-cyan/20 px-2 py-1 rounded-full backdrop-blur-md">${item.photographer || 'Gallery'}</span></div></div></div>`;
           } else if (mediaSelectorType === 'audio') {
               const url = item.fileUrl || `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
               
-              // Compact "Pill" Style Audio Card (Matching Figure 2 from request)
+              // Figure 2 Style Premium Card for Manual Insert
               tag = `
-<div class="not-prose my-10 w-full max-w-lg mx-auto transform transition-all hover:scale-[1.01]">
-    <div class="relative group rounded-[2rem] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 shadow-2xl overflow-hidden">
-        <div class="absolute inset-0 bg-noise opacity-[0.05]"></div>
-        <div class="relative flex items-center gap-4 bg-[#0a0a0a] p-3 pr-4 rounded-[1.8rem]">
-            <!-- Album Art -->
-            <div class="relative w-14 h-14 shrink-0 rounded-xl overflow-hidden border border-white/10 shadow-lg group-hover:shadow-[0_0_20px_rgba(204,255,0,0.2)] transition-shadow">
-                <img src="${item.coverUrl}" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" alt="Cover" />
-                
-                <!-- Playing Animation Overlay -->
-                <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 transition-opacity" id="overlay_${uniqueId}">
-                   <div class="flex gap-0.5 items-end h-3">
-                       <div class="w-1 bg-brand-lime animate-[bounceVisualizer_0.5s_infinite] h-2"></div>
-                       <div class="w-1 bg-brand-lime animate-[bounceVisualizer_0.7s_infinite] h-3"></div>
-                       <div class="w-1 bg-brand-lime animate-[bounceVisualizer_0.4s_infinite] h-2"></div>
-                   </div>
-                </div>
+<div class="not-prose my-16 w-full max-w-4xl mx-auto">
+    <div class="bg-[#121212] border border-white/10 rounded-[2.5rem] p-6 shadow-2xl flex flex-col md:flex-row items-center gap-6 relative overflow-hidden group hover:border-white/20 transition-all">
+        <div class="absolute top-0 right-0 w-48 h-48 bg-brand-lime/5 rounded-full blur-[60px] pointer-events-none group-hover:bg-brand-lime/10 transition-colors"></div>
+        
+        <div class="relative shrink-0">
+            <div class="w-32 h-32 rounded-full border-[4px] border-[#1a1a1a] shadow-xl overflow-hidden spin-on-play">
+                <img src="${item.coverUrl}" class="w-full h-full object-cover" alt="Cover" />
             </div>
-
-            <!-- Info -->
-            <div class="flex-1 min-w-0 flex flex-col justify-center">
-                <div class="flex items-center gap-2 mb-0.5">
-                   <span class="text-[9px] font-black text-brand-lime bg-brand-lime/10 px-1.5 py-0.5 rounded uppercase tracking-wider border border-brand-lime/10">Track</span>
-                </div>
-                <h4 class="text-base font-bold text-white truncate leading-tight group-hover:text-brand-lime transition-colors">${item.title}</h4>
-                <p class="text-xs text-gray-500 truncate font-mono mt-0.5">${item.artist}</p>
-            </div>
-
-            <!-- Play Button -->
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none"><div class="w-6 h-6 bg-[#121212] rounded-full border border-white/10 flex items-center justify-center"><div class="w-1.5 h-1.5 bg-gray-700 rounded-full"></div></div></div>
+            
             <button 
                 onclick="(function(btn){
                     var audio = document.getElementById('audio_${uniqueId}');
-                    var overlay = document.getElementById('overlay_${uniqueId}');
+                    var cover = btn.previousElementSibling.previousElementSibling;
                     var playIcon = btn.querySelector('.play-icon');
                     var pauseIcon = btn.querySelector('.pause-icon');
+                    var bar = btn.closest('.bg-[#121212]').querySelector('.visualizer-bar');
                     
                     if(audio.paused){
-                        // Pause all other audios first
                         document.querySelectorAll('audio').forEach(function(a){ if(a.id !== audio.id) { a.pause(); } });
-
                         audio.play();
                         playIcon.style.display = 'none';
                         pauseIcon.style.display = 'block';
-                        overlay.style.opacity = '1';
-                        btn.classList.add('bg-brand-lime', 'text-black', 'scale-110', 'shadow-[0_0_20px_rgba(204,255,0,0.4)]');
-                        btn.classList.remove('bg-white/10', 'text-white');
+                        btn.classList.add('bg-brand-lime', 'text-black', 'scale-110');
+                        btn.classList.remove('bg-white', 'text-black');
+                        cover.style.animation = 'spin 10s linear infinite';
+                        bar.style.opacity = '1';
                     } else {
                         audio.pause();
                         playIcon.style.display = 'block';
                         pauseIcon.style.display = 'none';
-                        overlay.style.opacity = '0';
-                        btn.classList.remove('bg-brand-lime', 'text-black', 'scale-110', 'shadow-[0_0_20px_rgba(204,255,0,0.4)]');
-                        btn.classList.add('bg-white/10', 'text-white');
+                        btn.classList.remove('bg-brand-lime', 'text-black', 'scale-110');
+                        btn.classList.add('bg-white', 'text-black');
+                        cover.style.animation = 'none';
+                        bar.style.opacity = '0.3';
                     }
                 })(this)"
-                class="w-12 h-12 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white hover:text-black transition-all duration-300 shrink-0 border border-white/5"
+                class="absolute bottom-0 right-0 w-10 h-10 bg-white text-black rounded-full flex items-center justify-center shadow-lg hover:scale-110 hover:bg-brand-lime transition-all z-20"
             >
-                <svg class="play-icon w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24" style="display:block"><path d="M8 5v14l11-7z"/></svg>
-                <svg class="pause-icon w-5 h-5 fill-current" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                <svg class="play-icon w-4 h-4 fill-current ml-0.5" viewBox="0 0 24 24" style="display:block"><path d="M8 5v14l11-7z"/></svg>
+                <svg class="pause-icon w-4 h-4 fill-current" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
             </button>
         </div>
+
+        <div class="flex-1 w-full text-center md:text-left min-w-0 z-10">
+            <div class="flex items-center justify-center md:justify-start gap-3 mb-2">
+                <span class="px-2 py-0.5 bg-brand-lime text-black text-[10px] font-black uppercase tracking-widest rounded">Now Playing</span>
+                <span class="text-xs font-mono text-gray-500">${item.duration || '3:00'}</span>
+            </div>
+            <h3 class="text-2xl font-black text-white truncate mb-1" style="font-family: 'Space Grotesk', sans-serif;">${item.title}</h3>
+            <p class="text-sm text-gray-400 font-medium tracking-wide uppercase mb-4 flex items-center justify-center md:justify-start gap-2">
+                <span class="w-4 h-[1px] bg-gray-600"></span> ${item.artist}
+            </p>
+            <div class="visualizer-bar w-full bg-white/5 h-8 rounded-lg border border-white/5 opacity-30 transition-opacity flex items-end px-2 pb-1 gap-1">
+                <div class="flex-1 bg-brand-lime h-[40%] rounded-t-sm"></div>
+                <div class="flex-1 bg-brand-lime h-[60%] rounded-t-sm"></div>
+                <div class="flex-1 bg-brand-lime h-[30%] rounded-t-sm"></div>
+                <div class="flex-1 bg-brand-lime h-[80%] rounded-t-sm"></div>
+                <div class="flex-1 bg-brand-lime h-[50%] rounded-t-sm"></div>
+                <div class="flex-1 bg-brand-lime h-[20%] rounded-t-sm"></div>
+                <div class="flex-1 bg-brand-lime h-[70%] rounded-t-sm"></div>
+                <div class="flex-1 bg-brand-lime h-[40%] rounded-t-sm"></div>
+            </div>
+        </div>
         
-        <audio id="audio_${uniqueId}" src="${url}" preload="none" onended="
-            var btn = document.getElementById('audio_${uniqueId}').parentElement.querySelector('button');
-            btn.querySelector('.play-icon').style.display = 'block';
-            btn.querySelector('.pause-icon').style.display = 'none';
-            document.getElementById('overlay_${uniqueId}').style.opacity = '0';
-            btn.classList.remove('bg-brand-lime', 'text-black', 'scale-110', 'shadow-[0_0_20px_rgba(204,255,0,0.4)]');
-            btn.classList.add('bg-white/10', 'text-white');
-        " onpause="
-             var btn = document.getElementById('audio_${uniqueId}').parentElement.querySelector('button');
-             btn.querySelector('.play-icon').style.display = 'block';
-             btn.querySelector('.pause-icon').style.display = 'none';
-             document.getElementById('overlay_${uniqueId}').style.opacity = '0';
-             btn.classList.remove('bg-brand-lime', 'text-black', 'scale-110', 'shadow-[0_0_20px_rgba(204,255,0,0.4)]');
-             btn.classList.add('bg-white/10', 'text-white');
-        " onplay="
-             var btn = document.getElementById('audio_${uniqueId}').parentElement.querySelector('button');
-             btn.querySelector('.play-icon').style.display = 'none';
-             btn.querySelector('.pause-icon').style.display = 'block';
-             document.getElementById('overlay_${uniqueId}').style.opacity = '1';
-             btn.classList.add('bg-brand-lime', 'text-black', 'scale-110', 'shadow-[0_0_20px_rgba(204,255,0,0.4)]');
-             btn.classList.remove('bg-white/10', 'text-white');
-        "></audio>
+        <audio id="audio_${uniqueId}" src="${url}" preload="none" onended="this.parentElement.querySelector('button').click()"></audio>
     </div>
-</div>`.replace(/\n/g, ''); // Minify string to prevent accidental newlines in template
+</div>`.replace(/\n/g, ''); 
           } else if (mediaSelectorType === 'video') {
               // Video Card - Minimal and Floating
-              tag = `<div class="not-prose my-12"><div class="rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl bg-black relative group hover:shadow-[0_20px_60px_rgba(0,0,0,0.6)] transition-all duration-500 hover:-translate-y-2"><video controls poster="${item.coverUrl}" src="${item.videoUrl}" class="w-full aspect-video object-cover"></video><div class="absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-xs font-bold text-white border border-white/10 pointer-events-none shadow-lg">${item.title}</div></div></div>`;
+              tag = `<div class="not-prose my-16"><div class="rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-black relative group hover:shadow-[0_20px_60px_rgba(0,0,0,0.6)] transition-all duration-500 hover:-translate-y-2"><video controls poster="${item.coverUrl}" src="${item.videoUrl}" class="w-full aspect-video object-cover"></video><div class="absolute top-6 left-6 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-xs font-bold text-white border border-white/10 pointer-events-none shadow-lg">${item.title}</div></div></div>`;
           }
           insertAtCursor(tag);
           notify('success', '媒体已插入文章');
@@ -338,30 +321,13 @@ export const Library: React.FC<LibraryProps> = ({
                   if (url) {
                       let tag = '';
                       if (type === 'image') {
-                          tag = `<img src="${url}" class="w-full rounded-2xl my-8 shadow-2xl border border-white/5" alt="uploaded-image" />`;
+                          tag = `<img src="${url}" class="w-full rounded-[2rem] my-12 shadow-2xl border border-white/5" alt="uploaded-image" />`;
                       } else if (type === 'audio') {
-                           // Use the same refined audio card logic here, but with generic info
                            const uniqueId = Math.random().toString(36).substr(2, 9);
-                           tag = `
-<div class="not-prose my-10 w-full max-w-lg mx-auto">
-    <div class="relative group rounded-[2rem] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 shadow-2xl overflow-hidden">
-        <div class="relative flex items-center gap-4 bg-[#0a0a0a] p-3 pr-4 rounded-[1.8rem]">
-            <div class="relative w-14 h-14 shrink-0 rounded-xl bg-gray-800 flex items-center justify-center border border-white/10">
-                <svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
-            </div>
-            <div class="flex-1 min-w-0 flex flex-col justify-center">
-                <h4 class="text-base font-bold text-white truncate">Uploaded Audio</h4>
-                <p class="text-xs text-gray-500 truncate font-mono mt-0.5">Audio File</p>
-            </div>
-            <button onclick="var a=document.getElementById('a_${uniqueId}'); if(a.paused){a.play();this.classList.add('bg-brand-lime','text-black');this.classList.remove('bg-white/10','text-white')}else{a.pause();this.classList.remove('bg-brand-lime','text-black');this.classList.add('bg-white/10','text-white')}" class="w-12 h-12 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white hover:text-black transition-all">
-                <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            </button>
-            <audio id="a_${uniqueId}" src="${url}" preload="none"></audio>
-        </div>
-    </div>
-</div>`.replace(/\n/g, '');
+                           // Simple generic audio player for direct uploads
+                           tag = `<audio controls src="${url}" class="w-full my-8"></audio>`;
                       } else if (type === 'video') {
-                          tag = `<video controls src="${url}" class="w-full rounded-2xl my-8 shadow-2xl border border-white/10"></video>`;
+                          tag = `<video controls src="${url}" class="w-full rounded-[2rem] my-12 shadow-2xl border border-white/10"></video>`;
                       }
                       insertAtCursor(tag);
                       notify('success', `${type} 已插入`);
@@ -472,6 +438,7 @@ export const Library: React.FC<LibraryProps> = ({
           form.content = item.content;
           form.tag = item.tags?.[0] || '';
           form.mood = item.mood || MOODS[0].color;
+          form.linkedSongId = item.linkedSongId || '';
       } else if (type === 'video') {
           form.artist = item.artist;
           form.videoUrl = item.videoUrl;
@@ -510,7 +477,8 @@ export const Library: React.FC<LibraryProps> = ({
               date: new Date().toISOString().split('T')[0],
               mood: formData.mood,
               tags: [formData.tag || 'News'],
-              style: { fontFamily: formData.fontFamily, fontSize: 'base', lineHeight: 'normal' }
+              style: { fontFamily: formData.fontFamily, fontSize: 'base', lineHeight: 'normal' },
+              linkedSongId: formData.linkedSongId 
           };
           const next = editMode ? articles.map(a => a.id === editingId ? newArticle : a) : [newArticle, ...articles];
           setArticles(next);
@@ -1052,6 +1020,31 @@ export const Library: React.FC<LibraryProps> = ({
                               <div>
                                   <label className="text-xs text-gray-500 mb-1 block">摘要 (Excerpt)</label>
                                   <textarea value={formData.desc} onChange={e => setFormData({...formData, desc: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white h-20" />
+                              </div>
+                              
+                              {/* LINKED SONG SELECTOR */}
+                              <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">关联推荐歌曲 (显示在文章顶部)</label>
+                                  <div className="flex gap-2 items-center">
+                                      <select 
+                                        value={formData.linkedSongId} 
+                                        onChange={e => setFormData({...formData, linkedSongId: e.target.value})}
+                                        className="w-full bg-black border border-white/10 p-3 rounded-lg text-white"
+                                      >
+                                          <option value="">-- 无关联歌曲 --</option>
+                                          <optgroup label="单曲库">
+                                              {songs.map(s => <option key={s.id} value={s.id}>{s.title} - {s.artist}</option>)}
+                                          </optgroup>
+                                          <optgroup label="DJ Sets">
+                                              {djSets.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                                          </optgroup>
+                                      </select>
+                                      {formData.linkedSongId && (
+                                          <div className="text-brand-lime text-xs font-bold whitespace-nowrap">
+                                              已关联
+                                          </div>
+                                      )}
+                                  </div>
                               </div>
                               
                               <div className="bg-[#050505] rounded-xl border border-white/10 overflow-hidden">
