@@ -59,6 +59,7 @@ export const Library: React.FC<LibraryProps> = ({
   // Media Selector State
   const [showMediaSelector, setShowMediaSelector] = useState(false);
   const [mediaSelectorType, setMediaSelectorType] = useState<'image' | 'audio' | 'video'>('image');
+  const [selectorContext, setSelectorContext] = useState<'content' | 'cover'>('content');
   
   const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -196,24 +197,38 @@ export const Library: React.FC<LibraryProps> = ({
       }
   };
 
-  // Insert existing media from library
-  const insertMediaFromLibrary = (item: any) => {
-      let tag = '';
-      if (mediaSelectorType === 'image') {
-          // Gallery Item
-          tag = `\n<img src="${item.imageUrl}" class="w-full rounded-xl my-4 shadow-lg" alt="${item.title}" />\n<div class="text-center text-xs text-gray-500 mt-1">${item.title}</div>\n`;
-      } else if (mediaSelectorType === 'audio') {
-          // Song
-          const url = item.fileUrl || `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
-          tag = `\n<div class="my-4 p-4 bg-white/5 rounded-xl border border-white/10">\n  <div class="font-bold text-brand-lime mb-2">♫ ${item.title} - ${item.artist}</div>\n  <audio controls src="${url}" class="w-full"></audio>\n</div>\n`;
-      } else if (mediaSelectorType === 'video') {
-          // MV
-          tag = `\n<div class="my-4">\n  <video controls poster="${item.coverUrl}" src="${item.videoUrl}" class="w-full rounded-xl shadow-lg"></video>\n  <div class="text-xs text-gray-500 mt-1">Video: ${item.title}</div>\n</div>\n`;
+  // Generic Handler for Selection from Library
+  const handleSelection = (item: any) => {
+      if (selectorContext === 'cover') {
+          // Setting Cover Image
+          const url = item.imageUrl || item.coverUrl || item.cover;
+          if (url) {
+              setFormData(prev => ({ ...prev, cover: url }));
+              notify('success', '已选择封面图片');
+          } else {
+              notify('error', '该项目没有有效的图片链接');
+          }
+      } else {
+          // Inserting Content into Article
+          let tag = '';
+          if (mediaSelectorType === 'image') {
+              tag = `\n<img src="${item.imageUrl}" class="w-full rounded-xl my-4 shadow-lg" alt="${item.title}" />\n<div class="text-center text-xs text-gray-500 mt-1">${item.title}</div>\n`;
+          } else if (mediaSelectorType === 'audio') {
+              const url = item.fileUrl || `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
+              tag = `\n<div class="my-4 p-4 bg-white/5 rounded-xl border border-white/10">\n  <div class="font-bold text-brand-lime mb-2">♫ ${item.title} - ${item.artist}</div>\n  <audio controls src="${url}" class="w-full"></audio>\n</div>\n`;
+          } else if (mediaSelectorType === 'video') {
+              tag = `\n<div class="my-4">\n  <video controls poster="${item.coverUrl}" src="${item.videoUrl}" class="w-full rounded-xl shadow-lg"></video>\n  <div class="text-xs text-gray-500 mt-1">Video: ${item.title}</div>\n</div>\n`;
+          }
+          insertAtCursor(tag);
+          notify('success', '媒体已插入文章');
       }
-
-      insertAtCursor(tag);
       setShowMediaSelector(false);
-      notify('success', '媒体已插入文章');
+  };
+
+  const openMediaSelector = (type: 'image' | 'audio' | 'video', context: 'content' | 'cover') => {
+      setMediaSelectorType(type);
+      setSelectorContext(context);
+      setShowMediaSelector(true);
   };
 
   // Helper for uploading media into articles
@@ -847,6 +862,12 @@ export const Library: React.FC<LibraryProps> = ({
                           <label className="text-xs text-gray-500 mb-1 block">{editingType === 'gallery' ? '图片文件' : '封面图片'} URL</label>
                           <div className="flex gap-2">
                              <input type="text" value={formData.cover} onChange={e => setFormData({...formData, cover: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white focus:border-brand-lime outline-none" placeholder="https://..." />
+                             
+                             {/* Media Selector for Cover - Added for Article Editor */}
+                             <button onClick={() => openMediaSelector('image', 'cover')} className="px-3 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold transition-colors" title="从库中选择">
+                                 <Grid className="w-4 h-4" />
+                             </button>
+
                              <button disabled={isUploading} onClick={() => coverFileInputRef.current?.click()} className="px-4 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold text-xs flex items-center gap-2 transition-colors disabled:opacity-50">
                                  {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} 上传
                              </button>
@@ -925,7 +946,7 @@ export const Library: React.FC<LibraryProps> = ({
                               
                               <div className="bg-[#050505] rounded-xl border border-white/10 overflow-hidden">
                                   <div className="bg-[#1a1a1a] p-2 flex items-center gap-2 border-b border-white/5 overflow-x-auto">
-                                      <button onClick={() => { setMediaSelectorType('image'); setShowMediaSelector(true); }} className="p-2 hover:bg-white/10 rounded text-brand-cyan hover:text-white flex items-center gap-2 text-xs font-bold" title="从库中选择">
+                                      <button onClick={() => openMediaSelector('image', 'content')} className="p-2 hover:bg-white/10 rounded text-brand-cyan hover:text-white flex items-center gap-2 text-xs font-bold" title="从库中选择">
                                           <Grid className="w-4 h-4" /> 媒体库
                                       </button>
                                       <div className="w-[1px] h-4 bg-white/10 mx-1"></div>
@@ -988,18 +1009,26 @@ export const Library: React.FC<LibraryProps> = ({
           </div>
       )}
 
-      {/* MEDIA SELECTOR MODAL (New) */}
+      {/* MEDIA SELECTOR MODAL (Unified) */}
       {showMediaSelector && (
           <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-             <div className="bg-[#111] w-full max-w-4xl h-[80vh] rounded-2xl border border-white/10 flex flex-col shadow-2xl">
-                 <div className="p-6 border-b border-white/5 flex items-center justify-between">
+             <div className="bg-[#111] w-full max-w-4xl h-[80vh] rounded-2xl border border-white/10 flex flex-col shadow-2xl animate-in zoom-in-95">
+                 <div className="p-6 border-b border-white/5 flex items-center justify-between bg-[#161616]">
                      <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                         <Grid className="w-5 h-5 text-brand-cyan" /> 选择媒体插入
+                         <Grid className="w-5 h-5 text-brand-cyan" /> 
+                         {selectorContext === 'cover' ? '选择封面图片' : '选择插入的媒体'}
                      </h3>
                      <div className="flex gap-2">
+                        {/* Only show relevant tabs based on context */}
                         <button onClick={() => setMediaSelectorType('image')} className={`px-3 py-1 rounded text-xs font-bold ${mediaSelectorType === 'image' ? 'bg-brand-cyan text-black' : 'bg-white/10 text-gray-400'}`}>图片</button>
-                        <button onClick={() => setMediaSelectorType('audio')} className={`px-3 py-1 rounded text-xs font-bold ${mediaSelectorType === 'audio' ? 'bg-brand-lime text-black' : 'bg-white/10 text-gray-400'}`}>音乐</button>
-                        <button onClick={() => setMediaSelectorType('video')} className={`px-3 py-1 rounded text-xs font-bold ${mediaSelectorType === 'video' ? 'bg-brand-pink text-black' : 'bg-white/10 text-gray-400'}`}>视频</button>
+                        
+                        {selectorContext === 'content' && (
+                            <>
+                                <button onClick={() => setMediaSelectorType('audio')} className={`px-3 py-1 rounded text-xs font-bold ${mediaSelectorType === 'audio' ? 'bg-brand-lime text-black' : 'bg-white/10 text-gray-400'}`}>音乐</button>
+                                <button onClick={() => setMediaSelectorType('video')} className={`px-3 py-1 rounded text-xs font-bold ${mediaSelectorType === 'video' ? 'bg-brand-pink text-black' : 'bg-white/10 text-gray-400'}`}>视频</button>
+                            </>
+                        )}
+
                         <button onClick={() => setShowMediaSelector(false)} className="ml-4 text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
                      </div>
                  </div>
@@ -1008,9 +1037,11 @@ export const Library: React.FC<LibraryProps> = ({
                      {mediaSelectorType === 'image' && (
                          <div className="grid grid-cols-4 gap-4">
                              {galleryItems.map(item => (
-                                 <div key={item.id} onClick={() => insertMediaFromLibrary(item)} className="aspect-[3/4] rounded-lg overflow-hidden relative cursor-pointer group border border-white/5 hover:border-brand-cyan">
+                                 <div key={item.id} onClick={() => handleSelection(item)} className="aspect-[3/4] rounded-lg overflow-hidden relative cursor-pointer group border border-white/5 hover:border-brand-cyan transition-colors">
                                      <img src={item.imageUrl} className="w-full h-full object-cover" />
-                                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs font-bold text-white">选择</div>
+                                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs font-bold text-white backdrop-blur-sm transition-opacity">
+                                         {selectorContext === 'cover' ? '设为封面' : '插入文章'}
+                                     </div>
                                  </div>
                              ))}
                          </div>
@@ -1018,7 +1049,7 @@ export const Library: React.FC<LibraryProps> = ({
                      {mediaSelectorType === 'audio' && (
                          <div className="grid grid-cols-1 gap-2">
                              {songs.map(item => (
-                                 <div key={item.id} onClick={() => insertMediaFromLibrary(item)} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer border border-transparent hover:border-brand-lime">
+                                 <div key={item.id} onClick={() => handleSelection(item)} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer border border-transparent hover:border-brand-lime">
                                      <img src={item.coverUrl} className="w-10 h-10 rounded object-cover" />
                                      <div className="flex-1">
                                          <div className="font-bold text-white text-sm">{item.title}</div>
@@ -1031,9 +1062,9 @@ export const Library: React.FC<LibraryProps> = ({
                      {mediaSelectorType === 'video' && (
                          <div className="grid grid-cols-3 gap-4">
                              {mvs.map(item => (
-                                 <div key={item.id} onClick={() => insertMediaFromLibrary(item)} className="aspect-video rounded-lg overflow-hidden relative cursor-pointer group border border-white/5 hover:border-brand-pink">
+                                 <div key={item.id} onClick={() => handleSelection(item)} className="aspect-video rounded-lg overflow-hidden relative cursor-pointer group border border-white/5 hover:border-brand-pink">
                                      <img src={item.coverUrl} className="w-full h-full object-cover" />
-                                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs font-bold text-white">选择</div>
+                                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs font-bold text-white">插入视频</div>
                                  </div>
                              ))}
                          </div>
@@ -1041,7 +1072,10 @@ export const Library: React.FC<LibraryProps> = ({
                      {(mediaSelectorType === 'image' && galleryItems.length === 0) || 
                       (mediaSelectorType === 'audio' && songs.length === 0) || 
                       (mediaSelectorType === 'video' && mvs.length === 0) ? (
-                          <div className="h-full flex items-center justify-center text-gray-500">暂无内容</div>
+                          <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-2">
+                              <Database className="w-10 h-10 opacity-20" />
+                              <p>暂无内容</p>
+                          </div>
                       ) : null}
                  </div>
              </div>
