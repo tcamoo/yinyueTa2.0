@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Player } from './components/Player';
@@ -14,6 +13,8 @@ import { DJView } from './views/DJ';
 import { ArticlesView } from './views/Articles';
 import { View, Song, Playlist, Theme, MV, GalleryItem, DJSet, Article, PageHeaders } from './types';
 import { MOCK_SONGS, MOCK_PLAYLISTS, THEMES, MOCK_MVS, GALLERY_ITEMS, MOCK_DJ_SETS, MOCK_ARTICLES, DEFAULT_HEADERS } from './constants';
+import { cloudService } from './services/cloudService';
+import { Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.HOME);
@@ -21,8 +22,9 @@ const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   
-  // GLOBAL STATE FOR CMS (Library/Admin)
+  // GLOBAL STATE
   const [userSongs, setUserSongs] = useState<Song[]>(MOCK_SONGS);
   const [playlists, setPlaylists] = useState<Playlist[]>(MOCK_PLAYLISTS);
   const [mvs, setMvs] = useState<MV[]>(MOCK_MVS);
@@ -34,10 +36,40 @@ const App: React.FC = () => {
   // Navigation State
   const [currentArticle, setCurrentArticle] = useState<Article | null>(null);
   
-  // Theme State - Default to Cyberpunk
+  // Theme State
   const [currentTheme, setCurrentTheme] = useState<Theme>(THEMES[0]);
 
-  // Listen for playback time updates from Player
+  // --- INITIAL DATA LOAD ---
+  useEffect(() => {
+    const initData = async () => {
+      setIsLoading(true);
+      const cloudData = await cloudService.loadData();
+      
+      if (cloudData) {
+        console.log("Loaded data from Cloudflare KV");
+        setUserSongs(cloudData.songs || []);
+        setMvs(cloudData.mvs || []);
+        setGalleryItems(cloudData.galleryItems || []);
+        setDjSets(cloudData.djSets || []);
+        setArticles(cloudData.articles || []);
+        setPlaylists(cloudData.playlists || []);
+        setPageHeaders(cloudData.pageHeaders || DEFAULT_HEADERS);
+        if(cloudData.themeId) {
+          const t = THEMES.find(t => t.id === cloudData.themeId);
+          if(t) setCurrentTheme(t);
+        }
+      } else {
+        console.log("No cloud data found, using Mock Data");
+        // Optional: Auto-save mock data to cloud so next time it exists?
+        // cloudService.saveData({ ... });
+      }
+      setIsLoading(false);
+    };
+
+    initData();
+  }, []);
+
+  // Listen for playback time updates
   useEffect(() => {
       const handleTimeUpdate = (e: CustomEvent<number>) => {
           setPlaybackTime(e.detail);
@@ -46,7 +78,7 @@ const App: React.FC = () => {
       return () => window.removeEventListener('music-time-update' as any, handleTimeUpdate);
   }, []);
 
-  // Pause music if entering MV mode to prevent overlap and audio conflict
+  // Pause music if entering MV mode
   useEffect(() => {
     if (currentView === View.MV) {
       setIsPlaying(false);
@@ -89,6 +121,7 @@ const App: React.FC = () => {
         songCount: 0
      };
      setPlaylists([newPlaylist, ...playlists]);
+     // Sync will happen in Library or we can auto-trigger save here if we pass down the save function
   };
 
   const handleReadArticle = (article: Article) => {
@@ -165,6 +198,7 @@ const App: React.FC = () => {
             setDjSets={setDjSets}
             articles={articles}
             setArticles={setArticles}
+            playlists={playlists} // Pass playlists for syncing
             onPlaySong={handlePlaySong}
             currentTheme={currentTheme}
             setTheme={setCurrentTheme}
@@ -188,6 +222,17 @@ const App: React.FC = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+       <div className="fixed inset-0 bg-black flex items-center justify-center text-brand-lime">
+          <div className="flex flex-col items-center gap-4">
+             <Loader2 className="w-10 h-10 animate-spin" />
+             <span className="text-sm font-bold tracking-[0.3em] animate-pulse">SYNCING CLOUD</span>
+          </div>
+       </div>
+    );
+  }
+
   return (
     <div 
       className="flex min-h-screen font-sans text-white bg-dark-950 overflow-x-hidden selection:bg-brand-lime selection:text-black transition-colors duration-700"
@@ -199,13 +244,8 @@ const App: React.FC = () => {
         '--bg-surface': currentTheme.colors.bgSurface,
       } as React.CSSProperties}
     >
-      
-      {/* ELEGANT FLUID BACKGROUND (Music Reactive Enhanced) */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-         {/* Noise Texture */}
          <div className="absolute inset-0 bg-noise opacity-[0.05]"></div>
-         
-         {/* Top Mesh - Reacts significantly to Music State */}
          <div 
            className={`absolute top-[-20%] right-[-10%] w-[80vw] h-[80vw] rounded-full blur-[100px] mix-blend-screen transition-all duration-[2000ms] cubic-bezier(0.4, 0, 0.2, 1)`}
            style={{ 
@@ -215,8 +255,6 @@ const App: React.FC = () => {
              animation: isPlaying ? 'blob-slow 5s infinite alternate' : 'blob-slow 20s infinite alternate'
            }} 
          />
-         
-         {/* Bottom Mesh - Reacts significantly to Music State */}
          <div 
            className={`absolute bottom-[-20%] left-[-10%] w-[80vw] h-[80vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-[2000ms] cubic-bezier(0.4, 0, 0.2, 1)`}
            style={{ 
@@ -226,8 +264,6 @@ const App: React.FC = () => {
              animation: isPlaying ? 'blob-slow 7s infinite alternate-reverse' : 'blob-slow 25s infinite alternate-reverse'
            }} 
          />
-
-         {/* Center Breather */}
          <div 
            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] h-[60vw] rounded-full blur-[80px] transition-all duration-[800ms] ease-out mix-blend-overlay`}
            style={{
@@ -238,23 +274,19 @@ const App: React.FC = () => {
          />
       </div>
 
-      {/* Sidebar */}
       <Sidebar currentView={currentView} onChangeView={setCurrentView} />
 
-      {/* Main Content Area */}
       <main className="flex-1 lg:ml-72 p-4 lg:p-12 pt-24 lg:pt-12 min-h-screen relative z-10 transition-colors duration-500">
         <div className="max-w-[1600px] mx-auto">
           {renderView()}
         </div>
       </main>
 
-      {/* Mobile Top Bar */}
       <div className="fixed top-0 left-0 right-0 h-16 glass z-30 flex items-center justify-between px-6 lg:hidden border-b border-white/5">
         <span className="font-display font-black text-xl tracking-tight text-white italic">YINYUETAI</span>
         <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-brand-lime animate-pulse' : 'bg-gray-600'}`} />
       </div>
 
-      {/* Player (Hidden in MV View to avoid obstruction) */}
       {currentView !== View.MV && (
         <Player 
           currentSong={currentSong} 
@@ -264,7 +296,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* FULLSCREEN LYRICS OVERLAY */}
       {currentSong && (
           <LyricsOverlay 
               song={currentSong} 
