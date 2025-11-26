@@ -54,6 +54,7 @@ export const Library: React.FC<LibraryProps> = ({
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   
   const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -215,6 +216,7 @@ export const Library: React.FC<LibraryProps> = ({
       const file = e.target.files?.[0];
       if (!file) return;
       
+      setIsUploading(true);
       notify('info', '正在上传文件...');
       try {
           const url = await cloudService.uploadFile(file);
@@ -226,6 +228,10 @@ export const Library: React.FC<LibraryProps> = ({
           }
       } catch (err: any) {
           notify('error', '上传出错: ' + err.message);
+      } finally {
+          setIsUploading(false);
+          // Reset value to allow re-upload of same file
+          e.target.value = '';
       }
   };
 
@@ -782,6 +788,7 @@ export const Library: React.FC<LibraryProps> = ({
                   <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                     <div className="space-y-4">
                       
+                      {/* Common Inputs */}
                       <div className="grid grid-cols-2 gap-4">
                           <div>
                               <label className="text-xs text-gray-500 mb-1 block">标题</label>
@@ -793,14 +800,14 @@ export const Library: React.FC<LibraryProps> = ({
                           </div>
                       </div>
 
+                      {/* Image Upload for All Types */}
                       <div>
-                          <label className="text-xs text-gray-500 mb-1 block">封面/图片 URL</label>
+                          <label className="text-xs text-gray-500 mb-1 block">{editingType === 'gallery' ? '图片文件' : '封面图片'} URL</label>
                           <div className="flex gap-2">
                              <input type="text" value={formData.cover} onChange={e => setFormData({...formData, cover: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white focus:border-brand-lime outline-none" placeholder="https://..." />
-                             <button onClick={() => coverFileInputRef.current?.click()} className="px-4 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold text-xs flex items-center gap-2 transition-colors">
-                                 <Upload className="w-4 h-4" /> 上传
+                             <button disabled={isUploading} onClick={() => coverFileInputRef.current?.click()} className="px-4 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold text-xs flex items-center gap-2 transition-colors disabled:opacity-50">
+                                 {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} 上传
                              </button>
-                             <input ref={coverFileInputRef} type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'cover')} />
                           </div>
                       </div>
 
@@ -810,10 +817,9 @@ export const Library: React.FC<LibraryProps> = ({
                                 <label className="text-xs text-gray-500 mb-1 block">音频文件 URL (或 网易云ID)</label>
                                 <div className="flex gap-2 mb-2">
                                     <input type="text" value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} className="flex-1 bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="https://example.com/song.mp3" />
-                                    <button onClick={() => audioFileInputRef.current?.click()} className="px-4 bg-brand-lime text-black font-bold rounded-lg text-xs flex items-center gap-2 hover:bg-white transition-colors">
-                                        <Upload className="w-4 h-4" /> 上传文件
+                                    <button disabled={isUploading} onClick={() => audioFileInputRef.current?.click()} className="px-4 bg-brand-lime text-black font-bold rounded-lg text-xs flex items-center gap-2 hover:bg-white transition-colors disabled:opacity-50">
+                                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} 上传文件
                                     </button>
-                                    <input ref={audioFileInputRef} type="file" className="hidden" accept="audio/*" onChange={(e) => handleFileUpload(e, 'url')} />
                                 </div>
                                 <div className="flex gap-2">
                                     <input type="text" value={formData.neteaseId} onChange={e => setFormData({...formData, neteaseId: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white text-sm" placeholder="可选: 网易云音乐 ID (覆盖上方 URL)" />
@@ -832,10 +838,9 @@ export const Library: React.FC<LibraryProps> = ({
                                 <label className="text-xs text-gray-500 mb-1 block">视频文件 URL (MP4/WebM)</label>
                                 <div className="flex gap-2">
                                     <input type="text" value={formData.videoUrl} onChange={e => setFormData({...formData, videoUrl: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="https://..." />
-                                    <button onClick={() => videoFileInputRef.current?.click()} className="px-4 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold text-xs flex items-center gap-2 transition-colors">
-                                        <Upload className="w-4 h-4" />
+                                    <button disabled={isUploading} onClick={() => videoFileInputRef.current?.click()} className="px-4 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold text-xs flex items-center gap-2 transition-colors disabled:opacity-50">
+                                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                                     </button>
-                                    <input ref={videoFileInputRef} type="file" className="hidden" accept="video/*" onChange={(e) => handleFileUpload(e, 'videoUrl')} />
                                 </div>
                              </div>
                              <div>
@@ -849,7 +854,12 @@ export const Library: React.FC<LibraryProps> = ({
                           <>
                              <div>
                                 <label className="text-xs text-gray-500 mb-1 block">Mix 音频文件 URL</label>
-                                <input type="text" value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="https://..." />
+                                <div className="flex gap-2">
+                                    <input type="text" value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="https://..." />
+                                    <button disabled={isUploading} onClick={() => audioFileInputRef.current?.click()} className="px-4 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold text-xs flex items-center gap-2 transition-colors disabled:opacity-50">
+                                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} 上传
+                                    </button>
+                                </div>
                              </div>
                              <div className="grid grid-cols-2 gap-4">
                                  <div>
@@ -908,12 +918,18 @@ export const Library: React.FC<LibraryProps> = ({
                               </div>
                           </>
                       )}
+
+                      {/* Hidden File Inputs - Moved outside conditional blocks but inside modal to be accessible via refs */}
+                      <input ref={coverFileInputRef} type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'cover')} />
+                      <input ref={audioFileInputRef} type="file" className="hidden" accept="audio/*" onChange={(e) => handleFileUpload(e, 'url')} />
+                      <input ref={videoFileInputRef} type="file" className="hidden" accept="video/*" onChange={(e) => handleFileUpload(e, 'videoUrl')} />
+                      
                     </div>
                   </div>
 
                   <div className="p-6 border-t border-white/5 bg-[#161616]">
-                      <button onClick={handleSubmit} className="w-full py-4 bg-brand-lime text-black font-bold rounded-xl hover:bg-white transition-colors">
-                          {editMode ? '保存修改' : '确认创建'}
+                      <button disabled={isUploading} onClick={handleSubmit} className="w-full py-4 bg-brand-lime text-black font-bold rounded-xl hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                          {isUploading ? '等待文件上传...' : (editMode ? '保存修改' : '确认创建')}
                       </button>
                   </div>
               </div>
