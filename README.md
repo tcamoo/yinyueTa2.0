@@ -38,25 +38,26 @@ npx wrangler deploy
 4.  **R2 Bucket**: 选择现有的 R2 存储桶（如果没有，请先去 R2 菜单创建一个）。
 5.  点击 **Save and Deploy**。
 
-#### C. 设置管理员密钥 (可选，增强安全)
-为了防止他人通过 API 修改您的数据，建议设置一个密钥：
-1.  找到 **Environment Variables**。
+#### C. 设置控制台密码 (安全锁)
+为了防止他人进入系统控制台或通过 API 修改数据：
+1.  找到 **Environment Variables** (不是绑定)。
 2.  点击 **Add Variable**。
 3.  **Variable name**: 输入 `ADMIN_SECRET`。
-4.  **Value**: 输入一个复杂的密码（例如 `my-super-secret-key-2024`）。
-5.  点击 **Save and Deploy**。
+4.  **Value**: 输入您的密码（例如 `my-secure-password-2024`）。
+5.  点击 **Encrypt** (推荐)。
+6.  点击 **Save and Deploy**。
+7.  访问网站控制台时，输入此密码即可解锁。
 
 ### 3. 在网站上连接
 
 1.  打开您的网站。
 2.  进入 **System Console (系统控制台)** 页面 (点击左侧边栏底部的 Grid 图标)。
-3.  点击顶部状态栏的 **CLOUD STATUS** 按钮（如果是红色或黄色）。
-4.  在弹出的窗口中输入您刚才设置的 `ADMIN_SECRET` 并保存。
-5.  现在您可以正常上传文件和保存数据了！
+3.  您将看到“SYSTEM LOCKED”界面，输入您设置的 `ADMIN_SECRET` 解锁。
+4.  解锁后，所有上传和保存操作将自动携带密钥。
 
 ## 🎨 网站特性
 
 * **R2 文件直传**: 支持 MP3、图片、视频直接上传到 Cloudflare R2。
 * **KV 实时同步**: 歌单、文章、主题设置自动同步。
-* **Admin 安全验证**: 通过 Header 验证写操作权限。
+* **Admin 安全锁**: 前端控制台锁屏 + 后端 API 鉴权。
 * **沉浸式 UI**: 包含动态歌词、3D 视觉效果和全屏 MV 模式。
