@@ -1,5 +1,12 @@
-
 import { GoogleGenAI } from "@google/genai";
+
+// Ensure process is defined for TS compiler if @types/node isn't picked up automatically
+declare const process: {
+  env: {
+    API_KEY?: string;
+    [key: string]: string | undefined;
+  }
+};
 
 const getAiClient = () => {
   // process.env.API_KEY is replaced by Vite during build based on vite.config.ts define
