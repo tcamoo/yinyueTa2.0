@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist } from '../types';
@@ -555,10 +556,10 @@ export const Library: React.FC<LibraryProps> = ({
                                <li>登录 Cloudflare Dashboard，进入您的 Worker (yinyuetai)。</li>
                                <li>点击 <strong>Settings</strong> &rarr; <strong>Variables</strong>。</li>
                                <li>在 <strong>KV Namespace Bindings</strong> 中添加:
-                                   <br/>Variable name: <code className="text-white bg-white/10 px-1 rounded">DB</code> -> 选择您的 KV 空间。
+                                   <br/>Variable name: <code className="text-white bg-white/10 px-1 rounded">DB</code> &rarr; 选择您的 KV 空间。
                                </li>
                                <li>在 <strong>R2 Bucket Bindings</strong> 中添加:
-                                   <br/>Variable name: <code className="text-white bg-white/10 px-1 rounded">BUCKET</code> -> 选择您的 R2 存储桶。
+                                   <br/>Variable name: <code className="text-white bg-white/10 px-1 rounded">BUCKET</code> &rarr; 选择您的 R2 存储桶。
                                </li>
                                <li>(可选) 添加 Text Variable: <code className="text-white bg-white/10 px-1 rounded">ADMIN_SECRET</code> 用于加密。</li>
                                <li>保存并部署 (Deploy) 即可生效。</li>
