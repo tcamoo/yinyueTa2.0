@@ -203,7 +203,6 @@ export default {
     };
 
     // --- UNIVERSAL AUDIO PROXY ---
-    // Handles Netease, Pixabay, etc. to bypass Referer/CORS blocks
     if (url.pathname === '/api/proxy') {
         const targetUrl = url.searchParams.get('url');
         const strategy = url.searchParams.get('strategy') || 'general';
@@ -211,13 +210,11 @@ export default {
         if (!targetUrl) return new Response("Missing URL", { status: 400 });
 
         try {
-            // Strategy-specific headers
             let referer = 'https://google.com';
             let userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
             
             if (strategy === 'netease' || targetUrl.includes('163.com')) {
                 referer = 'https://music.163.com/';
-                // Netease sometimes requires cookies, but for /outer/url often works with just Referer
             } else if (strategy === 'pixabay') {
                 referer = 'https://pixabay.com/';
             } else if (strategy === 'djuu') {
@@ -228,7 +225,6 @@ export default {
             proxyHeaders.set('User-Agent', userAgent);
             proxyHeaders.set('Referer', referer);
             
-            // Pass through Range header for seeking/partial content
             const range = request.headers.get('Range');
             if (range) proxyHeaders.set('Range', range);
 
@@ -237,13 +233,9 @@ export default {
                 headers: proxyHeaders
             });
 
-            // Reconstruct headers for the browser
             const newHeaders = new Headers(response.headers);
-            
-            // IMPORTANT: Force CORS on the response
             Object.keys(corsHeaders).forEach(k => newHeaders.set(k, corsHeaders[k]));
             
-            // Some servers return wrong content-type for audio
             if (targetUrl.endsWith('.mp3') && !newHeaders.has('Content-Type')) {
                 newHeaders.set('Content-Type', 'audio/mpeg');
             }
@@ -259,7 +251,48 @@ export default {
         }
     }
 
-    // --- ADMIN SCRAPER TRIGGER (UPDATED FOR NETEASE) ---
+    // --- ADMIN LINK VALIDATOR (NEW) ---
+    if (url.pathname === '/api/admin/validate' && request.method === 'POST') {
+       if (!isAuthorized(request)) {
+          return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+       }
+       try {
+           const { targetUrl } = await request.json();
+           if (!targetUrl) return new Response(JSON.stringify({ valid: false }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+           let urlToCheck = targetUrl;
+           if (targetUrl.startsWith('/api/proxy') || targetUrl.startsWith('/')) {
+               const u = new URL(request.url);
+               urlToCheck = u.origin + (targetUrl.startsWith('/') ? targetUrl : '/' + targetUrl);
+           }
+
+           let valid = false;
+           let status = 0;
+           
+           try {
+              // Try HEAD first
+              const res = await fetch(urlToCheck, { method: 'HEAD', headers: { 'User-Agent': 'Cloudflare Worker' } });
+              status = res.status;
+              if (res.ok) valid = true;
+              else {
+                   // Fallback to GET with Range
+                   const resGet = await fetch(urlToCheck, { method: 'GET', headers: { 'Range': 'bytes=0-100', 'User-Agent': 'Cloudflare Worker' } });
+                   status = resGet.status;
+                   valid = resGet.ok;
+              }
+           } catch (e) {
+               valid = false;
+               status = 500;
+           }
+
+           return new Response(JSON.stringify({ valid, status }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+       } catch (e) {
+           return new Response(JSON.stringify({ error: e.message, valid: false }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+       }
+    }
+
+    // --- ADMIN SCRAPER ---
     if (url.pathname === '/api/admin/scrape' && request.method === 'POST') {
       if (!isAuthorized(request)) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -295,7 +328,6 @@ export default {
     }
 
     // --- R2 STORAGE API ---
-    // (Existing R2 Logic for Upload/List/Delete/Stream)
     if (url.pathname === '/api/upload' && request.method === 'PUT') {
       if (!isAuthorized(request)) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       if (!env.BUCKET) return new Response(JSON.stringify({ error: "R2 Not Configured" }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
