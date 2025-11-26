@@ -7,7 +7,7 @@ export default {
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, HEAD, POST, PUT, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, x-admin-key",
     };
 
     // --- HANDLE PREFLIGHT ---
@@ -15,14 +15,24 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
+    // --- AUTHENTICATION CHECK HELPER ---
+    const isAuthorized = (req) => {
+      // If ADMIN_SECRET is not set in Cloudflare Dashboard, allow all (Development mode)
+      if (!env.ADMIN_SECRET) return true;
+      
+      const authHeader = req.headers.get("x-admin-key");
+      // Check if header matches the environment variable
+      return authHeader === env.ADMIN_SECRET;
+    };
+
     // --- API ROUTES ---
 
-    // 1. GET DATA (Retrieve full state from KV)
+    // 1. GET DATA (Retrieve full state from KV) - PUBLIC READ
     if (url.pathname === '/api/sync' && request.method === 'GET') {
       try {
         if (!env.DB) {
-           console.warn("KV 'DB' binding not found. Serving empty/mock response.");
-           return new Response(JSON.stringify({ empty: true, warning: "KV not configured" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+           // Graceful fallback if KV is not bound yet
+           return new Response(JSON.stringify({ empty: true, warning: "KV_NOT_BOUND" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
         const data = await env.DB.get('app_data');
@@ -35,11 +45,15 @@ export default {
       }
     }
 
-    // 2. SAVE DATA (Save full state to KV)
+    // 2. SAVE DATA (Save full state to KV) - PROTECTED WRITE
     if (url.pathname === '/api/sync' && request.method === 'POST') {
+      if (!isAuthorized(request)) {
+        return new Response(JSON.stringify({ error: "Unauthorized: Invalid or missing Admin Key" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       try {
         if (!env.DB) {
-           return new Response(JSON.stringify({ error: "Cloudflare KV 未配置。请在 wrangler.json 中添加 kv_namespaces 绑定。" }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+           return new Response(JSON.stringify({ error: "Cloudflare KV 未绑定。请在后台 Settings -> Variables 添加 KV Namespace 绑定，变量名为 'DB'。" }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
         const body = await request.json();
@@ -50,12 +64,16 @@ export default {
       }
     }
 
-    // 3. UPLOAD FILE (Put object to R2)
+    // 3. UPLOAD FILE (Put object to R2) - PROTECTED WRITE
     // Usage: PUT /api/upload?filename=image.jpg
     if (url.pathname === '/api/upload' && request.method === 'PUT') {
+      if (!isAuthorized(request)) {
+        return new Response(JSON.stringify({ error: "Unauthorized: Invalid or missing Admin Key" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       try {
         if (!env.BUCKET) {
-           return new Response(JSON.stringify({ error: "Cloudflare R2 未配置。请在 wrangler.json 中添加 r2_buckets 绑定。" }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+           return new Response(JSON.stringify({ error: "Cloudflare R2 未绑定。请在后台 Settings -> Variables 添加 R2 Bucket 绑定，变量名为 'BUCKET'。" }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
         const filename = url.searchParams.get('filename') || `upload-${Date.now()}`;
@@ -67,7 +85,9 @@ export default {
         // Otherwise, use the worker's proxy endpoint.
         let publicUrl;
         if (env.R2_PUBLIC_URL) {
-           publicUrl = `${env.R2_PUBLIC_URL}/${filename}`;
+           // Ensure no trailing slash
+           const baseUrl = env.R2_PUBLIC_URL.replace(/\/$/, "");
+           publicUrl = `${baseUrl}/${filename}`;
         } else {
            publicUrl = `/api/file/${filename}`;
         }
@@ -78,7 +98,7 @@ export default {
       }
     }
 
-    // 4. SERVE FILE (Proxy R2 if no custom domain)
+    // 4. SERVE FILE (Proxy R2 if no custom domain) - PUBLIC READ
     // Usage: GET /api/file/filename.jpg
     if (url.pathname.startsWith('/api/file/') && request.method === 'GET') {
         if (!env.BUCKET) {
