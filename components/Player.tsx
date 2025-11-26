@@ -10,6 +10,23 @@ interface PlayerProps {
   onToggleLyrics: () => void;
 }
 
+// Helper to construct playable URL
+const getPlayableUrl = (song: Song | null) => {
+    if (!song || !song.fileUrl) return '';
+    
+    // If it's already a proxy link, use as is
+    if (song.fileUrl.startsWith('/api/proxy')) return song.fileUrl;
+
+    // If it is a Netease link (by ID or URL pattern), route through proxy
+    // This fixes "previously added" songs that are direct links
+    if (song.neteaseId || song.fileUrl.includes('music.163.com') || song.fileUrl.includes('music.126.net')) {
+        // Encode the original URL as a parameter
+        return `/api/proxy?strategy=netease&url=${encodeURIComponent(song.fileUrl)}`;
+    }
+
+    return song.fileUrl;
+};
+
 // --- DRAGGABLE SPIRIT COMPONENT (ENHANCED LIQUID SHADER STYLE) ---
 const DraggableSpirit = ({ isPlaying, getVisualData }: { isPlaying: boolean, getVisualData: () => { bass: number, mid: number, high: number } }) => {
     const [pos, setPos] = useState({ x: window.innerWidth / 2 - 40, y: window.innerHeight - 180 });
@@ -215,13 +232,9 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
 
-  // Detect if current song is from Netease (needs special CORS handling to prevent failure)
-  // If it's a proxy link (djuu stream), we treat it as safe for CORS
-  const isNetease = useMemo(() => {
-    if (!currentSong) return false;
-    return (!!currentSong.neteaseId || (currentSong.fileUrl || '').includes('music.163.com')) && !(currentSong.fileUrl || '').includes('/api/');
-  }, [currentSong]);
-
+  // We now route everything through the worker proxy if needed, so we can treat it as safe for CORS in many cases.
+  // However, we still fallback to simulation if AudioContext fails.
+  
   // --- ROBUST AUDIO DATA PROVIDER ---
   const getVisualData = () => {
       let bass = 0, mid = 0, high = 0;
@@ -229,39 +242,37 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
 
       // 1. Try get Real Data
       if (analyserRef.current) {
-          const bufferLength = analyserRef.current.frequencyBinCount;
-          rawData = new Uint8Array(bufferLength);
-          
-          // @ts-ignore
-          analyserRef.current.getByteFrequencyData(rawData);
-          
-          let sum = 0;
-          for(let i=0; i<bufferLength; i++) sum += rawData[i];
-          
-          if (sum > 0) {
-              // Extract bands more precisely for visual impact
-              // Bass: 0-10 (~0-350Hz in typical FFT)
-              // Mid: 10-80
-              // High: 80-255
-              const bassSlice = rawData.slice(0, 8); 
-              const midSlice = rawData.slice(10, 60);
-              const highSlice = rawData.slice(80, 200);
+          try {
+              const bufferLength = analyserRef.current.frequencyBinCount;
+              rawData = new Uint8Array(bufferLength);
               
-              bass = bassSlice.reduce((a, b) => a + b, 0) / bassSlice.length * 1.2; // Boost bass
-              mid = midSlice.reduce((a, b) => a + b, 0) / midSlice.length;
-              high = highSlice.reduce((a, b) => a + b, 0) / highSlice.length * 1.5; // Boost high
+              // @ts-ignore
+              analyserRef.current.getByteFrequencyData(rawData);
               
-              // Cap at 255
-              bass = Math.min(255, bass);
-              mid = Math.min(255, mid);
-              high = Math.min(255, high);
+              let sum = 0;
+              for(let i=0; i<bufferLength; i++) sum += rawData[i];
+              
+              if (sum > 0) {
+                  const bassSlice = rawData.slice(0, 8); 
+                  const midSlice = rawData.slice(10, 60);
+                  const highSlice = rawData.slice(80, 200);
+                  
+                  bass = bassSlice.reduce((a, b) => a + b, 0) / bassSlice.length * 1.2; 
+                  mid = midSlice.reduce((a, b) => a + b, 0) / midSlice.length;
+                  high = highSlice.reduce((a, b) => a + b, 0) / highSlice.length * 1.5; 
+                  
+                  bass = Math.min(255, bass);
+                  mid = Math.min(255, mid);
+                  high = Math.min(255, high);
 
-              return { bass, mid, high, rawData };
+                  return { bass, mid, high, rawData };
+              }
+          } catch(e) {
+              // Ignore errors if context is suspended or cleared
           }
       }
 
       // 2. Fallback: Rhythm Simulation (Improved)
-      // Used when AudioContext is not available or CORS prevents data reading (e.g. Netease)
       const now = Date.now();
       const beatInterval = 461; // ~130 BPM
       const beatOffset = now % beatInterval;
@@ -281,7 +292,6 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
       mid = Math.min(255, kick * 0.4 + hat + noise);
       high = Math.min(255, hat * 1.2 + noise + Math.random() * 40);
 
-      // Generate fake raw data array for bar visualizer
       if (!rawData) rawData = new Uint8Array(40).fill(0);
       for(let i=0; i<40; i++) {
           const wave = Math.sin(i * 0.3 + now/100) * 50 + 50;
@@ -300,12 +310,18 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
     if (!currentSong?.fileUrl) return;
 
     setHasError(false);
+    
+    // Update src manually to ensure proxy logic applies
+    const playableUrl = getPlayableUrl(currentSong);
+    if (audio.src !== playableUrl && !audio.src.endsWith(playableUrl)) {
+        audio.src = playableUrl;
+    }
 
     const handlePlayback = async () => {
         try {
             if (isPlaying) {
-                // Initialize Audio Context if not already done
-                if (!audioContextRef.current && !isNetease) {
+                // Initialize Audio Context
+                if (!audioContextRef.current) {
                     try {
                         const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
                         const ctx = new AudioContext();
@@ -322,7 +338,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                            analyser.connect(ctx.destination);
                         }
                     } catch (e) {
-                        console.warn("Audio Context Init Failed or Blocked by CORS, using simulation.", e);
+                        console.warn("Audio Context Init Failed, using simulation.", e);
                     }
                 }
                 
@@ -345,7 +361,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
     };
 
     handlePlayback();
-  }, [isPlaying, currentSong, isNetease]); 
+  }, [isPlaying, currentSong]); 
 
   useEffect(() => {
       if (audioRef.current) {
@@ -358,16 +374,13 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       
       const draw = () => {
-          // 1. Dispatch Event for Global Background (Optimization: avoid React State)
           const { bass, mid, high, rawData } = getVisualData();
           
-          // Emit event for App.tsx to pick up
           const event = new CustomEvent('audio-visual-data', { 
               detail: { bass, mid, high } 
           });
           window.dispatchEvent(event);
 
-          // 2. Draw Bottom Bar Visualizer
           if (canvasRef.current) {
               const ctx = canvasRef.current.getContext('2d');
               if (ctx) {
@@ -382,13 +395,11 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                   for (let i = 0; i < barCount; i++) {
                       let value = 0;
                       if (rawData && rawData.length > 0) {
-                           // Map i to index in rawData loosely
                            const index = Math.floor((i / barCount) * (rawData.length / 2)); 
                            value = rawData[index] || 0;
                       }
                       
                       const percent = value / 255;
-                      // Dynamic bar height with minimum
                       const barHeight = Math.max(3, percent * height); 
 
                       const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
@@ -397,14 +408,12 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                       gradient.addColorStop(1, '#00ffff'); // Cyan
 
                       ctx.fillStyle = gradient;
-                      // Glow effect
                       ctx.shadowBlur = 5;
                       ctx.shadowColor = '#ccff00';
                       
                       const x = i * barWidth;
                       const y = height - barHeight;
                       
-                      // Rounded bars
                       if (ctx.roundRect) {
                          ctx.beginPath();
                          ctx.roundRect(x, y, barWidth - gap, barHeight, [2, 2, 0, 0]);
@@ -413,7 +422,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                          ctx.fillRect(x, y, barWidth - gap, barHeight);
                       }
                   }
-                  ctx.shadowBlur = 0; // Reset
+                  ctx.shadowBlur = 0;
               }
           }
 
@@ -424,7 +433,6 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
 
   const stopVisualizer = () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      // Reset background when stopped
       window.dispatchEvent(new CustomEvent('audio-visual-data', { detail: { bass: 0, mid: 0, high: 0 } }));
   };
 
@@ -470,19 +478,14 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
 
   return (
     <>
-        {/* DRAGGABLE SPIRIT CHARACTER */}
         <DraggableSpirit isPlaying={isPlaying} getVisualData={getVisualData} />
 
-        {/* BOTTOM PLAYER BAR */}
         <div className="fixed bottom-[80px] lg:bottom-6 left-1/2 transform -translate-x-1/2 w-[95%] max-w-6xl glass-high rounded-[2rem] z-50 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between shadow-[0_20px_60px_rgba(0,0,0,0.8)] border-t border-white/20 overflow-hidden transition-all duration-300">
         
             <audio 
                 key={currentSong.id} 
                 ref={audioRef}
-                src={currentSong.fileUrl}
-                // Important: Netease redirects fail with CORS, so we remove crossOrigin for them.
-                // For our proxy links (which add CORS headers), we enable anonymous mode to allow AudioContext analysis.
-                crossOrigin={isNetease ? undefined : "anonymous"} 
+                crossOrigin="anonymous" // Always try anonymous now that we proxy
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={handleEnded}
                 onError={(e) => {
@@ -492,7 +495,6 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                 }}
             />
 
-            {/* 1. Song Info */}
             <div className="flex items-center w-full md:w-1/4 min-w-0 gap-3 md:gap-4 relative z-10 group/info">
                 <div 
                     className="relative cursor-pointer w-12 h-12 md:w-16 md:h-16 shrink-0 transition-transform group-hover/info:scale-105"
@@ -536,7 +538,6 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                 </button>
             </div>
 
-            {/* 2. Controls */}
             <div className="hidden md:flex flex-col items-center w-1/2 px-4 relative z-10">
                 <div className="flex items-center gap-6 mb-2">
                 <button className="text-gray-400 hover:text-white hover:scale-110 transition-all">
@@ -568,7 +569,6 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                     className="flex-1 h-full relative group cursor-pointer flex items-end"
                     onClick={handleSeek}
                     >
-                    {/* Visualizer Canvas as Progress Background */}
                     <canvas 
                         ref={canvasRef} 
                         width={300} 
@@ -586,7 +586,6 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                 </div>
             </div>
 
-            {/* 3. Volume */}
             <div className="hidden md:flex items-center justify-end w-1/4 gap-4 relative z-10">
                 <button onClick={onToggleLyrics} className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 transition-colors group">
                     <Mic2 className="w-5 h-5 text-gray-400 group-hover:text-brand-lime" />
@@ -599,7 +598,6 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                 </div>
             </div>
             
-            {/* Mobile Progress Bar */}
             <div className="md:hidden absolute bottom-0 left-0 w-full h-1 bg-white/10" onClick={handleSeek}>
                 <div 
                     className="h-full bg-brand-lime shadow-[0_0_10px_var(--brand-primary)]"
