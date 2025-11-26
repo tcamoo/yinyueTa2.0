@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2, Heart, Mic2, Maximize2, VolumeX, Expand } from 'lucide-react';
 import { Song } from '../types';
 
@@ -215,6 +215,12 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
 
+  // Detect if current song is from Netease (needs special CORS handling)
+  const isNetease = useMemo(() => {
+    if (!currentSong) return false;
+    return !!currentSong.neteaseId || (currentSong.fileUrl || '').includes('music.163.com');
+  }, [currentSong]);
+
   // --- ROBUST AUDIO DATA PROVIDER ---
   const getVisualData = () => {
       let bass = 0, mid = 0, high = 0;
@@ -254,6 +260,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
       }
 
       // 2. Fallback: Rhythm Simulation (Improved)
+      // Used when AudioContext is not available or CORS prevents data reading (e.g. Netease)
       const now = Date.now();
       const beatInterval = 461; // ~130 BPM
       const beatOffset = now % beatInterval;
@@ -296,7 +303,8 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
     const handlePlayback = async () => {
         try {
             if (isPlaying) {
-                if (!audioContextRef.current) {
+                // Initialize Audio Context if not already done
+                if (!audioContextRef.current && !isNetease) {
                     try {
                         const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
                         const ctx = new AudioContext();
@@ -313,7 +321,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                            analyser.connect(ctx.destination);
                         }
                     } catch (e) {
-                        console.warn("Audio Context Init Failed, using simulation.", e);
+                        console.warn("Audio Context Init Failed or Blocked by CORS, using simulation.", e);
                     }
                 }
                 
@@ -336,7 +344,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
     };
 
     handlePlayback();
-  }, [isPlaying, currentSong]); 
+  }, [isPlaying, currentSong, isNetease]); 
 
   useEffect(() => {
       if (audioRef.current) {
@@ -471,7 +479,9 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                 key={currentSong.id} 
                 ref={audioRef}
                 src={currentSong.fileUrl}
-                crossOrigin="anonymous" 
+                // Important: Netease redirects fail with CORS, so we remove crossOrigin for them.
+                // This will result in a tainted canvas for visualizer (opaque source), triggering fallback to simulated visualizer.
+                crossOrigin={isNetease ? undefined : "anonymous"} 
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={handleEnded}
                 onError={(e) => {
