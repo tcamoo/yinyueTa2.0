@@ -52,8 +52,9 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
   };
 
   const formatContent = (content: string) => {
-      // Simple transform to allow line breaks while preserving HTML
-      // We assume the user inputs HTML blocks or newlines for paragraphs
+      // Transform newlines to <br> but avoid breaking HTML tags if they were somehow inserted with newlines.
+      // However, our Library inserter now strips newlines from HTML blocks.
+      // So basic text paragraphs will still need this.
       return content.replace(/\n/g, '<br/>');
   };
 
