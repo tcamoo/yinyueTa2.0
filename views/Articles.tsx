@@ -119,36 +119,39 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                       </div>
                   </div>
 
-                  {/* EMBEDDED PLAYER CARD (Bottom Right inside Hero) */}
+                  {/* EMBEDDED PLAYER CARD (Small, Compact, Inside Hero) */}
                   {linkedMedia && (
-                      <div className="absolute bottom-8 right-8 z-20 pointer-events-auto animate-in slide-in-from-bottom-10 fade-in duration-700 delay-300">
+                      <div className="absolute bottom-6 right-6 z-20 pointer-events-auto animate-in slide-in-from-bottom-4 fade-in duration-700 delay-300">
                           <div 
                               onClick={handlePlayLinkedMedia}
-                              className="w-full max-w-[320px] bg-black/40 backdrop-blur-xl border border-white/10 p-4 rounded-2xl flex items-center gap-4 cursor-pointer hover:bg-black/60 hover:border-white/20 transition-all group/card shadow-2xl"
+                              className="w-auto max-w-[280px] bg-black/60 backdrop-blur-2xl border border-white/10 p-3 pr-5 rounded-full flex items-center gap-3 cursor-pointer hover:bg-black/80 hover:border-brand-lime/50 transition-all group/card shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
                           >
-                              <div className="relative w-16 h-16 shrink-0">
+                              {/* Circular Art with Spin */}
+                              <div className="relative w-10 h-10 shrink-0">
                                   <img 
                                       src={linkedMedia.coverUrl} 
-                                      className={`w-full h-full rounded-full object-cover border-2 border-white/10 shadow-lg ${isMediaPlaying ? 'animate-spin-slow' : ''}`} 
+                                      className={`w-full h-full rounded-full object-cover border border-white/20 shadow-sm ${isMediaPlaying ? 'animate-[spin_4s_linear_infinite]' : ''}`} 
                                   />
+                                  {/* Center dot for vinyl look */}
                                   <div className="absolute inset-0 flex items-center justify-center">
-                                      <div className="w-2 h-2 bg-black rounded-full"></div>
+                                      <div className="w-1.5 h-1.5 bg-black rounded-full"></div>
                                   </div>
                               </div>
                               
-                              <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                      <span className="text-[10px] font-bold text-brand-lime uppercase tracking-wider bg-brand-lime/10 px-1.5 rounded">
-                                          Recommended
-                                      </span>
-                                  </div>
-                                  <h4 className="text-white font-bold truncate group-hover/card:text-brand-lime transition-colors">{linkedMedia.title}</h4>
-                                  <p className="text-xs text-gray-400 truncate">{artistName}</p>
+                              {/* Info Text */}
+                              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                  <span className="text-[10px] font-bold text-brand-lime uppercase tracking-wider leading-none mb-0.5">
+                                      {isMediaPlaying ? 'Now Playing' : 'Recommended'}
+                                  </span>
+                                  <h4 className="text-white text-sm font-bold truncate max-w-[140px] leading-tight group-hover/card:text-brand-lime transition-colors">
+                                      {linkedMedia.title}
+                                  </h4>
                               </div>
 
-                              <button className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all ${isMediaPlaying ? 'bg-brand-lime text-black' : 'bg-white text-black hover:bg-brand-lime'}`}>
-                                  {isMediaPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
-                              </button>
+                              {/* Play Button Icon */}
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all ${isMediaPlaying ? 'bg-brand-lime text-black' : 'bg-white/10 text-white group-hover/card:bg-white group-hover/card:text-black'}`}>
+                                  {isMediaPlaying ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current ml-0.5" />}
+                              </div>
                           </div>
                       </div>
                   )}
