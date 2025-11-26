@@ -4,47 +4,78 @@ async function scrapePixabay(env) {
   if (!env.DB) return { success: false, message: "KV DB not bound" };
 
   const CATEGORY = "dj";
-  const PAGES_TO_SCRAPE = 10; 
+  const PAGES_TO_SCRAPE = 5; // Pixabay often blocks aggressive scraping, lower pages per run is safer
   let newSets = [];
   let processedIds = new Set();
+  let log = [];
 
-  console.log(`[Scraper] Starting Pixabay scrape for category: ${CATEGORY} (Pages: ${PAGES_TO_SCRAPE})`);
+  console.log(`[Scraper] Starting Pixabay scrape for category: ${CATEGORY}`);
+
+  // Browser-like headers to avoid 403
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"Windows"',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1'
+  };
 
   for (let page = 1; page <= PAGES_TO_SCRAPE; page++) {
     try {
       const url = `https://pixabay.com/music/search/${CATEGORY}/?pagi=${page}`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'Referer': 'https://pixabay.com/music/'
-        }
-      });
+      const response = await fetch(url, { headers });
 
       if (!response.ok) {
-        console.warn(`[Scraper] Page ${page} failed: ${response.status}`);
+        log.push(`Page ${page} failed: ${response.status}`);
         continue;
       }
 
       const html = await response.text();
+      let pageItemsCount = 0;
 
-      // REGEX EXTRACTION STRATEGY
-      const mp3Regex = /https:\/\/cdn\.pixabay\.com\/audio\/[0-9]{4}\/[0-9]{2}\/[0-9]{2}\/audio_([a-zA-Z0-9-]+)\.mp3/g;
-      let match;
-      let pageCount = 0;
+      // --- STRATEGY 1: JSON-LD or Next.js/Hydration Data Scraping ---
+      // Pixabay often embeds data in scripts. We look for mp3 URLs specifically.
+      // Matches both "https://cdn..." and escaped "https:\/\/cdn..."
+      const urlRegex = /https?:\\?\/\\?\/cdn\.pixabay\.com\\?\/audio\\?\/[0-9]{4}\\?\/[0-9]{2}\\?\/[0-9]{2}\\?\/[a-zA-Z0-9-_]+\.mp3/g;
       
-      while ((match = mp3Regex.exec(html)) !== null) {
-        const fileUrl = match[0];
-        const rawId = match[1];
-        const uniqueId = `pixabay_${rawId}`;
+      const matches = html.match(urlRegex) || [];
+      
+      // Deduplicate found URLs on this page
+      const uniqueUrls = [...new Set(matches)];
+
+      for (let rawUrl of uniqueUrls) {
+        // Clean URL: remove backslashes
+        const fileUrl = rawUrl.replace(/\\/g, '');
         
+        // Extract ID from URL to avoid duplicates across runs
+        // URL format: .../audio/2023/10/01/audio_12345-abc.mp3
+        const idMatch = fileUrl.match(/\/audio\/(\d{4}\/\d{2}\/\d{2}\/[^/]+)\.mp3/);
+        const rawId = idMatch ? idMatch[1] : Math.random().toString(36);
+        const uniqueId = `pixabay_${rawId.replace(/[\/.]/g, '_')}`;
+
         if (processedIds.has(uniqueId)) continue;
         processedIds.add(uniqueId);
-        pageCount++;
 
-        let title = rawId.replace(/^audio_/, '').replace(/[0-9-]+/, ' ').replace(/-/g, ' ').trim();
-        if (title.length < 3) title = `Pixabay DJ Mix ${Math.floor(Math.random() * 1000)}`;
+        // Generate Title from filename part
+        const filename = fileUrl.split('/').pop() || '';
+        let title = filename
+          .replace(/^audio_/, '')
+          .replace(/\.mp3$/, '')
+          .replace(/[-_]/g, ' ')
+          .replace(/[0-9]+/g, '') // Remove numbers for cleaner title
+          .trim();
+        
+        if (title.length < 3) title = `Deep House Session ${Math.floor(Math.random() * 99)}`;
+        
+        // Capitalize
         title = title.replace(/\b\w/g, l => l.toUpperCase());
 
         newSets.push({
@@ -53,21 +84,25 @@ async function scrapePixabay(env) {
           djName: 'Pixabay Artist',
           coverUrl: `https://picsum.photos/seed/${uniqueId}/400/400`,
           fileUrl: fileUrl,
-          duration: '3:00', // Estimate
-          bpm: 128,
-          tags: ['Pixabay', 'DJ'],
-          plays: Math.floor(Math.random() * 5000),
-          djuuId: '' 
+          duration: '3:00', // Placeholder
+          bpm: 124 + Math.floor(Math.random() * 10),
+          tags: ['Pixabay', 'House', 'Techno'],
+          plays: Math.floor(Math.random() * 2000)
         });
+        pageItemsCount++;
       }
-      console.log(`[Scraper] Page ${page}: Found ${pageCount} items`);
+      
+      log.push(`Page ${page}: Found ${pageItemsCount} items`);
+      
+      // Small delay to be polite
+      await new Promise(r => setTimeout(r, 200));
 
     } catch (e) {
-      console.error(`[Scraper] Error on page ${page}:`, e);
+      log.push(`Page ${page} Error: ${e.message}`);
     }
   }
 
-  // SAVE TO KV
+  // --- SAVE TO KV ---
   if (newSets.length > 0) {
     try {
       const currentDataStr = await env.DB.get('app_data');
@@ -76,26 +111,22 @@ async function scrapePixabay(env) {
       let existingSets = currentData.djSets || [];
       const existingIds = new Set(existingSets.map(s => s.id));
       
-      // Filter out duplicates
+      // Filter out global duplicates
       const uniqueNewSets = newSets.filter(s => !existingIds.has(s.id));
       
       if (uniqueNewSets.length > 0) {
-        // Add new sets to the beginning
-        const updatedSets = [...uniqueNewSets, ...existingSets];
-        
-        // Safety limit to prevent KV size explosion (keep latest 500)
-        const trimmedSets = updatedSets.slice(0, 500);
-
-        currentData.djSets = trimmedSets;
+        const updatedSets = [...uniqueNewSets, ...existingSets].slice(0, 300); // Keep max 300
+        currentData.djSets = updatedSets;
         await env.DB.put('app_data', JSON.stringify(currentData));
-        return { success: true, count: uniqueNewSets.length, total: trimmedSets.length };
+        return { success: true, count: uniqueNewSets.length, logs: log };
       }
-      return { success: true, count: 0, message: "No new unique items found (duplicates skipped)" };
+      return { success: true, count: 0, message: "No new unique items", logs: log };
     } catch (e) {
-      return { success: false, message: e.message };
+      return { success: false, message: e.message, logs: log };
     }
   }
-  return { success: true, count: 0 };
+
+  return { success: true, count: 0, logs: log };
 }
 
 
@@ -223,7 +254,7 @@ export default {
         } catch(e) { return new Response(`Stream Error: ${e.message}`, { status: 500, headers: corsHeaders }); }
     }
 
-    // --- DJUU PROXY: ROBUST IMPLEMENTATION ---
+    // --- DJUU PROXY FIXED ---
     if (url.pathname === '/api/djuu/stream' && request.method === 'GET') {
         const djuuId = url.searchParams.get('id');
         if (!djuuId) return new Response("Missing DJUU ID", { status: 400 });
@@ -231,63 +262,56 @@ export default {
         try {
             const pageUrl = `https://www.djuu.com/play/${djuuId}.html`;
             
-            // 1. Fetch the Play Page to find the MP3 Link
+            // 1. Fetch Page with desktop UA
             const pageResponse = await fetch(pageUrl, { 
                 headers: { 
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 
-                    'Referer': 'https://www.djuu.com/' 
+                    'Referer': 'https://www.djuu.com/'
                 } 
             });
             
             if (!pageResponse.ok) return new Response(`DJUU Page Error: ${pageResponse.status}`, { status: 502 });
             const html = await pageResponse.text();
 
-            // 2. Aggressive Regex to find MP3 link inside JS variables
-            // Pattern 1: mp3:"http://..." or file:"http://..." (Common in their players)
-            // Pattern 2: Any string ending in .mp3 or .m4a that starts with http
+            // 2. Aggressive MP3 Extraction (Handle Escaped Slashes)
+            // Look for any string starting with http/https and ending in .mp3 or .m4a
+            // DJUU usually stores it like: mp3:"http://..." or in a playlist variable
             let audioUrl = null;
 
-            // Strategy A: Look for JS variable assignment
-            const varMatch = html.match(/(?:mp3|file|url)\s*[:=]\s*["']([^"']+\.(?:mp3|m4a))["']/i);
-            if (varMatch) {
-                audioUrl = varMatch[1];
-            }
+            // Strategy: Global search for audio file extensions
+            // Matches: http:\/\/domain.com\/file.mp3 OR http://domain.com/file.mp3
+            const regex = /https?:\\?\/\\?\/[^"'\s<>]+\.(?:mp3|m4a)/gi;
+            const matches = html.match(regex);
 
-            // Strategy B: Look for any http link ending in media extension
-            if (!audioUrl) {
-                 const fallbackMatch = html.match(/https?:\/\/[^"'\s]+\.(?:mp3|m4a)/i);
-                 if (fallbackMatch) audioUrl = fallbackMatch[0];
+            if (matches && matches.length > 0) {
+                // Usually the first valid MP3 link is the main track or a high quality one
+                // We prefer matches that don't look like ad/tracking pixels if any
+                audioUrl = matches.find(m => !m.includes('ad') && !m.includes('log')) || matches[0];
             }
 
             if (!audioUrl) {
                  return new Response("Could not extract audio URL from DJUU source", { status: 404 });
             }
 
-            // Clean URL (remove JSON escaped slashes if any)
+            // Clean URL (remove JSON escaped slashes)
             audioUrl = audioUrl.replace(/\\/g, '');
 
-            // 3. Proxy the Audio Stream
+            // 3. Proxy Stream
             const rangeHeader = request.headers.get('Range');
             const audioHeaders = { 
-                'Referer': pageUrl, // Crucial: Referer must be the play page URL
+                'Referer': pageUrl, 
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': '*/*'
             };
-            
             if (rangeHeader) audioHeaders['Range'] = rangeHeader;
 
             const audioResponse = await fetch(audioUrl, { headers: audioHeaders });
             
-            // 4. Forward response with CORS headers
+            // 4. Return
             const responseHeaders = new Headers(audioResponse.headers);
-            
-            // Override CORS to allow our frontend
             Object.keys(corsHeaders).forEach(k => responseHeaders.set(k, corsHeaders[k]));
             
-            // Ensure Content-Type is correct (sometimes proxies mess this up)
-            if (!responseHeaders.get('Content-Type')) {
-                responseHeaders.set('Content-Type', 'audio/mpeg');
-            }
+            if (!responseHeaders.get('Content-Type')) responseHeaders.set('Content-Type', 'audio/mpeg');
 
             return new Response(audioResponse.body, { 
                 status: audioResponse.status, 
