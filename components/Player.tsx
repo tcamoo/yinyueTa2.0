@@ -86,7 +86,8 @@ const DraggableSpirit = ({ isPlaying, analyser }: { isPlaying: boolean, analyser
             if (analyser) {
                 const bufferLength = analyser.frequencyBinCount;
                 const dataArray = new Uint8Array(bufferLength);
-                analyser.getByteFrequencyData(dataArray);
+                // Safe cast to fix build error
+                analyser.getByteFrequencyData(dataArray as any);
 
                 // Simple average for bands
                 const bassSlice = dataArray.slice(0, 10);
@@ -272,7 +273,8 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
           if (analyserRef.current) {
                const bufferLength = analyserRef.current.frequencyBinCount;
                dataArray = new Uint8Array(bufferLength);
-               analyserRef.current.getByteFrequencyData(dataArray);
+               // Safe cast to fix build error
+               analyserRef.current.getByteFrequencyData(dataArray as any);
           }
 
           const barWidth = 4;
