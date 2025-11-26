@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Article, Song, DJSet, PageHeaderConfig } from '../types';
 import { FileText, ArrowLeft, Play, Pause, Music, User, Calendar, Tag, Disc, Volume2 } from 'lucide-react';
@@ -119,9 +118,9 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                       </div>
                   </div>
 
-                  {/* EMBEDDED PLAYER CARD (Small, Compact, Inside Hero) */}
+                  {/* EMBEDDED PLAYER CARD (MOVED TO LEFT SIDE) */}
                   {linkedMedia && (
-                      <div className="absolute bottom-6 right-6 z-20 pointer-events-auto animate-in slide-in-from-bottom-4 fade-in duration-700 delay-300">
+                      <div className="absolute bottom-6 left-6 lg:left-16 z-20 pointer-events-auto animate-in slide-in-from-bottom-4 fade-in duration-700 delay-300">
                           <div 
                               onClick={handlePlayLinkedMedia}
                               className="w-auto max-w-[280px] bg-black/60 backdrop-blur-2xl border border-white/10 p-3 pr-5 rounded-full flex items-center gap-3 cursor-pointer hover:bg-black/80 hover:border-brand-lime/50 transition-all group/card shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
