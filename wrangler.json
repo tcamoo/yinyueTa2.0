@@ -5,5 +5,22 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "DB",
+      "id": "YOUR_KV_ID_HERE",
+      "preview_id": "YOUR_PREVIEW_KV_ID_HERE"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "yinyuetai-media",
+      "preview_bucket_name": "yinyuetai-media-preview"
+    }
+  ],
+  "vars": {
+    "R2_PUBLIC_URL": "" 
   }
 }
