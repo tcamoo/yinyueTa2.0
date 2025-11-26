@@ -215,6 +215,75 @@ export default {
         }
     }
 
+    // 7. DJUU PROXY STREAM (NEW FEATURE)
+    // Extracts real audio URL from DJUU page and proxies the stream to bypass 403
+    if (url.pathname === '/api/djuu/stream' && request.method === 'GET') {
+        const djuuId = url.searchParams.get('id');
+        if (!djuuId) {
+            return new Response("Missing DJUU ID", { status: 400 });
+        }
+
+        try {
+            // Step 1: Fetch the HTML page to find the real mp3 link
+            // Using a browser-like User-Agent is crucial
+            const pageUrl = `https://www.djuu.com/play/${djuuId}.html`;
+            const pageResponse = await fetch(pageUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Referer': 'https://www.djuu.com/'
+                }
+            });
+
+            if (!pageResponse.ok) {
+                return new Response("Failed to fetch DJUU page", { status: 502 });
+            }
+
+            const html = await pageResponse.text();
+            
+            // Step 2: Extract MP3 URL using Regex
+            // DJUU usually stores it like: mp3:"http://..." or some variation in their player config
+            // We look for common audio extensions inside quotes
+            const mp3Regex = /(https?:\/\/[^"']+\.(?:mp3|m4a))/i;
+            const match = html.match(mp3Regex);
+
+            if (!match || !match[1]) {
+                 return new Response("Could not extract audio URL", { status: 404 });
+            }
+
+            const audioUrl = match[1];
+
+            // Step 3: Proxy the Audio Stream
+            // We must forward the Range header for seeking to work
+            const rangeHeader = request.headers.get('Range');
+            const audioHeaders = {
+                'Referer': 'https://www.djuu.com/', // Critical for bypassing 403
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            };
+            
+            if (rangeHeader) {
+                audioHeaders['Range'] = rangeHeader;
+            }
+
+            const audioResponse = await fetch(audioUrl, {
+                headers: audioHeaders
+            });
+
+            // Prepare response headers (CORS + Stream info)
+            const responseHeaders = new Headers(audioResponse.headers);
+            // Force CORS to allow visualizer
+            Object.keys(corsHeaders).forEach(k => responseHeaders.set(k, corsHeaders[k]));
+            
+            // DJUU might redirect (302), fetch follows automatically, but we need to ensure we return correct status
+            return new Response(audioResponse.body, {
+                status: audioResponse.status,
+                headers: responseHeaders
+            });
+
+        } catch (e) {
+            return new Response(`Proxy Error: ${e.message}`, { status: 500 });
+        }
+    }
+
     // --- STATIC ASSETS & SPA FALLBACK ---
     try {
       let response = await env.ASSETS.fetch(request);
