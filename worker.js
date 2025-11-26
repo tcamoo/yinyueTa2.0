@@ -4,11 +4,11 @@ async function scrapePixabay(env) {
   if (!env.DB) return { success: false, message: "KV DB not bound" };
 
   const CATEGORY = "dj";
-  const PAGES_TO_SCRAPE = 4; // Fetch 4 pages
+  const PAGES_TO_SCRAPE = 10; // Increased to 10 pages to capture ~200 items (approx 20-30 per page)
   let newSets = [];
   let processedIds = new Set();
 
-  console.log(`[Scraper] Starting Pixabay scrape for category: ${CATEGORY}`);
+  console.log(`[Scraper] Starting Pixabay scrape for category: ${CATEGORY} (Pages: ${PAGES_TO_SCRAPE})`);
 
   for (let page = 1; page <= PAGES_TO_SCRAPE; page++) {
     try {
@@ -17,7 +17,8 @@ async function scrapePixabay(env) {
       const response = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Referer': 'https://pixabay.com/music/'
         }
       });
 
@@ -29,8 +30,10 @@ async function scrapePixabay(env) {
       const html = await response.text();
 
       // REGEX EXTRACTION STRATEGY
+      // Matches CDN MP3 links.
       const mp3Regex = /https:\/\/cdn\.pixabay\.com\/audio\/[0-9]{4}\/[0-9]{2}\/[0-9]{2}\/audio_([a-zA-Z0-9-]+)\.mp3/g;
       let match;
+      let pageCount = 0;
       
       while ((match = mp3Regex.exec(html)) !== null) {
         const fileUrl = match[0];
@@ -39,6 +42,7 @@ async function scrapePixabay(env) {
         
         if (processedIds.has(uniqueId)) continue;
         processedIds.add(uniqueId);
+        pageCount++;
 
         let title = rawId.replace(/^audio_/, '').replace(/[0-9-]+/, ' ').replace(/-/g, ' ').trim();
         if (title.length < 3) title = `Pixabay DJ Mix ${Math.floor(Math.random() * 1000)}`;
@@ -50,12 +54,14 @@ async function scrapePixabay(env) {
           djName: 'Pixabay Artist',
           coverUrl: `https://picsum.photos/seed/${uniqueId}/400/400`,
           fileUrl: fileUrl,
-          duration: '3:00',
+          duration: '3:00', // Estimate
           bpm: 128,
           tags: ['Pixabay', 'DJ'],
-          plays: Math.floor(Math.random() * 5000)
+          plays: Math.floor(Math.random() * 5000),
+          djuuId: '' 
         });
       }
+      console.log(`[Scraper] Page ${page}: Found ${pageCount} items`);
 
     } catch (e) {
       console.error(`[Scraper] Error on page ${page}:`, e);
@@ -70,17 +76,22 @@ async function scrapePixabay(env) {
       
       let existingSets = currentData.djSets || [];
       const existingIds = new Set(existingSets.map(s => s.id));
+      
+      // Filter out duplicates
       const uniqueNewSets = newSets.filter(s => !existingIds.has(s.id));
       
       if (uniqueNewSets.length > 0) {
+        // Add new sets to the beginning
         const updatedSets = [...uniqueNewSets, ...existingSets];
-        const trimmedSets = updatedSets.slice(0, 500); // Limit to latest 500
+        
+        // Safety limit to prevent KV size explosion (keep latest 500)
+        const trimmedSets = updatedSets.slice(0, 500);
 
         currentData.djSets = trimmedSets;
         await env.DB.put('app_data', JSON.stringify(currentData));
-        return { success: true, count: uniqueNewSets.length };
+        return { success: true, count: uniqueNewSets.length, total: trimmedSets.length };
       }
-      return { success: true, count: 0, message: "No new items found" };
+      return { success: true, count: 0, message: "No new unique items found (duplicates skipped)" };
     } catch (e) {
       return { success: false, message: e.message };
     }
@@ -235,6 +246,7 @@ export default {
         } catch (e) { return new Response(`Proxy Error: ${e.message}`, { status: 500 }); }
     }
 
+    // SPA Fallback
     try {
       let response = await env.ASSETS.fetch(request);
       if (response.status >= 200 && response.status < 400) return response;
