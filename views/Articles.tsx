@@ -123,7 +123,7 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                   
                   {/* 使用 dangerouslySetInnerHTML 渲染 HTML 内容 */}
                   <div 
-                    className={`prose prose-invert ${contentSize} max-w-none prose-headings:font-display prose-a:text-brand-lime hover:prose-a:text-white ${contentFont} prose-img:rounded-2xl prose-img:shadow-xl prose-video:rounded-2xl prose-audio:w-full prose-p:text-gray-300 prose-p:leading-8 prose-p:font-light prose-p:tracking-wide`}
+                    className={`prose prose-invert ${contentSize} max-w-none prose-headings:font-display prose-a:text-brand-lime hover:prose-a:text-white ${contentFont} prose-img:rounded-2xl prose-img:shadow-xl prose-video:rounded-2xl prose-audio:w-full prose-p:text-gray-300 prose-p:leading-8 prose-p:font-light prose-p:tracking-wide [&_.not-prose]:my-12 [&_.not-prose]:mx-auto`}
                     dangerouslySetInnerHTML={{ __html: formatContent(selectedArticle.content) }}
                   />
 
