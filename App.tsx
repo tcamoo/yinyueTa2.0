@@ -145,6 +145,8 @@ const App: React.FC = () => {
             mvs={mvs}
             articles={articles}
             galleryItems={galleryItems}
+            djSets={djSets}
+            softwareItems={softwareItems}
             onPlaySong={handlePlaySong} 
             currentSongId={currentSong?.id} 
             onChangeView={setCurrentView} 
@@ -224,6 +226,8 @@ const App: React.FC = () => {
             mvs={mvs}
             articles={articles}
             galleryItems={galleryItems}
+            djSets={djSets}
+            softwareItems={softwareItems}
             onPlaySong={handlePlaySong} 
             currentSongId={currentSong?.id} 
             onChangeView={setCurrentView} 
