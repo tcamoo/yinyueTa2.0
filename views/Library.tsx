@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink, RefreshCcw } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem, NavItem } from '../types';
@@ -173,7 +174,7 @@ export const Library: React.FC<LibraryProps> = ({
   // --- TRIGGER SCRAPER ---
   const handleTriggerScrape = async () => {
       setIsScraping(true);
-      notify('info', '正在后台抓取 Pixabay DJ 数据...');
+      notify('info', '正在抓取网易云舞曲/DJ榜单...');
       try {
           const key = cloudService.getAdminKey();
           const res = await fetch('/api/admin/scrape', {
@@ -188,21 +189,21 @@ export const Library: React.FC<LibraryProps> = ({
           
           const result = await res.json();
           if (result.success) {
-              notify('success', `抓取完成! 新增 ${result.count} 条 Mix`);
+              notify('success', `抓取完成! 新增 ${result.count} 首曲目`);
               // Reload data
               const cloudData = await cloudService.loadData();
               if (cloudData && cloudData.djSets) setDjSets(cloudData.djSets);
           } else {
               notify('error', `抓取未完成: ${result.message}`);
           }
-      } catch (e) {
-          notify('error', '触发抓取失败，请检查网络');
+      } catch (e: any) {
+          notify('error', '触发抓取失败: ' + e.message);
       } finally {
           setIsScraping(false);
       }
   };
 
-  // ... [Existing code continues unchanged] ...
+  // ... [Rest of functionality] ...
   const toggleFeaturedMV = (id: string) => {
       const updatedMvs = mvs.map(mv => ({
           ...mv,
@@ -213,7 +214,6 @@ export const Library: React.FC<LibraryProps> = ({
       syncToCloud({ mvs: updatedMvs });
   };
   
-  // ... [Rest of file content: insertAtCursor, handleSelection, openMediaSelector, handleMediaUploadForArticle, handleFileUpload, handleDjuuParse, wrapSelection, handleNavChange, moveNavItem, saveNavItems, resetForm, openCreateModal, openEditModal, handleSubmit, handleDelete, saveDecoration] ...
   const insertAtCursor = (text: string) => {
       if (articleContentRef.current) {
           const start = articleContentRef.current.selectionStart;
@@ -317,21 +317,8 @@ export const Library: React.FC<LibraryProps> = ({
       }
   };
   const handleDjuuParse = (input: string) => {
-      const regex = /djuu\.com\/play\/(\d+)/;
-      const match = input.match(regex);
-      if (match && match[1]) {
-          const id = match[1];
-          setFormData(prev => ({
-              ...prev,
-              djuuId: id,
-              cover: prev.cover || `http://img.djuu.com/adj/cover/${id}.jpg` 
-          }));
-          notify('success', `已提取 DJUU ID: ${id}`);
-      } else if (/^\d+$/.test(input)) {
-          setFormData(prev => ({ ...prev, djuuId: input }));
-      } else {
-          setFormData(prev => ({ ...prev, djuuId: input }));
-      }
+      // Keep for manual legacy support if needed
+      setFormData(prev => ({ ...prev, djuuId: input }));
   };
   const wrapSelection = (prefix: string, suffix: string) => {
       if (articleContentRef.current) {
@@ -377,7 +364,7 @@ export const Library: React.FC<LibraryProps> = ({
       resetForm();
       if (type === 'video') setFormData(prev => ({...prev, duration: '04:00', tag: 'MV'}));
       if (type === 'audio') setFormData(prev => ({...prev, duration: '03:30', tag: 'Pop'}));
-      if (type === 'dj') setFormData(prev => ({...prev, duration: '60:00', bpm: '128'}));
+      if (type === 'dj') setFormData(prev => ({...prev, duration: '04:00', bpm: '128'}));
       if (type === 'article') setFormData(prev => ({...prev, tag: 'News'}));
       setIsModalOpen(true);
   };
@@ -537,15 +524,6 @@ export const Library: React.FC<LibraryProps> = ({
       notify('info', '已删除');
       syncToCloud(updatedData);
   };
-  useEffect(() => {
-      if (pageHeaders[selectedDecorPage]) {
-          setDecorForm({
-              title: pageHeaders[selectedDecorPage].title,
-              subtitle: pageHeaders[selectedDecorPage].subtitle,
-              description: pageHeaders[selectedDecorPage].description
-          });
-      }
-  }, [selectedDecorPage, pageHeaders]);
   const saveDecoration = () => {
       const next = { ...pageHeaders, [selectedDecorPage]: { ...pageHeaders[selectedDecorPage], ...decorForm } };
       setPageHeaders(next);
@@ -662,7 +640,7 @@ export const Library: React.FC<LibraryProps> = ({
                       <div className="flex justify-between items-center mb-6">
                           <div>
                               <h3 className="text-xl font-bold text-white">DJ Sets / Mixes ({djSets.length})</h3>
-                              <p className="text-xs text-gray-500 mt-1">管理长篇 Mix 或使用抓取工具自动更新。</p>
+                              <p className="text-xs text-gray-500 mt-1">管理长篇 Mix 或自动抓取网易云舞曲榜。</p>
                           </div>
                           <div className="flex gap-2">
                               {/* MANUAL SCRAPE BUTTON */}
@@ -672,7 +650,7 @@ export const Library: React.FC<LibraryProps> = ({
                                 className={`px-4 py-2 rounded-lg text-sm flex items-center gap-2 font-bold transition-all border ${isScraping ? 'bg-white/10 text-gray-500 border-transparent cursor-wait' : 'bg-transparent text-brand-lime border-brand-lime/30 hover:bg-brand-lime hover:text-black'}`}
                               >
                                   <RefreshCcw className={`w-4 h-4 ${isScraping ? 'animate-spin' : ''}`} />
-                                  {isScraping ? '抓取中...' : '同步 Pixabay'}
+                                  {isScraping ? '抓取中...' : '抓取网易云舞曲'}
                               </button>
 
                               <button onClick={() => openCreateModal('dj')} className="px-4 py-2 bg-brand-cyan text-black font-bold rounded-lg text-sm flex items-center gap-2 hover:bg-white">
@@ -685,8 +663,8 @@ export const Library: React.FC<LibraryProps> = ({
                               <div key={item.id} className="flex items-center gap-4 p-3 bg-white/5 rounded-xl border border-transparent hover:border-white/20 group">
                                   <div className="w-12 h-12 rounded bg-black overflow-hidden shrink-0 relative">
                                      <img src={item.coverUrl} className="w-full h-full object-cover" />
-                                     {item.djuuId && (
-                                         <div className="absolute top-0 right-0 bg-blue-600 text-[8px] font-bold px-1 text-white">DJUU</div>
+                                     {item.id.startsWith('ne_') && (
+                                         <div className="absolute top-0 right-0 bg-red-600 text-[8px] font-bold px-1 text-white">163</div>
                                      )}
                                      {item.id.startsWith('pixabay') && (
                                          <div className="absolute bottom-0 right-0 bg-green-600 text-[8px] font-bold px-1 text-white">PIX</div>
@@ -705,510 +683,4 @@ export const Library: React.FC<LibraryProps> = ({
                       </div>
                   </div>
               )}
-
-              {/* GALLERY TAB CONTENT */}
-              {activeTab === 'gallery' && (
-                  <div>
-                      <div className="flex justify-between mb-4">
-                          <h3 className="text-xl font-bold text-white">Visual Gallery ({galleryItems.length})</h3>
-                          <button onClick={() => openCreateModal('gallery')} className="px-4 py-2 bg-brand-cyan text-black font-bold rounded-lg text-sm flex items-center gap-2 hover:bg-white">
-                              <Plus className="w-4 h-4" /> 添加图片
-                          </button>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                          {galleryItems.map((item) => (
-                              <div key={item.id} className="group relative aspect-[3/4] rounded-lg overflow-hidden bg-white/5">
-                                  <img src={item.imageUrl} className="w-full h-full object-cover" />
-                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center items-center gap-2 p-2">
-                                      <span className="text-xs text-white font-bold text-center truncate w-full">{item.title}</span>
-                                      <div className="flex gap-2">
-                                          <button onClick={() => openEditModal(item, 'gallery')} className="p-1.5 bg-white text-black rounded hover:bg-brand-cyan"><Edit3 className="w-3 h-3" /></button>
-                                          <button onClick={() => handleDelete(item.id, 'gallery')} className="p-1.5 bg-red-500 text-white rounded hover:bg-red-600"><Trash2 className="w-3 h-3" /></button>
-                                      </div>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-              )}
-
-              {/* ARTICLES TAB CONTENT */}
-              {activeTab === 'articles' && (
-                  <div>
-                      <div className="flex justify-between mb-6">
-                          <h3 className="text-xl font-bold text-white">文章管理 ({articles.length})</h3>
-                          <button onClick={() => openCreateModal('article')} className="px-4 py-2 bg-brand-cyan text-black font-bold rounded-lg text-sm flex items-center gap-2 hover:bg-white">
-                              <Plus className="w-4 h-4" /> 发布新文章
-                          </button>
-                      </div>
-                      <div className="grid gap-4">
-                          {articles.map(article => (
-                              <div key={article.id} className="p-4 bg-white/5 rounded-xl flex items-center gap-4 group">
-                                  <div className="w-16 h-12 bg-black rounded overflow-hidden shrink-0"><img src={article.coverUrl} className="w-full h-full object-cover" /></div>
-                                  <div className="flex-1">
-                                      <h4 className="font-bold text-white">{article.title}</h4>
-                                      <p className="text-xs text-gray-500 line-clamp-1">{article.excerpt}</p>
-                                  </div>
-                                  <div className="flex gap-2">
-                                      <button onClick={() => openEditModal(article, 'article')} className="p-2 text-gray-400 hover:text-white"><Edit3 className="w-4 h-4" /></button>
-                                      <button onClick={() => handleDelete(article.id, 'article')} className="p-2 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-              )}
-
-              {/* DECORATION TAB */}
-              {activeTab === 'decoration' && (
-                  <div>
-                      <h3 className="text-xl font-bold text-white mb-6">页面装修</h3>
-                      <div className="flex gap-8">
-                          <div className="w-48 flex flex-col gap-2">
-                              {Object.keys(pageHeaders).map((key) => (
-                                  <button 
-                                    key={key} 
-                                    onClick={() => setSelectedDecorPage(key as View)} 
-                                    className={`text-left px-4 py-3 rounded-lg text-sm font-bold ${selectedDecorPage === key ? 'bg-white text-black' : 'text-gray-400 hover:bg-white/5'}`}
-                                  >
-                                      {key} Page
-                                  </button>
-                              ))}
-                          </div>
-                          <div className="flex-1 bg-black/20 p-6 rounded-xl border border-white/5">
-                              <div className="space-y-4">
-                                  <div>
-                                      <label className="block text-xs text-gray-500 mb-1">页面大标题</label>
-                                      <input type="text" value={decorForm.title} onChange={e => setDecorForm({...decorForm, title: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" />
-                                  </div>
-                                  <div>
-                                      <label className="block text-xs text-gray-500 mb-1">副标题 (Subtitle)</label>
-                                      <input type="text" value={decorForm.subtitle} onChange={e => setDecorForm({...decorForm, subtitle: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" />
-                                  </div>
-                                  <div>
-                                      <label className="block text-xs text-gray-500 mb-1">描述文本</label>
-                                      <textarea value={decorForm.description} onChange={e => setDecorForm({...decorForm, description: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white h-24" />
-                                  </div>
-                                  <button onClick={saveDecoration} className="px-6 py-2 bg-brand-lime text-black font-bold rounded-lg hover:bg-white mt-4">保存配置</button>
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-              )}
-
-               {/* NAV TAB */}
-               {activeTab === 'nav' && (
-                  <div>
-                      <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-bold text-white">导航菜单管理</h3>
-                        <button onClick={saveNavItems} className="px-4 py-2 bg-brand-lime text-black font-bold rounded-lg flex items-center gap-2 hover:bg-white">
-                            <Save className="w-4 h-4" /> 保存菜单顺序
-                        </button>
-                      </div>
-                      
-                      <div className="space-y-2">
-                          {[...navItems].sort((a,b) => a.order - b.order).filter(n => n.id !== View.LIBRARY).map((item, index) => (
-                              <div key={item.id} className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/20 group">
-                                  <div className="flex flex-col gap-1">
-                                      <button 
-                                        onClick={() => moveNavItem(index, 'up')}
-                                        disabled={index === 0}
-                                        className="p-1 hover:bg-white/10 rounded text-gray-500 hover:text-white disabled:opacity-30"
-                                      >
-                                          <ArrowUp className="w-4 h-4" />
-                                      </button>
-                                      <button 
-                                        onClick={() => moveNavItem(index, 'down')}
-                                        disabled={index === navItems.length - 2}
-                                        className="p-1 hover:bg-white/10 rounded text-gray-500 hover:text-white disabled:opacity-30"
-                                      >
-                                          <ArrowDown className="w-4 h-4" />
-                                      </button>
-                                  </div>
-                                  
-                                  <div className="w-8 h-8 rounded bg-black/30 flex items-center justify-center text-xs font-mono text-gray-500">
-                                      {index + 1}
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-4 flex-1">
-                                      <div>
-                                          <label className="text-[10px] text-gray-600 uppercase font-bold block mb-1">中文显示名</label>
-                                          <input 
-                                            type="text" 
-                                            value={item.label}
-                                            onChange={e => handleNavChange(item.id, 'label', e.target.value)}
-                                            className="w-full bg-black border border-white/10 rounded px-2 py-1 text-white text-sm focus:border-brand-lime outline-none" 
-                                          />
-                                      </div>
-                                      <div>
-                                          <label className="text-[10px] text-gray-600 uppercase font-bold block mb-1">英文副标题</label>
-                                          <input 
-                                            type="text" 
-                                            value={item.subLabel}
-                                            onChange={e => handleNavChange(item.id, 'subLabel', e.target.value)}
-                                            className="w-full bg-black border border-white/10 rounded px-2 py-1 text-white text-sm focus:border-brand-lime outline-none" 
-                                          />
-                                      </div>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-4">* "管理" 菜单默认始终固定在底部。</p>
-                  </div>
-              )}
-
-              {/* THEME TAB */}
-              {activeTab === 'theme' && (
-                  <div>
-                      <h3 className="text-xl font-bold text-white mb-6">全局主题风格</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {THEMES.map((theme: Theme) => (
-                              <button 
-                                key={theme.id}
-                                onClick={() => { setTheme(theme); syncToCloud({themeId: theme.id}); }}
-                                className={`p-4 rounded-xl border-2 transition-all flex flex-col gap-3 ${currentTheme.id === theme.id ? 'border-brand-lime bg-white/5' : 'border-white/5 hover:border-white/20'}`}
-                              >
-                                  <div className="h-20 w-full rounded-lg" style={{ background: `linear-gradient(45deg, ${theme.colors.primary}, ${theme.colors.secondary})` }}></div>
-                                  <span className="font-bold text-white">{theme.name}</span>
-                              </button>
-                          ))}
-                      </div>
-                  </div>
-              )}
-
-              {/* NETDISK TAB */}
-              {activeTab === 'netdisk' && (
-                  <Netdisk 
-                    notify={notify} 
-                    softwareItems={softwareItems} 
-                    setSoftwareItems={setSoftwareItems} 
-                    onSync={() => syncToCloud()}
-                  />
-              )}
-          </main>
-      </div>
-
-      {isModalOpen && (
-          <div className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className={`bg-[#111] w-full ${editingType === 'article' ? 'max-w-5xl h-[90vh]' : 'max-w-2xl max-h-[90vh]'} flex flex-col rounded-2xl border border-white/10 shadow-2xl overflow-hidden`}>
-                  
-                  <div className="flex justify-between items-center p-6 border-b border-white/5 bg-[#161616]">
-                      <h3 className="text-xl font-bold text-white">
-                          {editMode ? '编辑' : '新增'} {
-                              editingType === 'audio' ? '音乐' : 
-                              editingType === 'video' ? '视频' : 
-                              editingType === 'dj' ? 'DJ Set' : 
-                              editingType === 'gallery' ? '图片' :
-                              '文章'
-                          }
-                      </h3>
-                      <button onClick={() => setIsModalOpen(false)}><X className="w-6 h-6 text-gray-500 hover:text-white" /></button>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                    <div className="space-y-4">
-                      
-                      {/* Common Inputs */}
-                      <div className="grid grid-cols-2 gap-4">
-                          <div>
-                              <label className="text-xs text-gray-500 mb-1 block">标题</label>
-                              <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white focus:border-brand-lime outline-none" placeholder="输入标题..." />
-                          </div>
-                          <div>
-                              <label className="text-xs text-gray-500 mb-1 block">{editingType === 'article' ? '作者' : editingType === 'gallery' ? '摄影师' : '艺术家/歌手/DJ'}</label>
-                              <input type="text" value={formData.artist} onChange={e => setFormData({...formData, artist: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white focus:border-brand-lime outline-none" />
-                          </div>
-                      </div>
-
-                      {/* Image Upload for All Types */}
-                      <div>
-                          <label className="text-xs text-gray-500 mb-1 block">{editingType === 'gallery' ? '图片文件' : '封面图片'} URL</label>
-                          <div className="flex gap-2">
-                             <input type="text" value={formData.cover} onChange={e => setFormData({...formData, cover: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white focus:border-brand-lime outline-none" placeholder="https://..." />
-                             
-                             {/* Media Selector for Cover - Added for Article Editor */}
-                             <button onClick={() => openMediaSelector('image', 'cover')} className="px-3 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold transition-colors" title="从库中选择">
-                                 <Grid className="w-4 h-4" />
-                             </button>
-
-                             <button disabled={isUploading} onClick={() => coverFileInputRef.current?.click()} className="px-4 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold text-xs flex items-center gap-2 transition-colors disabled:opacity-50">
-                                 {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} 上传
-                             </button>
-                          </div>
-                      </div>
-
-                      {editingType === 'audio' && (
-                          <>
-                            <div>
-                                <label className="text-xs text-gray-500 mb-1 block">音频文件 URL (或 网易云ID)</label>
-                                <div className="flex gap-2 mb-2">
-                                    <input type="text" value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} className="flex-1 bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="https://example.com/song.mp3" />
-                                    <button disabled={isUploading} onClick={() => audioFileInputRef.current?.click()} className="px-4 bg-brand-lime text-black font-bold rounded-lg text-xs flex items-center gap-2 hover:bg-white transition-colors disabled:opacity-50">
-                                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} 上传文件
-                                    </button>
-                                </div>
-                                <div className="flex gap-2">
-                                    <input type="text" value={formData.neteaseId} onChange={e => setFormData({...formData, neteaseId: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white text-sm" placeholder="可选: 网易云音乐 ID (覆盖上方 URL)" />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-xs text-gray-500 mb-1 block">歌词 (LRC格式)</label>
-                                <textarea value={formData.lyrics} onChange={e => setFormData({...formData, lyrics: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white h-24" placeholder="[00:00.00] 歌词内容..." />
-                            </div>
-                          </>
-                      )}
-
-                      {editingType === 'video' && (
-                          <>
-                             <div>
-                                <label className="text-xs text-gray-500 mb-1 block">视频文件 URL (MP4/WebM)</label>
-                                <div className="flex gap-2">
-                                    <input type="text" value={formData.videoUrl} onChange={e => setFormData({...formData, videoUrl: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="https://..." />
-                                    <button disabled={isUploading} onClick={() => videoFileInputRef.current?.click()} className="px-4 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold text-xs flex items-center gap-2 transition-colors disabled:opacity-50">
-                                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                                    </button>
-                                </div>
-                             </div>
-                             <div>
-                                <label className="text-xs text-gray-500 mb-1 block">标签/分类</label>
-                                <input type="text" value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="Cinematic, 4K..." />
-                             </div>
-                          </>
-                      )}
-
-                      {editingType === 'dj' && (
-                          <>
-                             <div>
-                                <label className="text-xs text-gray-500 mb-1 block">Mix 音频文件 URL (手动直链)</label>
-                                <div className="flex gap-2">
-                                    <input type="text" value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="https://..." />
-                                    <button disabled={isUploading} onClick={() => audioFileInputRef.current?.click()} className="px-4 bg-white/10 hover:bg-white hover:text-black rounded-lg text-gray-400 font-bold text-xs flex items-center gap-2 transition-colors disabled:opacity-50">
-                                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} 上传
-                                    </button>
-                                </div>
-                             </div>
-
-                             {/* DJUU SPECIAL INPUT */}
-                             <div className="bg-[#050505] p-3 rounded-lg border border-white/10">
-                                <label className="text-xs text-blue-400 font-bold mb-1 block flex items-center gap-2">
-                                    <Disc className="w-3 h-3" /> DJUU 页面链接 / ID (自动解析)
-                                </label>
-                                <div className="flex gap-2">
-                                    <input 
-                                        type="text" 
-                                        value={formData.djuuId} 
-                                        onChange={e => handleDjuuParse(e.target.value)} 
-                                        className="w-full bg-black border border-white/10 p-3 rounded-lg text-white font-mono text-sm focus:border-blue-500 outline-none" 
-                                        placeholder="例如: https://www.djuu.com/play/290470.html" 
-                                    />
-                                    {formData.djuuId && (
-                                        <a href={`https://www.djuu.com/play/${formData.djuuId}.html`} target="_blank" className="px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg flex items-center justify-center hover:bg-blue-500 hover:text-white transition-colors" title="前往源站获取直链">
-                                            <ExternalLink className="w-4 h-4" />
-                                        </a>
-                                    )}
-                                </div>
-                                <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">
-                                    输入 ID 或链接后，系统将自动配置云端代理，解决 403 防盗链问题。
-                                    <br/>支持频谱分析与进度拖拽。
-                                </p>
-                             </div>
-
-                             <div className="grid grid-cols-2 gap-4">
-                                 <div>
-                                    <label className="text-xs text-gray-500 mb-1 block">BPM</label>
-                                    <input type="number" value={formData.bpm} onChange={e => setFormData({...formData, bpm: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="128" />
-                                 </div>
-                                 <div>
-                                    <label className="text-xs text-gray-500 mb-1 block">时长 (mm:ss)</label>
-                                    <input type="text" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" placeholder="60:00" />
-                                 </div>
-                             </div>
-                          </>
-                      )}
-
-                      {editingType === 'article' && (
-                          <>
-                              <div>
-                                  <label className="text-xs text-gray-500 mb-1 block">摘要 (Excerpt)</label>
-                                  <textarea value={formData.desc} onChange={e => setFormData({...formData, desc: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white h-20" />
-                              </div>
-                              
-                              {/* LINKED SONG SELECTOR */}
-                              <div>
-                                  <label className="text-xs text-gray-500 mb-1 block">关联推荐歌曲 (显示在文章顶部)</label>
-                                  <div className="flex gap-2 items-center">
-                                      <select 
-                                        value={formData.linkedSongId} 
-                                        onChange={e => setFormData({...formData, linkedSongId: e.target.value})}
-                                        className="w-full bg-black border border-white/10 p-3 rounded-lg text-white"
-                                      >
-                                          <option value="">-- 无关联歌曲 --</option>
-                                          <optgroup label="单曲库">
-                                              {songs.map(s => <option key={s.id} value={s.id}>{s.title} - {s.artist}</option>)}
-                                          </optgroup>
-                                          <optgroup label="DJ Sets">
-                                              {djSets.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
-                                          </optgroup>
-                                      </select>
-                                      {formData.linkedSongId && (
-                                          <div className="text-brand-lime text-xs font-bold whitespace-nowrap">
-                                              已关联
-                                          </div>
-                                      )}
-                                  </div>
-                              </div>
-                              
-                              <div className="bg-[#050505] rounded-xl border border-white/10 overflow-hidden">
-                                  <div className="bg-[#1a1a1a] p-2 flex items-center gap-2 border-b border-white/5 overflow-x-auto">
-                                      <button onClick={() => openMediaSelector('image', 'content')} className="p-2 hover:bg-white/10 rounded text-brand-cyan hover:text-white flex items-center gap-2 text-xs font-bold" title="从库中选择">
-                                          <Grid className="w-4 h-4" /> 媒体库
-                                      </button>
-                                      <div className="w-[1px] h-4 bg-white/10 mx-1"></div>
-                                      <button onClick={() => handleMediaUploadForArticle('image')} className="p-2 hover:bg-white/10 rounded text-gray-300 hover:text-brand-lime flex items-center gap-2 text-xs font-bold" title="插入图片">
-                                          <ImagePlus className="w-4 h-4" /> 图片
-                                      </button>
-                                      <button onClick={() => handleMediaUploadForArticle('audio')} className="p-2 hover:bg-white/10 rounded text-gray-300 hover:text-brand-lime flex items-center gap-2 text-xs font-bold" title="插入音频">
-                                          <Music className="w-4 h-4" /> 音频
-                                      </button>
-                                      <button onClick={() => handleMediaUploadForArticle('video')} className="p-2 hover:bg-white/10 rounded text-gray-300 hover:text-brand-lime flex items-center gap-2 text-xs font-bold" title="插入视频">
-                                          <Video className="w-4 h-4" /> 视频
-                                      </button>
-                                      <div className="w-[1px] h-4 bg-white/10 mx-1"></div>
-                                      <button onClick={() => insertAtCursor('## ')} className="p-2 hover:bg-white/10 rounded text-gray-300" title="标题 H2"><Heading2 className="w-4 h-4" /></button>
-                                      <button onClick={() => wrapSelection('**', '**')} className="p-2 hover:bg-white/10 rounded text-gray-300" title="粗体"><Bold className="w-4 h-4" /></button>
-                                      <button onClick={() => wrapSelection('*', '*')} className="p-2 hover:bg-white/10 rounded text-gray-300" title="斜体"><Italic className="w-4 h-4" /></button>
-                                      <div className="w-[1px] h-4 bg-white/10 mx-1"></div>
-                                      <button onClick={() => wrapSelection('<span class="text-xl font-bold">', '</span>')} className="p-2 hover:bg-white/10 rounded text-gray-300 text-xs font-serif" title="大字">A+</button>
-                                      <button onClick={() => wrapSelection('<span class="font-serif italic text-gray-400">', '</span>')} className="p-2 hover:bg-white/10 rounded text-gray-300 text-xs font-serif italic" title="引用样式">Quote</button>
-                                  </div>
-                                  
-                                  <label className="text-xs text-gray-500 p-2 block bg-[#0a0a0a]">正文内容 (支持 HTML/Markdown)</label>
-                                  <textarea 
-                                    ref={articleContentRef}
-                                    value={formData.content} 
-                                    onChange={e => setFormData({...formData, content: e.target.value})} 
-                                    className="w-full bg-black border-none p-4 text-white h-[400px] font-mono text-sm focus:outline-none resize-none" 
-                                  />
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                      <label className="text-xs text-gray-500 mb-1 block">分类标签</label>
-                                      <input type="text" value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white" />
-                                  </div>
-                                  <div>
-                                      <label className="text-xs text-gray-500 mb-1 block">心情色调</label>
-                                      <select value={formData.mood} onChange={e => setFormData({...formData, mood: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white">
-                                          {MOODS.map((m: {label: string, color: string}) => <option key={m.label} value={m.color}>{m.label}</option>)}
-                                      </select>
-                                  </div>
-                              </div>
-                          </>
-                      )}
-
-                      {/* Hidden File Inputs - Moved outside conditional blocks but inside modal to be accessible via refs */}
-                      <input ref={coverFileInputRef} type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'cover')} />
-                      <input ref={audioFileInputRef} type="file" className="hidden" accept="audio/*" onChange={(e) => handleFileUpload(e, 'url')} />
-                      <input ref={videoFileInputRef} type="file" className="hidden" accept="video/*" onChange={(e) => handleFileUpload(e, 'videoUrl')} />
-                      
-                    </div>
-                  </div>
-
-                  <div className="p-6 border-t border-white/5 bg-[#161616]">
-                      <button disabled={isUploading} onClick={handleSubmit} className="w-full py-4 bg-brand-lime text-black font-bold rounded-xl hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                          {isUploading ? '等待文件上传...' : (editMode ? '保存修改' : '确认创建')}
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* MEDIA SELECTOR MODAL (Unified) */}
-      {showMediaSelector && (
-          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-             <div className="bg-[#111] w-full max-w-4xl h-[80vh] rounded-2xl border border-white/10 flex flex-col shadow-2xl animate-in zoom-in-95">
-                 <div className="p-6 border-b border-white/5 flex items-center justify-between bg-[#161616]">
-                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                         <Grid className="w-5 h-5 text-brand-cyan" /> 
-                         {selectorContext === 'cover' ? '选择封面图片' : '选择插入的媒体'}
-                     </h3>
-                     <div className="flex gap-2">
-                        {/* Only show relevant tabs based on context */}
-                        <button onClick={() => setMediaSelectorType('image')} className={`px-3 py-1 rounded text-xs font-bold ${mediaSelectorType === 'image' ? 'bg-brand-cyan text-black' : 'bg-white/10 text-gray-400'}`}>图片</button>
-                        
-                        {selectorContext === 'content' && (
-                            <>
-                                <button onClick={() => setMediaSelectorType('audio')} className={`px-3 py-1 rounded text-xs font-bold ${mediaSelectorType === 'audio' ? 'bg-brand-lime text-black' : 'bg-white/10 text-gray-400'}`}>音乐</button>
-                                <button onClick={() => setMediaSelectorType('video')} className={`px-3 py-1 rounded text-xs font-bold ${mediaSelectorType === 'video' ? 'bg-brand-pink text-black' : 'bg-white/10 text-gray-400'}`}>视频</button>
-                            </>
-                        )}
-
-                        <button onClick={() => setShowMediaSelector(false)} className="ml-4 text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
-                     </div>
-                 </div>
-                 
-                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#0a0a0a]">
-                     {mediaSelectorType === 'image' && (
-                         <div className="grid grid-cols-4 gap-4">
-                             {galleryItems.map(item => (
-                                 <div key={item.id} onClick={() => handleSelection(item)} className="aspect-[3/4] rounded-lg overflow-hidden relative cursor-pointer group border border-white/5 hover:border-brand-cyan transition-colors">
-                                     <img src={item.imageUrl} className="w-full h-full object-cover" />
-                                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs font-bold text-white backdrop-blur-sm transition-opacity">
-                                         {selectorContext === 'cover' ? '设为封面' : '插入文章'}
-                                     </div>
-                                 </div>
-                             ))}
-                         </div>
-                     )}
-                     {mediaSelectorType === 'audio' && (
-                         <div className="grid grid-cols-1 gap-2">
-                             {songs.map(item => (
-                                 <div key={item.id} onClick={() => handleSelection(item)} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer border border-transparent hover:border-brand-lime">
-                                     <img src={item.coverUrl} className="w-10 h-10 rounded object-cover" />
-                                     <div className="flex-1">
-                                         <div className="font-bold text-white text-sm">{item.title}</div>
-                                         <div className="text-xs text-gray-500">{item.artist}</div>
-                                     </div>
-                                 </div>
-                             ))}
-                         </div>
-                     )}
-                     {mediaSelectorType === 'video' && (
-                         <div className="grid grid-cols-3 gap-4">
-                             {mvs.map(item => (
-                                 <div key={item.id} onClick={() => handleSelection(item)} className="aspect-video rounded-lg overflow-hidden relative cursor-pointer group border border-white/5 hover:border-brand-pink">
-                                     <img src={item.coverUrl} className="w-full h-full object-cover" />
-                                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs font-bold text-white">插入视频</div>
-                                 </div>
-                             ))}
-                         </div>
-                     )}
-                     {(mediaSelectorType === 'image' && galleryItems.length === 0) || 
-                      (mediaSelectorType === 'audio' && songs.length === 0) || 
-                      (mediaSelectorType === 'video' && mvs.length === 0) ? (
-                          <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-2">
-                              <Database className="w-10 h-10 opacity-20" />
-                              <p>暂无内容</p>
-                          </div>
-                      ) : null}
-                 </div>
-             </div>
-          </div>
-      )}
-
-      {isSettingsOpen && (
-          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur">
-              <div className="bg-[#111] w-full max-w-md rounded-2xl p-8 border border-white/10">
-                  <h2 className="text-xl font-bold text-white mb-4">系统设置</h2>
-                  <label className="text-xs text-gray-500 mb-1 block">Admin Secret Key</label>
-                  <input type="password" value={adminKey} onChange={e => setAdminKey(e.target.value)} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white mb-4" />
-                  <div className="flex gap-2">
-                      <button onClick={handleSaveAdminKey} className="flex-1 py-3 bg-brand-lime text-black font-bold rounded-lg">保存</button>
-                      <button onClick={() => setIsSettingsOpen(false)} className="flex-1 py-3 bg-white/10 text-white font-bold rounded-lg">关闭</button>
-                  </div>
-              </div>
-          </div>
-      )}
-    </div>
-  );
-};
+// ... existing code ...
