@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist } from '../types';
 import { THEMES, MOODS } from '../constants';
 import { cloudService } from '../services/cloudService';
@@ -41,8 +41,11 @@ export const Library: React.FC<LibraryProps> = ({
   const [activeTab, setActiveTab] = useState<'media' | 'articles' | 'appearance' | 'pages'>('media');
   const [mediaType, setMediaType] = useState<'audio' | 'video' | 'image' | 'dj'>('audio');
   
-  // Upload/Edit Modal State
+  // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+  // Editing State
   const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingType, setEditingType] = useState<'media' | 'article'>('media');
@@ -50,18 +53,35 @@ export const Library: React.FC<LibraryProps> = ({
   // Cloud State
   const [isSyncing, setIsSyncing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'missing_config' | 'offline'>('connected');
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'missing_config' | 'auth_error' | 'offline'>('connected');
+  
+  // Admin Key State
+  const [adminKey, setAdminKey] = useState('');
 
   // Check Connection on Mount
   useEffect(() => {
+     setAdminKey(cloudService.getAdminKey());
+     
      const check = async () => {
+         // Try to load. If it returns null, we don't strictly know if it's missing config or just empty.
+         // However, the worker now returns a specific warning if KV is missing.
          const data = await cloudService.loadData();
-         // If loadData returns null but didn't throw network error, it might be empty or missing config
-         // In a real scenario, we'd have a specific status endpoint. 
-         // Here we assume if it works, it's connected. If it failed silently in App.tsx, we check again or rely on sync to fail.
+         if (data === null) {
+            // Check if it was because of network or empty
+            // For now, let's assume if load works (even empty), we are connected to Worker.
+            // The real check happens on save.
+         }
      };
      check();
   }, []);
+
+  const handleSaveAdminKey = () => {
+      cloudService.setAdminKey(adminKey);
+      notify('success', 'Admin Key 已保存至本地');
+      setIsSettingsOpen(false);
+      // Try a sync to verify
+      syncToCloud();
+  };
 
   // Form Fields
   const [formData, setFormData] = useState({
@@ -114,22 +134,31 @@ export const Library: React.FC<LibraryProps> = ({
           ...overrideData // Merge latest changes immediately
       };
       
-      const success = await cloudService.saveData(dataToSave);
-      
-      if (success) {
-          setConnectionStatus('connected');
-      } else {
-          // If save failed, it's likely due to missing KV binding in this context
-          setConnectionStatus('missing_config');
-          notify('error', '同步失败：Cloudflare KV 未配置');
+      try {
+          const success = await cloudService.saveData(dataToSave);
+          if (success) {
+              setConnectionStatus('connected');
+          }
+      } catch (e: any) {
+          if (e.message.includes('Unauthorized')) {
+              setConnectionStatus('auth_error');
+              notify('error', '权限错误：请检查 Admin Key');
+              setIsSettingsOpen(true);
+          } else if (e.message.includes('KV')) {
+              setConnectionStatus('missing_config');
+              notify('error', '配置错误：后台未绑定 KV');
+          } else {
+              setConnectionStatus('offline');
+              notify('error', `同步失败: ${e.message}`);
+          }
       }
+      
       setTimeout(() => setIsSyncing(false), 800);
-      return success;
   };
 
   const handleManualSync = async () => {
-      const success = await syncToCloud();
-      if(success) notify('success', '所有数据已同步至云端');
+      await syncToCloud();
+      if(connectionStatus === 'connected') notify('success', '所有数据已同步至云端');
   };
 
   // --- FILE UPLOAD HANDLER ---
@@ -143,10 +172,8 @@ export const Library: React.FC<LibraryProps> = ({
           if (uploadedUrl) {
               setFormData(prev => ({ ...prev, [field]: uploadedUrl }));
               notify('success', '文件上传成功 (R2)');
-          } else {
-              notify('error', '文件上传失败 (R2 未配置)');
-              setConnectionStatus('missing_config');
-          }
+          } 
+          // Error handling is done inside service (alert) or via try/catch in service
       }
   };
 
@@ -237,7 +264,7 @@ export const Library: React.FC<LibraryProps> = ({
       }
 
       const newId = editMode && editingId ? editingId : Date.now().toString();
-      let updatedData = {}; // Object to hold the specific array updated
+      let updatedData = {}; 
 
       if (editingType === 'article') {
           const newArticle: Article = {
@@ -356,7 +383,6 @@ export const Library: React.FC<LibraryProps> = ({
       resetForm();
       notify('success', editMode ? '内容已更新' : '新建成功');
       
-      // TRIGGER CLOUD SYNC
       syncToCloud(updatedData);
   };
 
@@ -415,19 +441,27 @@ export const Library: React.FC<LibraryProps> = ({
           <div className="flex items-center gap-3 mb-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-lime/10 border border-brand-lime/30 rounded-full">
                 <Settings2 className="w-3 h-3 text-brand-lime" />
-                <span className="text-xs text-brand-lime font-bold tracking-wider">CMS V4.0</span>
+                <span className="text-xs text-brand-lime font-bold tracking-wider">CMS V4.1</span>
               </div>
 
               {/* CLOUD STATUS INDICATOR */}
-              <div className={`
-                 inline-flex items-center gap-2 px-3 py-1 rounded-full border backdrop-blur-md transition-colors
-                 ${connectionStatus === 'connected' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-500'}
-              `}>
+              <button 
+                  onClick={() => setIsSettingsOpen(true)}
+                  className={`
+                     inline-flex items-center gap-2 px-3 py-1 rounded-full border backdrop-blur-md transition-all hover:scale-105 cursor-pointer
+                     ${connectionStatus === 'connected' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 
+                       connectionStatus === 'auth_error' ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                       'bg-yellow-500/10 border-yellow-500/20 text-yellow-500'}
+                  `}
+              >
                   {connectionStatus === 'connected' ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-                  <span className="text-xs font-bold tracking-wider">
-                      {connectionStatus === 'connected' ? 'CLOUD ACTIVE' : 'NO DATABASE'}
+                  <span className="text-xs font-bold tracking-wider uppercase">
+                      {connectionStatus === 'connected' ? 'CLOUD ACTIVE' : 
+                       connectionStatus === 'auth_error' ? 'AUTH ERROR' : 
+                       connectionStatus === 'missing_config' ? 'NO BINDING' : 'DISCONNECTED'}
                   </span>
-              </div>
+                  <Settings2 className="w-3 h-3 ml-1 opacity-50" />
+              </button>
           </div>
 
           <h1 className="text-5xl lg:text-7xl font-display font-bold mb-4">
@@ -475,16 +509,62 @@ export const Library: React.FC<LibraryProps> = ({
         </button>
       </div>
 
-      {/* WARNING BANNER IF NO CONFIG */}
-      {connectionStatus === 'missing_config' && (
-          <div className="mb-8 p-4 rounded-xl bg-yellow-900/10 border border-yellow-500/20 flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
-              <div>
-                  <h4 className="font-bold text-yellow-500 mb-1">未配置云端存储</h4>
-                  <p className="text-xs text-yellow-200/70 leading-relaxed">
-                      检测到 Cloudflare KV 或 R2 未绑定。更改将仅临时保存在内存中，刷新页面后会丢失。<br/>
-                      请参考 <strong>README.md</strong> 在 <code>wrangler.json</code> 中填入您的 KV 和 R2 ID。
-                  </p>
+      {/* CONNECTION SETTINGS MODAL */}
+      {isSettingsOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsSettingsOpen(false)}></div>
+              <div className="relative bg-[#1a1a1a] w-full max-w-lg rounded-3xl p-8 border border-white/10 shadow-2xl animate-in zoom-in-95">
+                  <button onClick={() => setIsSettingsOpen(false)} className="absolute top-6 right-6 text-gray-500 hover:text-white"><X className="w-6 h-6" /></button>
+                  
+                  <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 rounded-full bg-brand-lime/10 flex items-center justify-center text-brand-lime border border-brand-lime/20">
+                          <CloudLightning className="w-5 h-5" />
+                      </div>
+                      <h2 className="text-xl font-bold text-white">云端连接配置</h2>
+                  </div>
+
+                  <div className="space-y-6">
+                       {/* Section 1: Admin Secret */}
+                       <div className="bg-black/30 p-4 rounded-xl border border-white/5">
+                           <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                               <Key className="w-3 h-3" /> Admin Secret (可选)
+                           </label>
+                           <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                               如果在 Cloudflare 后台设置了 <code className="text-brand-lime">ADMIN_SECRET</code> 变量，请输入相同的值以获取写入权限。
+                           </p>
+                           <div className="flex gap-2">
+                               <input 
+                                  type="password" 
+                                  value={adminKey} 
+                                  onChange={e => setAdminKey(e.target.value)}
+                                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-lime outline-none"
+                                  placeholder="未设置可留空"
+                               />
+                               <button onClick={handleSaveAdminKey} className="px-4 bg-brand-lime text-black font-bold rounded-lg text-sm hover:bg-white transition-colors">
+                                   保存
+                               </button>
+                           </div>
+                       </div>
+
+                       {/* Section 2: Instructions */}
+                       <div className="bg-blue-900/10 p-4 rounded-xl border border-blue-500/20">
+                           <h4 className="font-bold text-blue-400 text-sm mb-2 flex items-center gap-2">
+                               <Database className="w-3 h-3" /> 如何绑定资源 (在 CF 后台)
+                           </h4>
+                           <ol className="text-xs text-blue-200/70 space-y-2 list-decimal list-inside leading-relaxed">
+                               <li>登录 Cloudflare Dashboard，进入您的 Worker (yinyuetai)。</li>
+                               <li>点击 <strong>Settings</strong> &rarr; <strong>Variables</strong>。</li>
+                               <li>在 <strong>KV Namespace Bindings</strong> 中添加:
+                                   <br/>Variable name: <code className="text-white bg-white/10 px-1 rounded">DB</code> -> 选择您的 KV 空间。
+                               </li>
+                               <li>在 <strong>R2 Bucket Bindings</strong> 中添加:
+                                   <br/>Variable name: <code className="text-white bg-white/10 px-1 rounded">BUCKET</code> -> 选择您的 R2 存储桶。
+                               </li>
+                               <li>(可选) 添加 Text Variable: <code className="text-white bg-white/10 px-1 rounded">ADMIN_SECRET</code> 用于加密。</li>
+                               <li>保存并部署 (Deploy) 即可生效。</li>
+                           </ol>
+                       </div>
+                  </div>
               </div>
           </div>
       )}
