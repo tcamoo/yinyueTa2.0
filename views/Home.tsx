@@ -58,6 +58,7 @@ export const Home: React.FC<HomeProps> = ({ songs = [], mvs = [], articles = [],
                        Featured
                     </span>
                  </div>
+                 {/* Mobile Optimized Typography */}
                  <h1 className="text-4xl md:text-6xl lg:text-8xl font-display font-black text-white mb-3 md:mb-4 leading-[0.9] tracking-tight italic drop-shadow-2xl">
                     {featuredMV.title}
                  </h1>
@@ -143,7 +144,7 @@ export const Home: React.FC<HomeProps> = ({ songs = [], mvs = [], articles = [],
 
          {/* ARTIST SPOTLIGHT CARD */}
          <div className="lg:col-span-4 flex flex-col gap-6">
-            <div className="flex-1 bg-black rounded-[2rem] h-[300px] lg:h-auto p-0 border border-white/5 relative overflow-hidden group cursor-pointer transition-transform hover:scale-[1.02] shadow-2xl">
+            <div className="flex-1 bg-black rounded-[2rem] min-h-[300px] lg:min-h-0 lg:h-auto p-0 border border-white/5 relative overflow-hidden group cursor-pointer transition-transform hover:scale-[1.02] shadow-2xl">
                 <img src="https://picsum.photos/id/338/600/800" className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-90 transition-opacity" />
                 <div className="absolute inset-0 bg-gradient-to-t from-brand-purple/90 via-transparent to-transparent"></div>
                 
