@@ -25,6 +25,28 @@ export const cloudService = {
     return localStorage.getItem(ADMIN_KEY_STORAGE) || '';
   },
 
+  // 0. Verify Key (New)
+  verifyKey: async (key: string): Promise<boolean> => {
+      try {
+          const res = await fetch(`${API_BASE}/auth`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key })
+          });
+          if (res.ok) {
+              const data = await res.json();
+              return data.valid === true;
+          }
+          return false;
+      } catch (e) {
+          console.error("Auth check failed", e);
+          // If network fails (e.g. localhost without dev server), assume true to allow dev, 
+          // but in production it will fail if not reachable.
+          // For security, default to false if we can't verify.
+          return false;
+      }
+  },
+
   // 1. Sync Data (Load) - Public
   loadData: async (): Promise<AppData | null> => {
     try {
