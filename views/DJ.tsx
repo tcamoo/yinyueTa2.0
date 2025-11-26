@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { DJSet, Song, PageHeaderConfig } from '../types';
-import { Play, Disc, Activity, Zap, Headphones, Mic2, Pause, TrendingUp, Sparkles, Speaker } from 'lucide-react';
+import { Play, Activity, Zap, Headphones, Pause, TrendingUp, Sparkles, Speaker, Music, Disc as DiscIcon } from 'lucide-react';
 
 interface DJViewProps {
   djSets: DJSet[];
@@ -47,21 +47,68 @@ export const DJView: React.FC<DJViewProps> = ({ djSets, onPlaySet, currentSongId
     <div className="pb-40 animate-in fade-in duration-700">
       
       {/* 1. HERO DJ BOOTH (Animated Background) */}
-      <div className="relative w-full min-h-[500px] rounded-[3rem] overflow-hidden mb-16 bg-black border border-white/5 flex items-center justify-center shadow-[0_0_100px_rgba(0,0,0,0.8)] group">
+      <div className="relative w-full min-h-[600px] rounded-[3rem] overflow-hidden mb-16 bg-black border border-white/5 flex items-center justify-center shadow-[0_0_100px_rgba(0,0,0,0.8)] group perspective-1000">
           
           {/* Animated Club Background */}
-          <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 z-0 overflow-hidden">
                {/* Base Dark Gradient */}
-               <div className="absolute inset-0 bg-gradient-to-b from-black via-[#050505] to-[#111]"></div>
+               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-gray-900 via-black to-black"></div>
                
                {/* Lasers - Aggressive Contrast */}
                <div className="absolute top-0 left-1/4 w-1 h-[150%] bg-brand-lime blur-[4px] origin-top animate-[laserSwing_2s_infinite_alternate] mix-blend-screen opacity-60"></div>
                <div className="absolute top-0 right-1/4 w-1 h-[150%] bg-brand-pink blur-[4px] origin-top animate-[laserSwing_2.5s_infinite_alternate-reverse] mix-blend-screen opacity-60"></div>
                <div className="absolute top-0 left-1/2 w-0.5 h-[150%] bg-brand-cyan blur-[2px] origin-top animate-[laserSwing_1.5s_infinite_linear] mix-blend-screen opacity-80"></div>
 
-               {/* Bass Pulse Circle */}
-               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full border border-brand-lime/10 animate-[pulseScale_1.5s_infinite]"></div>
-               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] rounded-full border border-brand-pink/20 animate-[pulseScale_1.5s_infinite] animation-delay-500"></div>
+               {/* TURNTABLE VISUAL COMPONENT */}
+               <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none transform scale-150 md:scale-100">
+                   {/* Deck Base */}
+                   <div className="relative w-[500px] h-[500px] rounded-[40px] border border-white/10 bg-[#111] shadow-2xl flex items-center justify-center transform rotate-x-12 rotate-z-6">
+                       {/* Platter */}
+                       <div className={`relative w-[420px] h-[420px] rounded-full bg-[#050505] border-4 border-[#222] shadow-[inset_0_0_50px_rgba(0,0,0,0.8)] flex items-center justify-center ${isPlaying ? 'animate-[spin_4s_linear_infinite]' : ''}`}>
+                           {/* Grooves */}
+                           <div className="absolute inset-4 rounded-full border border-white/5 opacity-50"></div>
+                           <div className="absolute inset-8 rounded-full border border-white/5 opacity-40"></div>
+                           <div className="absolute inset-12 rounded-full border border-white/5 opacity-30"></div>
+                           <div className="absolute inset-16 rounded-full border border-white/5 opacity-20"></div>
+                           <div className="absolute inset-20 rounded-full border border-white/5 opacity-10"></div>
+                           
+                           {/* Label */}
+                           <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-brand-pink to-brand-purple flex items-center justify-center shadow-lg">
+                               <div className="w-4 h-4 rounded-full bg-black"></div>
+                           </div>
+                       </div>
+                       {/* Tone Arm */}
+                       <div className="absolute -top-10 right-10 w-8 h-64 bg-gray-800 rounded-full origin-top transform rotate-[25deg] shadow-xl border-l border-white/10 z-10 flex flex-col items-center">
+                            <div className="w-12 h-12 rounded-full bg-gray-700 -mt-4 border-2 border-gray-600"></div>
+                            <div className="w-2 h-full bg-gray-600/50"></div>
+                            <div className="w-10 h-16 bg-gray-900 rounded mb-2 border border-white/20"></div>
+                       </div>
+                       {/* Controls */}
+                       <div className="absolute bottom-6 right-6 flex gap-3">
+                           <div className={`w-4 h-4 rounded-full ${isPlaying ? 'bg-brand-lime animate-pulse' : 'bg-red-500'}`}></div>
+                           <div className="w-4 h-4 rounded-full bg-gray-700"></div>
+                       </div>
+                   </div>
+               </div>
+
+               {/* FLOATING NOTES ANIMATION */}
+               <div className="absolute inset-0 pointer-events-none">
+                   {[...Array(8)].map((_, i) => (
+                       <div 
+                         key={i}
+                         className="absolute text-brand-lime/20 animate-float-note"
+                         style={{
+                             left: `${Math.random() * 100}%`,
+                             top: '100%',
+                             animationDuration: `${4 + Math.random() * 6}s`,
+                             animationDelay: `${Math.random() * 5}s`,
+                             fontSize: `${20 + Math.random() * 40}px`
+                         }}
+                       >
+                           {i % 2 === 0 ? <Music /> : <DiscIcon />}
+                       </div>
+                   ))}
+               </div>
 
                {/* Fog/Noise */}
                <div className="absolute inset-0 bg-noise opacity-[0.08] mix-blend-overlay"></div>
@@ -69,36 +116,35 @@ export const DJView: React.FC<DJViewProps> = ({ djSets, onPlaySet, currentSongId
 
           {featuredSet ? (
              <>
-                 <img src={featuredSet.coverUrl} className="absolute inset-0 w-full h-full object-cover blur-md opacity-30 scale-105 z-0" />
-                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-0"></div>
-                 
-                 <div className="relative z-10 text-center max-w-4xl px-8">
-                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-brand-pink/30 bg-brand-pink/20 backdrop-blur-md mb-6 animate-pulse">
+                 {/* Hero Content Overlay */}
+                 <div className="relative z-10 text-center max-w-4xl px-8 mt-12">
+                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-brand-pink/30 bg-brand-pink/20 backdrop-blur-md mb-6 animate-pulse shadow-[0_0_20px_rgba(255,0,153,0.3)]">
                           <Zap className="w-4 h-4 text-brand-pink fill-current" />
                           <span className="text-xs font-black tracking-[0.2em] text-brand-pink uppercase">Featured Set</span>
                       </div>
                       
-                      <h1 className="text-6xl md:text-8xl font-display font-black text-white mb-6 leading-none italic tracking-tighter drop-shadow-2xl">
+                      <h1 className="text-6xl md:text-8xl font-display font-black text-white mb-6 leading-none italic tracking-tighter drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]">
                          {featuredSet.title}
                       </h1>
     
-                      <div className="flex flex-col md:flex-row items-center justify-center gap-6 text-gray-300 mb-10 font-mono">
+                      <div className="flex flex-col md:flex-row items-center justify-center gap-6 text-gray-300 mb-10 font-mono bg-black/40 backdrop-blur-sm py-2 px-6 rounded-full border border-white/5 inline-flex mx-auto">
                           <span className="flex items-center gap-2 text-white font-bold text-xl"><Headphones className="w-5 h-5" /> {featuredSet.djName}</span>
-                          <span className="hidden md:inline">|</span>
+                          <span className="hidden md:inline text-white/20">|</span>
                           <span className="flex items-center gap-2"><Activity className="w-4 h-4 text-brand-pink" /> {featuredSet.bpm} BPM</span>
                       </div>
     
-                      <button 
-                        onClick={() => onPlaySet(featuredSet)}
-                        className={`px-12 py-5 rounded-full font-black text-xl flex items-center gap-3 transition-all hover:scale-105 shadow-[0_0_40px_rgba(255,0,153,0.4)] mx-auto ${isPlaying && featuredSet.id === currentSongId ? 'bg-brand-pink text-white' : 'bg-white text-black hover:bg-brand-pink hover:text-white'}`}
-                      >
-                         {isPlaying && featuredSet.id === currentSongId ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current" />}
-                         {isPlaying && featuredSet.id === currentSongId ? "PAUSE MIX" : "PLAY MIX"}
-                      </button>
+                      <div className="flex justify-center">
+                          <button 
+                            onClick={() => onPlaySet(featuredSet)}
+                            className={`px-12 py-5 rounded-full font-black text-xl flex items-center gap-3 transition-all hover:scale-105 shadow-[0_0_40px_rgba(255,0,153,0.4)] ${isPlaying && featuredSet.id === currentSongId ? 'bg-brand-pink text-white' : 'bg-white text-black hover:bg-brand-pink hover:text-white'}`}
+                          >
+                            {isPlaying && featuredSet.id === currentSongId ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current" />}
+                            {isPlaying && featuredSet.id === currentSongId ? "PAUSE MIX" : "PLAY MIX"}
+                          </button>
+                      </div>
                  </div>
              </>
           ) : (
-             /* Fallback Header */
              <div className="relative z-10 text-center">
                  <h1 className="text-7xl font-black text-white mb-4 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">{headerConfig.title}</h1>
                  <p className="text-2xl text-gray-400">{headerConfig.description}</p>
@@ -235,10 +281,11 @@ export const DJView: React.FC<DJViewProps> = ({ djSets, onPlaySet, currentSongId
               50% { opacity: 0.9; }
               100% { transform: rotate(25deg) translateX(50%); opacity: 0.3; }
           }
-          @keyframes pulseScale {
-              0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
-              50% { opacity: 0.3; }
-              100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
+          @keyframes float-note {
+              0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+              20% { opacity: 0.8; }
+              80% { opacity: 0.5; }
+              100% { transform: translateY(-300px) rotate(360deg); opacity: 0; }
           }
       `}</style>
     </div>
