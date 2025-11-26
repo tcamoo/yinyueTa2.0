@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart } from 'lucide-react';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem, NavItem } from '../types';
 import { THEMES, MOODS } from '../constants';
 import { cloudService } from '../services/cloudService';
@@ -192,20 +192,37 @@ export const Library: React.FC<LibraryProps> = ({
       }
   };
 
-  const handleImageUploadForArticle = async () => {
+  // Helper for uploading media into articles
+  const handleMediaUploadForArticle = async (type: 'image' | 'audio' | 'video') => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = 'image/*';
+      input.accept = type === 'image' ? 'image/*' : type === 'audio' ? 'audio/*' : 'video/*';
+      
       input.onchange = async (e: any) => {
           const file = e.target.files[0];
           if (file) {
-              notify('info', '正在上传图片...');
-              const url = await cloudService.uploadFile(file);
-              if (url) {
-                  insertAtCursor(`\n<img src="${url}" class="w-full rounded-xl my-4 shadow-lg" alt="image" />\n`);
-                  notify('success', '图片已插入');
-              } else {
-                  notify('error', '图片上传失败');
+              setIsUploading(true);
+              notify('info', `正在上传${type}...`);
+              try {
+                  const url = await cloudService.uploadFile(file);
+                  if (url) {
+                      let tag = '';
+                      if (type === 'image') {
+                          tag = `\n<img src="${url}" class="w-full rounded-xl my-4 shadow-lg" alt="image" />\n`;
+                      } else if (type === 'audio') {
+                          tag = `\n<audio controls src="${url}" class="w-full my-4"></audio>\n`;
+                      } else if (type === 'video') {
+                          tag = `\n<video controls src="${url}" class="w-full rounded-xl my-4 shadow-lg"></video>\n`;
+                      }
+                      insertAtCursor(tag);
+                      notify('success', `${type} 已插入`);
+                  } else {
+                      notify('error', '上传失败');
+                  }
+              } catch (err: any) {
+                  notify('error', err.message);
+              } finally {
+                  setIsUploading(false);
               }
           }
       };
@@ -883,8 +900,14 @@ export const Library: React.FC<LibraryProps> = ({
                               
                               <div className="bg-[#050505] rounded-xl border border-white/10 overflow-hidden">
                                   <div className="bg-[#1a1a1a] p-2 flex items-center gap-2 border-b border-white/5 overflow-x-auto">
-                                      <button onClick={handleImageUploadForArticle} className="p-2 hover:bg-white/10 rounded text-gray-300 hover:text-brand-lime flex items-center gap-2 text-xs font-bold" title="插入图片">
-                                          <ImagePlus className="w-4 h-4" /> 插入图片
+                                      <button onClick={() => handleMediaUploadForArticle('image')} className="p-2 hover:bg-white/10 rounded text-gray-300 hover:text-brand-lime flex items-center gap-2 text-xs font-bold" title="插入图片">
+                                          <ImagePlus className="w-4 h-4" /> 图片
+                                      </button>
+                                      <button onClick={() => handleMediaUploadForArticle('audio')} className="p-2 hover:bg-white/10 rounded text-gray-300 hover:text-brand-lime flex items-center gap-2 text-xs font-bold" title="插入音频">
+                                          <Music className="w-4 h-4" /> 音频
+                                      </button>
+                                      <button onClick={() => handleMediaUploadForArticle('video')} className="p-2 hover:bg-white/10 rounded text-gray-300 hover:text-brand-lime flex items-center gap-2 text-xs font-bold" title="插入视频">
+                                          <Video className="w-4 h-4" /> 视频
                                       </button>
                                       <div className="w-[1px] h-4 bg-white/10 mx-1"></div>
                                       <button onClick={() => insertAtCursor('## ')} className="p-2 hover:bg-white/10 rounded text-gray-300" title="标题 H2"><Heading2 className="w-4 h-4" /></button>
