@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { GalleryItem } from '../types';
-import { Camera, Maximize2, Aperture, X, Download, Share2, Heart, ExternalLink } from 'lucide-react';
+import { Camera, Maximize2, Aperture, X, Download, Share2, Heart, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface GalleryProps {
   items: GalleryItem[];
@@ -9,11 +9,17 @@ interface GalleryProps {
 
 export const Gallery: React.FC<GalleryProps> = ({ items }) => {
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     setLoaded(true);
   }, []);
+
+  // Reset zoom when item changes
+  useEffect(() => {
+      setIsZoomed(false);
+  }, [selectedItem]);
 
   // Prevent scrolling when modal is open
   useEffect(() => {
@@ -106,10 +112,10 @@ export const Gallery: React.FC<GalleryProps> = ({ items }) => {
 
       {/* FULLSCREEN LIGHTBOX MODAL */}
       {selectedItem && (
-        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[100] bg-black/98 backdrop-blur-xl flex flex-col animate-in fade-in duration-300">
            
            {/* Lightbox Controls */}
-           <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-start z-50 pointer-events-none">
+           <div className={`absolute top-0 left-0 w-full p-6 flex justify-between items-start z-50 pointer-events-none transition-opacity duration-300 ${isZoomed ? 'opacity-0 hover:opacity-100' : 'opacity-100'}`}>
               <div className="pointer-events-auto bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-3">
                  <div className="w-2 h-2 rounded-full bg-brand-cyan animate-pulse"></div>
                  <span className="text-xs font-bold text-gray-300">Viewing Mode</span>
@@ -128,19 +134,40 @@ export const Gallery: React.FC<GalleryProps> = ({ items }) => {
               </div>
            </div>
 
-           {/* Image Container */}
-           <div className="flex-1 flex items-center justify-center p-4 md:p-12 h-full relative" onClick={() => setSelectedItem(null)}>
+           {/* Image Container with Zoom Logic */}
+           <div 
+                className={`flex-1 w-full h-full overflow-hidden flex ${isZoomed ? 'cursor-zoom-out overflow-auto block' : 'items-center justify-center cursor-zoom-in'}`}
+                onClick={() => setIsZoomed(!isZoomed)}
+           >
               <img 
                  src={selectedItem.imageUrl} 
                  alt={selectedItem.title} 
-                 className="max-h-full max-w-full object-contain shadow-[0_0_100px_rgba(0,0,0,0.8)] rounded-lg animate-in zoom-in-95 duration-500 select-none"
+                 className={`
+                    transition-all duration-300 select-none
+                    ${isZoomed 
+                        ? 'min-w-full min-h-full object-none w-auto h-auto' // Actual size, might overflow
+                        : 'max-w-full max-h-full object-contain shadow-[0_0_100px_rgba(0,0,0,0.8)]' // Fit screen
+                    }
+                 `}
                  onClick={(e) => e.stopPropagation()} 
               />
+              
+              {/* Tap anywhere else to toggle zoom too */}
+              <div className="absolute inset-0 z-[-1]" onClick={() => setIsZoomed(!isZoomed)}></div>
            </div>
 
-           {/* Bottom Details Panel */}
-           <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black via-black/90 to-transparent pt-20 pb-8 px-8 md:px-16 pointer-events-none">
-              <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-end justify-between gap-6 pointer-events-auto animate-in slide-in-from-bottom-8 duration-500 delay-100">
+           {/* Zoom Hint Icon (Centered overlay when not zoomed) */}
+           {!isZoomed && (
+               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 hover:opacity-100 transition-opacity">
+                   <div className="bg-black/50 rounded-full p-4 backdrop-blur-md">
+                        <ZoomIn className="w-8 h-8 text-white" />
+                   </div>
+               </div>
+           )}
+
+           {/* Bottom Details Panel (Hidden when zoomed for immersion) */}
+           <div className={`absolute bottom-0 left-0 w-full bg-gradient-to-t from-black via-black/90 to-transparent pt-20 pb-8 px-8 md:px-16 pointer-events-none transition-transform duration-500 ${isZoomed ? 'translate-y-full' : 'translate-y-0'}`}>
+              <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-end justify-between gap-6 pointer-events-auto">
                  
                  {/* Left Info */}
                  <div>
