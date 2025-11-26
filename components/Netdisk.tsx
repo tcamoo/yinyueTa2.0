@@ -90,7 +90,7 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
     };
 
     const formatSize = (bytes: number | string) => {
-        if (typeof bytes === 'string') return bytes; // For manually entered sizes
+        if (typeof bytes === 'string') return bytes; 
         if (bytes === 0) return '0 B';
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB'];
@@ -160,11 +160,11 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
     return (
         <div className="h-[calc(100vh-250px)] flex flex-col md:flex-row gap-6 animate-in fade-in duration-500">
             
-            {/* LEFT SIDEBAR: DRIVES & POOLS (CloudDrive Style) */}
+            {/* LEFT SIDEBAR: DRIVES & POOLS */}
             <div className="w-full md:w-72 flex flex-col gap-4 bg-white/[0.02] border border-white/5 rounded-3xl p-4">
                 <div className="flex items-center gap-2 px-2 pb-2 border-b border-white/5">
                     <Server className="w-4 h-4 text-brand-lime" />
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">MOUNT POINTS</span>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">存储挂载点</span>
                 </div>
                 
                 <div className="space-y-2 flex-1 overflow-y-auto custom-scrollbar">
@@ -177,7 +177,7 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                             <HardDrive className="w-5 h-5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <div className="font-bold text-sm truncate">Local Storage</div>
+                            <div className="font-bold text-sm truncate">本地存储</div>
                             <div className="text-[10px] opacity-70 truncate">Cloudflare R2 Bucket</div>
                         </div>
                         {activeDrive === 'r2' && <div className="w-2 h-2 rounded-full bg-brand-lime animate-pulse"></div>}
@@ -185,7 +185,7 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
 
                     {/* External Mounts Section Header */}
                     <div className="mt-4 px-2 flex items-center justify-between">
-                         <span className="text-[10px] font-bold text-gray-600 uppercase">Cloud Mounts ({softwareItems.length})</span>
+                         <span className="text-[10px] font-bold text-gray-600 uppercase">云挂载 ({softwareItems.length})</span>
                          <button 
                             onClick={() => { setEditingMountId(null); setMountForm({ provider: 'aliyun', platform: 'win', isOfficial: true }); setMountModalOpen(true); }}
                             className="p-1 hover:bg-white/10 rounded text-brand-cyan transition-colors"
@@ -194,7 +194,7 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                          </button>
                     </div>
 
-                    {/* Mount Items */}
+                    {/* Mount Items Button */}
                     <button 
                         onClick={() => setActiveDrive('mounts')}
                         className={`w-full p-3 rounded-xl border flex items-center gap-3 transition-all text-left group ${activeDrive === 'mounts' ? 'bg-brand-cyan/10 border-brand-cyan text-white' : 'bg-transparent border-transparent hover:bg-white/5 text-gray-400'}`}
@@ -203,8 +203,8 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                             <Globe className="w-5 h-5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <div className="font-bold text-sm truncate">External Resources</div>
-                            <div className="text-[10px] opacity-70 truncate">AliYun / OneDrive / URL</div>
+                            <div className="font-bold text-sm truncate">外部资源</div>
+                            <div className="text-[10px] opacity-70 truncate">阿里云 / OneDrive / URL</div>
                         </div>
                         {activeDrive === 'mounts' && <div className="w-2 h-2 rounded-full bg-brand-cyan animate-pulse"></div>}
                     </button>
@@ -214,7 +214,7 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                 {activeDrive === 'r2' && (
                     <div className="p-4 bg-black/40 rounded-xl border border-white/5">
                         <div className="flex justify-between text-[10px] text-gray-400 mb-2 uppercase font-bold">
-                            <span>Usage</span>
+                            <span>使用量</span>
                             <span>{formatSize(totalSize)}</span>
                         </div>
                         <div className="h-1 bg-white/10 rounded-full overflow-hidden">
@@ -233,7 +233,7 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                         <div className="h-16 px-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
                             <div className="flex items-center gap-2 text-sm text-gray-300">
                                 <span className="text-brand-lime font-mono font-bold">root://</span>
-                                <span className="px-2 py-0.5 bg-white/5 rounded text-gray-500 text-xs">Read-Write</span>
+                                <span className="px-2 py-0.5 bg-white/5 rounded text-gray-500 text-xs">读写权限</span>
                             </div>
                             <div className="flex items-center gap-3">
                                 <div className="relative w-48 hidden md:block">
@@ -243,7 +243,7 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                                         value={searchTerm}
                                         onChange={e => setSearchTerm(e.target.value)}
                                         className="w-full bg-black border border-white/10 rounded-full py-1.5 pl-8 text-xs text-white focus:border-brand-lime outline-none" 
-                                        placeholder="Search files..."
+                                        placeholder="搜索文件..."
                                     />
                                 </div>
                                 <div className="h-4 w-[1px] bg-white/10 mx-2"></div>
@@ -251,7 +251,7 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                                 <button onClick={() => setViewMode('list')} className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-gray-500'}`}><List className="w-4 h-4" /></button>
                                 <button onClick={loadFiles} className={`p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white ${loading ? 'animate-spin' : ''}`}><RefreshCw className="w-4 h-4" /></button>
                                 <button onClick={() => uploadInputRef.current?.click()} className="ml-2 px-4 py-1.5 bg-brand-lime text-black text-xs font-bold rounded-lg flex items-center gap-2 hover:bg-white transition-colors shadow-lg shadow-brand-lime/10">
-                                    {uploading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <UploadCloud className="w-3 h-3" />} Upload
+                                    {uploading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <UploadCloud className="w-3 h-3" />} 上传
                                 </button>
                                 <input ref={uploadInputRef} type="file" multiple className="hidden" onChange={handleUpload} />
                             </div>
@@ -261,12 +261,12 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                              {loading ? (
                                  <div className="h-full flex flex-col items-center justify-center gap-4 text-gray-500 font-mono">
                                      <div className="w-12 h-12 border-2 border-white/10 border-t-brand-lime rounded-full animate-spin"></div>
-                                     <p>Syncing Object Storage...</p>
+                                     <p>正在同步对象存储...</p>
                                  </div>
                              ) : files.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-gray-600">
                                     <Folder className="w-16 h-16 opacity-20 mb-4" />
-                                    <p>Bucket is empty</p>
+                                    <p>空空如也</p>
                                 </div>
                              ) : (
                                 viewMode === 'grid' ? (
@@ -284,16 +284,15 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                                                     <p className={`text-[10px] font-bold truncate w-full ${selectedFile?.key === file.key ? 'text-brand-lime' : 'text-gray-300'}`}>{file.key}</p>
                                                     <p className="text-[9px] text-gray-600 font-mono mt-0.5">{formatSize(file.size)}</p>
                                                 </div>
-                                                <div className="absolute top-2 right-2 text-[8px] bg-white/10 px-1.5 py-0.5 rounded text-gray-500 font-bold tracking-wider">{getFileTypeLabel(file.key)}</div>
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
                                     <div className="flex flex-col gap-1">
                                         <div className="grid grid-cols-12 gap-4 px-4 py-2 text-[10px] font-bold text-gray-600 uppercase tracking-widest border-b border-white/5">
-                                            <div className="col-span-6">Filename</div>
-                                            <div className="col-span-2 text-right">Size</div>
-                                            <div className="col-span-4 text-right">Date Modified</div>
+                                            <div className="col-span-6">文件名</div>
+                                            <div className="col-span-2 text-right">大小</div>
+                                            <div className="col-span-4 text-right">上传时间</div>
                                         </div>
                                         {filteredFiles.map(file => (
                                             <div key={file.key} onClick={() => setSelectedFile(file)} className={`grid grid-cols-12 gap-4 px-4 py-3 rounded-lg text-xs cursor-pointer items-center transition-colors ${selectedFile?.key === file.key ? 'bg-brand-lime/10 text-brand-lime' : 'hover:bg-white/5 text-gray-400 hover:text-white'}`}>
@@ -324,10 +323,10 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button onClick={() => copyLink(selectedFile.url)} className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 rounded text-xs text-gray-300 transition-colors border border-white/5">
-                                        <Copy className="w-3 h-3" /> Copy Link
+                                        <Copy className="w-3 h-3" /> 复制链接
                                     </button>
                                     <a href={selectedFile.url} target="_blank" className="flex items-center gap-2 px-3 py-1.5 hover:bg-brand-cyan/10 hover:text-brand-cyan rounded text-xs text-gray-300 transition-colors border border-white/5">
-                                        <Download className="w-3 h-3" /> Download
+                                        <Download className="w-3 h-3" /> 下载
                                     </a>
                                     <button onClick={() => handleDelete(selectedFile.key)} className="p-2 hover:bg-red-900/30 text-red-500 rounded transition-colors border border-transparent hover:border-red-900/50">
                                         <Trash2 className="w-4 h-4" />
@@ -344,13 +343,13 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                         <div className="h-16 px-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
                             <div className="flex items-center gap-2 text-sm text-gray-300">
                                 <span className="text-brand-cyan font-mono font-bold">mounts://</span>
-                                <span className="px-2 py-0.5 bg-white/5 rounded text-gray-500 text-xs">External Links</span>
+                                <span className="px-2 py-0.5 bg-white/5 rounded text-gray-500 text-xs">外部资源链接</span>
                             </div>
                             <button 
                                 onClick={() => { setEditingMountId(null); setMountForm({ provider: 'aliyun', platform: 'win', isOfficial: true }); setMountModalOpen(true); }}
                                 className="px-4 py-2 bg-brand-cyan text-black font-bold rounded-lg flex items-center gap-2 hover:bg-white transition-colors text-xs shadow-lg shadow-brand-cyan/20"
                             >
-                                <Plus className="w-4 h-4" /> Mount New Resource
+                                <Plus className="w-4 h-4" /> 挂载新资源
                             </button>
                         </div>
                         
@@ -372,15 +371,15 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                                             <div className="flex items-center gap-3 mb-1">
                                                 <h3 className="font-bold text-white text-base truncate group-hover:text-brand-cyan transition-colors">{item.name}</h3>
                                                 <span className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-gray-400 font-mono">{item.version}</span>
-                                                {item.isOfficial && <span className="text-[10px] text-brand-lime font-bold border border-brand-lime/20 px-1 rounded">OFFICIAL</span>}
+                                                {item.isOfficial && <span className="text-[10px] text-brand-lime font-bold border border-brand-lime/20 px-1 rounded">官方</span>}
                                             </div>
                                             <div className="flex items-center gap-4 text-xs text-gray-500 font-mono">
-                                                <span className="flex items-center gap-1.5"><Database className="w-3 h-3" /> {item.size || 'Unknown Size'}</span>
+                                                <span className="flex items-center gap-1.5"><Database className="w-3 h-3" /> {item.size || '未知大小'}</span>
                                                 <span className="flex items-center gap-1.5 text-gray-400">
                                                     {item.platform === 'win' ? <Monitor className="w-3 h-3" /> : item.platform === 'mobile' ? <Smartphone className="w-3 h-3" /> : <HardDrive className="w-3 h-3" />}
                                                     {item.platform.toUpperCase()}
                                                 </span>
-                                                <span className="text-gray-600">Updated: {item.updateDate}</span>
+                                                <span className="text-gray-600">更新: {item.updateDate}</span>
                                             </div>
                                         </div>
 
@@ -393,8 +392,8 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                                 {softwareItems.length === 0 && (
                                     <div className="text-center py-24 text-gray-600 flex flex-col items-center">
                                         <Cloud className="w-16 h-16 mb-4 opacity-10" />
-                                        <p className="text-lg font-bold">No mounts configured</p>
-                                        <p className="text-sm mt-1">Add external resources to display them on the download page.</p>
+                                        <p className="text-lg font-bold">没有挂载点</p>
+                                        <p className="text-sm mt-1">添加外部网盘链接以在前台显示。</p>
                                     </div>
                                 )}
                             </div>
@@ -410,9 +409,9 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                                 <div>
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                                         <Server className="w-5 h-5 text-brand-cyan" /> 
-                                        {editingMountId ? 'Edit Mount Point' : 'New Cloud Mount'}
+                                        {editingMountId ? '编辑挂载' : '新建挂载'}
                                     </h3>
-                                    <p className="text-xs text-gray-500 mt-1">Configure external resource link for public access.</p>
+                                    <p className="text-xs text-gray-500 mt-1">配置外部网盘分享链接。</p>
                                 </div>
                                 <button onClick={() => setMountModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><Trash2 className="w-5 h-5 text-gray-500 hover:text-red-500" /></button>
                             </div>
@@ -421,7 +420,7 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                                 {/* Row 1 */}
                                 <div className="grid grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <label className="text-xs text-brand-cyan font-bold uppercase tracking-widest">Storage Provider</label>
+                                        <label className="text-xs text-brand-cyan font-bold uppercase tracking-widest">提供商 (Provider)</label>
                                         <div className="relative">
                                             <select 
                                                 value={mountForm.provider} 
@@ -432,13 +431,13 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                                                 <option value="onedrive">OneDrive</option>
                                                 <option value="r2">Cloudflare R2</option>
                                                 <option value="google">Google Drive</option>
-                                                <option value="other">Other / Direct Link</option>
+                                                <option value="other">直链 / 其他</option>
                                             </select>
                                             <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 rotate-90 pointer-events-none" />
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs text-brand-cyan font-bold uppercase tracking-widest">Target Platform</label>
+                                        <label className="text-xs text-brand-cyan font-bold uppercase tracking-widest">适用平台</label>
                                         <div className="relative">
                                             <select 
                                                 value={mountForm.platform} 
@@ -457,25 +456,25 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
 
                                 {/* Row 2 */}
                                 <div className="space-y-2">
-                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-widest">Resource Name</label>
-                                    <input type="text" value={mountForm.name} onChange={e => setMountForm({...mountForm, name: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl p-3 text-white focus:border-brand-cyan outline-none font-bold text-lg placeholder:text-gray-700" placeholder="e.g. Ableton Live 12 Suite" />
+                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-widest">资源名称</label>
+                                    <input type="text" value={mountForm.name} onChange={e => setMountForm({...mountForm, name: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl p-3 text-white focus:border-brand-cyan outline-none font-bold text-lg placeholder:text-gray-700" placeholder="例如：Ableton Live 12 Suite" />
                                 </div>
 
                                 {/* Row 3 */}
                                 <div className="grid grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <label className="text-xs text-gray-500 font-bold uppercase tracking-widest">Version Tag</label>
+                                        <label className="text-xs text-gray-500 font-bold uppercase tracking-widest">版本号</label>
                                         <input type="text" value={mountForm.version} onChange={e => setMountForm({...mountForm, version: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl p-3 text-white focus:border-brand-cyan outline-none font-mono text-sm" placeholder="v12.0.5" />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs text-gray-500 font-bold uppercase tracking-widest">Total Size</label>
+                                        <label className="text-xs text-gray-500 font-bold uppercase tracking-widest">文件大小</label>
                                         <input type="text" value={mountForm.size} onChange={e => setMountForm({...mountForm, size: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl p-3 text-white focus:border-brand-cyan outline-none font-mono text-sm" placeholder="2.8 GB" />
                                     </div>
                                 </div>
 
                                 {/* Row 4 */}
                                 <div className="space-y-2">
-                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-widest">Public Share Link (URL)</label>
+                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-widest">分享链接 (URL)</label>
                                     <div className="relative">
                                         <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-cyan" />
                                         <input type="text" value={mountForm.downloadUrl} onChange={e => setMountForm({...mountForm, downloadUrl: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl p-3 pl-10 text-brand-cyan focus:border-brand-cyan outline-none font-mono text-xs" placeholder="https://www.aliyundrive.com/s/..." />
@@ -484,8 +483,8 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
 
                                 {/* Row 5 */}
                                 <div className="space-y-2">
-                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-widest">Description</label>
-                                    <textarea value={mountForm.description} onChange={e => setMountForm({...mountForm, description: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl p-3 text-gray-300 focus:border-brand-cyan outline-none h-24 text-sm leading-relaxed resize-none" placeholder="Add release notes or installation instructions..." />
+                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-widest">描述</label>
+                                    <textarea value={mountForm.description} onChange={e => setMountForm({...mountForm, description: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl p-3 text-gray-300 focus:border-brand-cyan outline-none h-24 text-sm leading-relaxed resize-none" placeholder="添加安装说明或提取码..." />
                                 </div>
                                 
                                 <div className="flex items-center gap-2">
@@ -496,14 +495,14 @@ export const Netdisk: React.FC<NetdiskProps> = ({ notify, softwareItems, setSoft
                                         onChange={e => setMountForm({...mountForm, isOfficial: e.target.checked})}
                                         className="w-4 h-4 rounded border-gray-600 text-brand-cyan bg-black focus:ring-brand-cyan"
                                     />
-                                    <label htmlFor="official" className="text-sm text-gray-400 select-none">Mark as Official / Verified Resource</label>
+                                    <label htmlFor="official" className="text-sm text-gray-400 select-none">标记为官方/已验证资源</label>
                                 </div>
                             </div>
                             
                             <div className="p-6 bg-white/[0.02] border-t border-white/5">
                                 <button onClick={handleSaveMount} className="w-full py-4 bg-brand-cyan text-black font-black text-lg rounded-xl hover:bg-white transition-all shadow-[0_0_20px_rgba(0,255,255,0.2)] flex items-center justify-center gap-2">
                                     <Save className="w-5 h-5" />
-                                    {editingMountId ? 'Save Changes' : 'Mount Resource'}
+                                    {editingMountId ? '保存修改' : '确认挂载'}
                                 </button>
                             </div>
                         </div>
