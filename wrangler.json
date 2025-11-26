@@ -10,5 +10,8 @@
   "r2_buckets": [],
   "vars": {
     "R2_PUBLIC_URL": "" 
+  },
+  "triggers": {
+    "crons": ["0 0 * * *"]
   }
 }
