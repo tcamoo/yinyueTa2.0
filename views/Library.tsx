@@ -1,7 +1,6 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck } from 'lucide-react';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist } from '../types';
 import { THEMES, MOODS } from '../constants';
 import { cloudService } from '../services/cloudService';
@@ -39,6 +38,10 @@ export const Library: React.FC<LibraryProps> = ({
     pageHeaders, setPageHeaders,
     notify
 }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [passwordInput, setPasswordInput] = useState('');
+  
   const [activeTab, setActiveTab] = useState<'media' | 'articles' | 'appearance' | 'pages'>('media');
   const [mediaType, setMediaType] = useState<'audio' | 'video' | 'image' | 'dj'>('audio');
   
@@ -56,32 +59,62 @@ export const Library: React.FC<LibraryProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'missing_config' | 'auth_error' | 'offline'>('connected');
   
-  // Admin Key State
+  // Admin Key State (For saving)
   const [adminKey, setAdminKey] = useState('');
 
-  // Check Connection on Mount
+  // 1. INITIAL AUTH CHECK
   useEffect(() => {
-     setAdminKey(cloudService.getAdminKey());
-     
-     const check = async () => {
-         // Try to load. If it returns null, we don't strictly know if it's missing config or just empty.
-         // However, the worker now returns a specific warning if KV is missing.
+     const checkAuth = async () => {
+         const savedKey = cloudService.getAdminKey();
+         if (savedKey) {
+             const isValid = await cloudService.verifyKey(savedKey);
+             if (isValid) {
+                 setIsAuthenticated(true);
+                 setAdminKey(savedKey);
+             }
+         }
+         setAuthLoading(false);
+         
+         // Basic connection check (load attempt)
          const data = await cloudService.loadData();
          if (data === null) {
-            // Check if it was because of network or empty
-            // For now, let's assume if load works (even empty), we are connected to Worker.
-            // The real check happens on save.
+            // Assume offline or empty
          }
      };
-     check();
+     checkAuth();
   }, []);
 
+  // 2. MANUAL LOGIN
+  const handleLogin = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setAuthLoading(true);
+      const isValid = await cloudService.verifyKey(passwordInput);
+      setAuthLoading(false);
+      
+      if (isValid) {
+          setIsAuthenticated(true);
+          setAdminKey(passwordInput);
+          cloudService.setAdminKey(passwordInput);
+          notify('success', '身份验证通过');
+      } else {
+          notify('error', '访问拒绝：密钥无效');
+      }
+  };
+
   const handleSaveAdminKey = () => {
-      cloudService.setAdminKey(adminKey);
-      notify('success', 'Admin Key 已保存至本地');
-      setIsSettingsOpen(false);
-      // Try a sync to verify
-      syncToCloud();
+      // Re-verify before saving new key
+      setAuthLoading(true);
+      cloudService.verifyKey(adminKey).then(isValid => {
+          setAuthLoading(false);
+          if (isValid) {
+              cloudService.setAdminKey(adminKey);
+              notify('success', 'Admin Key 已更新并保存');
+              setIsSettingsOpen(false);
+              syncToCloud();
+          } else {
+              notify('error', '密钥无效，无法保存');
+          }
+      });
   };
 
   // Form Fields
@@ -433,6 +466,64 @@ export const Library: React.FC<LibraryProps> = ({
       }
   };
 
+  // --- LOCK SCREEN RENDER ---
+  if (authLoading) {
+      return (
+          <div className="flex h-screen items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-brand-lime" />
+          </div>
+      );
+  }
+
+  if (!isAuthenticated) {
+      return (
+          <div className="flex h-[80vh] items-center justify-center animate-in fade-in duration-700">
+              <div className="relative w-full max-w-md bg-black border border-brand-lime/30 rounded-3xl p-8 shadow-[0_0_50px_rgba(204,255,0,0.1)] overflow-hidden">
+                  {/* Cyberpunk Decor */}
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-brand-lime to-transparent animate-pulse"></div>
+                  <div className="absolute -left-10 top-20 w-32 h-32 bg-brand-lime blur-[80px] opacity-20 pointer-events-none"></div>
+
+                  <div className="relative z-10 flex flex-col items-center text-center">
+                      <div className="w-16 h-16 rounded-2xl bg-brand-lime/10 border border-brand-lime/30 flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(204,255,0,0.2)]">
+                          <Lock className="w-8 h-8 text-brand-lime" />
+                      </div>
+                      
+                      <h2 className="text-3xl font-display font-black text-white mb-2 tracking-wide">SYSTEM LOCKED</h2>
+                      <p className="text-gray-500 text-sm mb-8 font-mono">RESTRICTED AREA // AUTHORIZED PERSONNEL ONLY</p>
+
+                      <form onSubmit={handleLogin} className="w-full space-y-4">
+                          <div className="relative">
+                              <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                              <input 
+                                  type="password" 
+                                  value={passwordInput}
+                                  onChange={e => setPasswordInput(e.target.value)}
+                                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-brand-lime focus:bg-white/10 transition-all font-mono"
+                                  placeholder="ENTER ACCESS CODE"
+                                  autoFocus
+                              />
+                          </div>
+                          
+                          <button 
+                              type="submit" 
+                              disabled={!passwordInput}
+                              className="w-full py-3 bg-brand-lime text-black font-bold rounded-xl hover:bg-white transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                              {authLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
+                              UNLOCK SYSTEM
+                          </button>
+                      </form>
+
+                      <div className="mt-6 text-[10px] text-gray-600 font-mono">
+                          ID: {Math.random().toString(36).substring(7).toUpperCase()}
+                      </div>
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
+  // --- MAIN CONSOLE RENDER ---
   return (
     <div className="pb-40 animate-in slide-in-from-bottom-8 duration-700">
       
@@ -441,8 +532,8 @@ export const Library: React.FC<LibraryProps> = ({
         <div>
           <div className="flex items-center gap-3 mb-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-lime/10 border border-brand-lime/30 rounded-full">
-                <Settings2 className="w-3 h-3 text-brand-lime" />
-                <span className="text-xs text-brand-lime font-bold tracking-wider">CMS V4.1</span>
+                <ShieldCheck className="w-3 h-3 text-brand-lime" />
+                <span className="text-xs text-brand-lime font-bold tracking-wider">ADMIN VERIFIED</span>
               </div>
 
               {/* CLOUD STATUS INDICATOR */}
@@ -528,7 +619,7 @@ export const Library: React.FC<LibraryProps> = ({
                        {/* Section 1: Admin Secret */}
                        <div className="bg-black/30 p-4 rounded-xl border border-white/5">
                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                               <Key className="w-3 h-3" /> Admin Secret (可选)
+                               <Key className="w-3 h-3" /> Admin Secret (当前密钥)
                            </label>
                            <p className="text-xs text-gray-500 mb-3 leading-relaxed">
                                如果在 Cloudflare 后台设置了 <code className="text-brand-lime">ADMIN_SECRET</code> 变量，请输入相同的值以获取写入权限。
@@ -539,7 +630,7 @@ export const Library: React.FC<LibraryProps> = ({
                                   value={adminKey} 
                                   onChange={e => setAdminKey(e.target.value)}
                                   className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-lime outline-none"
-                                  placeholder="未设置可留空"
+                                  placeholder="输入密码以更新"
                                />
                                <button onClick={handleSaveAdminKey} className="px-4 bg-brand-lime text-black font-bold rounded-lg text-sm hover:bg-white transition-colors">
                                    保存
@@ -561,7 +652,9 @@ export const Library: React.FC<LibraryProps> = ({
                                <li>在 <strong>R2 Bucket Bindings</strong> 中添加:
                                    <br/>Variable name: <code className="text-white bg-white/10 px-1 rounded">BUCKET</code> &rarr; 选择您的 R2 存储桶。
                                </li>
-                               <li>(可选) 添加 Text Variable: <code className="text-white bg-white/10 px-1 rounded">ADMIN_SECRET</code> 用于加密。</li>
+                               <li>点击 <strong>Add Variable</strong> 添加密码保护:
+                                    <br/>Variable name: <code className="text-white bg-white/10 px-1 rounded">ADMIN_SECRET</code>, Value: 您的密码 (建议加密)。
+                               </li>
                                <li>保存并部署 (Deploy) 即可生效。</li>
                            </ol>
                        </div>
