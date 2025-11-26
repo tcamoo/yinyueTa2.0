@@ -1,16 +1,24 @@
 
+
 import React, { useState } from 'react';
 import { SoftwareItem, PageHeaderConfig } from '../types';
 import { Download, Monitor, Smartphone, Cloud, Globe, Search, Box, Cpu, HardDrive, Filter, CheckCircle } from 'lucide-react';
 
 interface SoftwareViewProps {
   softwareItems: SoftwareItem[];
-  headerConfig: PageHeaderConfig;
+  headerConfig: PageHeaderConfig | undefined;
 }
 
 export const SoftwareView: React.FC<SoftwareViewProps> = ({ softwareItems, headerConfig }) => {
   const [filter, setFilter] = useState<'all' | 'win' | 'mac' | 'mobile'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Fallback config to prevent crash if headerConfig is undefined
+  const config = headerConfig || {
+      title: '资源中心',
+      subtitle: 'DOWNLOADS',
+      description: '加载中或配置缺失...'
+  };
 
   const filteredItems = softwareItems.filter(item => {
       const matchesFilter = filter === 'all' || item.platform === filter;
@@ -50,10 +58,10 @@ export const SoftwareView: React.FC<SoftwareViewProps> = ({ softwareItems, heade
                 </div>
                 
                 <h1 className="text-5xl md:text-8xl font-display font-black text-white mb-6 tracking-tighter drop-shadow-2xl">
-                    <span className="text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-500">{headerConfig.title}</span>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-500">{config.title}</span>
                 </h1>
                 <p className="text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto leading-relaxed font-light">
-                    {headerConfig.description}
+                    {config.description}
                 </p>
                 
                 {/* Search & Filter Bar */}
