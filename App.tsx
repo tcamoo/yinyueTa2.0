@@ -39,10 +39,18 @@ const App: React.FC = () => {
   const [currentArticle, setCurrentArticle] = useState<Article | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(THEMES[0]);
 
-  // Visualizer Refs (Direct DOM manipulation for performance)
+  // Visualizer Refs
   const blob1Ref = useRef<HTMLDivElement>(null);
   const blob2Ref = useRef<HTMLDivElement>(null);
   const blob3Ref = useRef<HTMLDivElement>(null);
+  
+  // Visualizer Logic State
+  const visualState = useRef({
+      bass: { current: 0, target: 0 },
+      mid: { current: 0, target: 0 },
+      high: { current: 0, target: 0 }
+  });
+  const rafRef = useRef<number>(0);
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
@@ -92,35 +100,70 @@ const App: React.FC = () => {
       return () => window.removeEventListener('music-time-update' as any, handleTimeUpdate);
   }, []);
 
-  // --- GLOBAL AUDIO VISUALIZER LISTENER ---
-  // Listens for 'audio-visual-data' from Player.tsx and updates background blobs directly
+  // --- SMOOTH & ELEGANT AUDIO VISUALIZER ---
+  // Uses Linear Interpolation (Lerp) to prevent jitter and creates a breathing effect
   useEffect(() => {
+      // 1. Listen for raw data updates
       const handleAudioData = (e: CustomEvent<{ bass: number, mid: number, high: number }>) => {
           const { bass, mid, high } = e.detail;
-          
-          // Apply transforms directly to refs to avoid React re-renders (60fps)
-          if (blob1Ref.current) {
-              // Bass heavy blob (Secondary color)
-              const scale = 1 + (bass / 255) * 0.4;
-              blob1Ref.current.style.transform = `scale(${scale}) translate(-50px, 50px)`;
-              blob1Ref.current.style.opacity = `${0.1 + (bass / 255) * 0.3}`;
-          }
-          if (blob2Ref.current) {
-              // Mid heavy blob (Primary color)
-              const scale = 1 + (mid / 255) * 0.3;
-              blob2Ref.current.style.transform = `scale(${scale}) translate(40px, -40px)`;
-              blob2Ref.current.style.opacity = `${0.1 + (mid / 255) * 0.3}`;
-          }
-          if (blob3Ref.current) {
-               // Center accent (High freq)
-              const scale = 0.9 + (high / 255) * 0.5;
-              blob3Ref.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
-              blob3Ref.current.style.opacity = `${0.05 + (high / 255) * 0.4}`;
-          }
+          visualState.current.bass.target = bass;
+          visualState.current.mid.target = mid;
+          visualState.current.high.target = high;
       };
 
       window.addEventListener('audio-visual-data' as any, handleAudioData);
-      return () => window.removeEventListener('audio-visual-data' as any, handleAudioData);
+
+      // 2. Animation Loop (60fps)
+      const lerp = (start: number, end: number, factor: number) => start + (end - start) * factor;
+
+      const loop = () => {
+          // Smooth out the values (Lag effect)
+          // Factor 0.05 means it moves 5% towards the target per frame -> very smooth/slow
+          visualState.current.bass.current = lerp(visualState.current.bass.current, visualState.current.bass.target, 0.05);
+          visualState.current.mid.current = lerp(visualState.current.mid.current, visualState.current.mid.target, 0.03);
+          visualState.current.high.current = lerp(visualState.current.high.current, visualState.current.high.target, 0.04);
+
+          const { bass, mid, high } = visualState.current;
+
+          if (blob1Ref.current) {
+              // Primary Blob (Top Right) - Reacts to Mid/High (Subtle movement)
+              // Low opacity to prevent glare
+              const scale = 1 + (mid.current / 255) * 0.2; // Max scale 1.2
+              const x = Math.sin(Date.now() / 5000) * 30; // Slow ambient drift
+              const opacity = 0.08 + (mid.current / 255) * 0.1; // Max opacity ~0.18
+              
+              blob1Ref.current.style.transform = `translate(${x}px, 0) scale(${scale})`;
+              blob1Ref.current.style.opacity = opacity.toFixed(3);
+          }
+
+          if (blob2Ref.current) {
+              // Secondary Blob (Bottom Left) - Reacts to Bass (Breathing)
+              const scale = 1 + (bass.current / 255) * 0.3; 
+              const y = Math.cos(Date.now() / 4000) * 30;
+              const opacity = 0.05 + (bass.current / 255) * 0.15; // Max opacity ~0.2
+              
+              blob2Ref.current.style.transform = `translate(0, ${y}px) scale(${scale})`;
+              blob2Ref.current.style.opacity = opacity.toFixed(3);
+          }
+
+          if (blob3Ref.current) {
+              // Accent Blob (Center) - Very subtle
+              const scale = 0.8 + (high.current / 255) * 0.2;
+              const opacity = 0.03 + (high.current / 255) * 0.1;
+              
+              blob3Ref.current.style.transform = `translate(-50%, -50%) scale(${scale}) rotate(${Date.now() / 50}deg)`;
+              blob3Ref.current.style.opacity = opacity.toFixed(3);
+          }
+
+          rafRef.current = requestAnimationFrame(loop);
+      };
+
+      loop();
+
+      return () => {
+          window.removeEventListener('audio-visual-data' as any, handleAudioData);
+          cancelAnimationFrame(rafRef.current);
+      };
   }, []);
 
   useEffect(() => {
@@ -289,37 +332,39 @@ const App: React.FC = () => {
     >
       <NotificationContainer notifications={notifications} onDismiss={removeNotification} />
 
-      {/* DYNAMIC BACKGROUND */}
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-         <div className="absolute inset-0 bg-noise opacity-[0.05]"></div>
+      {/* DYNAMIC BACKGROUND (Refined for Softness) */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none bg-dark-950">
+         <div className="absolute inset-0 bg-noise opacity-[0.03]"></div>
          
-         {/* Blob 1: Secondary (Bass React) */}
+         {/* Blob 1: Secondary Color (Top Right) */}
          <div 
            ref={blob1Ref}
-           className="absolute top-[-20%] right-[-10%] w-[80vw] h-[80vw] rounded-full blur-[100px] mix-blend-screen transition-transform duration-100 ease-out will-change-transform"
+           className="absolute top-[-10%] right-[-10%] w-[70vw] h-[70vw] rounded-full blur-[160px] will-change-transform"
            style={{ 
-             background: `radial-gradient(circle, ${currentTheme.colors.secondary} 0%, transparent 60%)`,
-             opacity: 0.1,
+             background: `radial-gradient(circle, ${currentTheme.colors.secondary} 0%, transparent 70%)`,
+             opacity: 0.08, // Initial Low Opacity
+             transformOrigin: 'center center'
            }} 
          />
          
-         {/* Blob 2: Primary (Mid React) */}
+         {/* Blob 2: Primary Color (Bottom Left) */}
          <div 
            ref={blob2Ref}
-           className="absolute bottom-[-20%] left-[-10%] w-[80vw] h-[80vw] rounded-full blur-[120px] mix-blend-screen transition-transform duration-100 ease-out will-change-transform"
+           className="absolute bottom-[-10%] left-[-10%] w-[80vw] h-[80vw] rounded-full blur-[180px] will-change-transform"
            style={{ 
-             background: `radial-gradient(circle, ${currentTheme.colors.primary} 0%, transparent 60%)`,
-             opacity: 0.1,
+             background: `radial-gradient(circle, ${currentTheme.colors.primary} 0%, transparent 70%)`,
+             opacity: 0.05, // Initial Low Opacity
+             transformOrigin: 'center center'
            }} 
          />
          
-         {/* Blob 3: Accent (High React) */}
+         {/* Blob 3: Accent Color (Center - very subtle) */}
          <div 
            ref={blob3Ref}
-           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] h-[60vw] rounded-full blur-[80px] mix-blend-overlay transition-transform duration-75 ease-out will-change-transform"
+           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50vw] h-[50vw] rounded-full blur-[140px] mix-blend-plus-lighter will-change-transform"
            style={{
-             background: `radial-gradient(circle, ${currentTheme.colors.accent} 0%, transparent 60%)`,
-             opacity: 0.05,
+             background: `radial-gradient(circle, ${currentTheme.colors.accent} 0%, transparent 70%)`,
+             opacity: 0.03, // Initial Low Opacity
            }}
          />
       </div>
