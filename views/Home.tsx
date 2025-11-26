@@ -1,13 +1,14 @@
 
 import React, { useMemo } from 'react';
-import { Play, TrendingUp, ArrowRight, Zap, FileText, Music, Mic2, Calendar, MapPin, Radio } from 'lucide-react';
-import { Song, MV, View, Article, PageHeaderConfig } from '../types';
-import { MOODS, MOCK_PLAYLISTS } from '../constants';
+import { Play, TrendingUp, ArrowRight, Zap, FileText, Mic2, Calendar, MapPin, Aperture } from 'lucide-react';
+import { Song, MV, View, Article, PageHeaderConfig, GalleryItem } from '../types';
+import { MOODS } from '../constants';
 
 interface HomeProps {
   songs: Song[];
   mvs: MV[];
   articles: Article[];
+  galleryItems: GalleryItem[]; // Added
   onPlaySong: (song: Song) => void;
   currentSongId?: string;
   onChangeView: (view: View) => void;
@@ -15,7 +16,7 @@ interface HomeProps {
   headerConfig: PageHeaderConfig;
 }
 
-export const Home: React.FC<HomeProps> = ({ songs = [], mvs = [], articles = [], onPlaySong, currentSongId, onChangeView, onReadArticle, headerConfig }) => {
+export const Home: React.FC<HomeProps> = ({ songs = [], mvs = [], articles = [], galleryItems = [], onPlaySong, currentSongId, onChangeView, onReadArticle, headerConfig }) => {
   const trendingSongs = Array.isArray(songs) ? songs.slice(0, 4) : [];
   
   const featuredMV = useMemo(() => {
@@ -171,44 +172,34 @@ export const Home: React.FC<HomeProps> = ({ songs = [], mvs = [], articles = [],
          </div>
       </div>
 
-      {/* 4. FEATURED PLAYLISTS */}
+      {/* 4. GALLERY PREVIEW (REPLACED PLAYLISTS) */}
       <div className="mb-12 lg:mb-20">
           <div className="flex items-center justify-between mb-6">
              <div className="flex items-center gap-3">
-                 <Music className="w-6 h-6 md:w-7 md:h-7 text-brand-accent" />
-                 <h2 className="text-xl md:text-2xl font-bold text-white">精选歌单</h2>
+                 <Aperture className="w-6 h-6 md:w-7 md:h-7 text-brand-cyan" />
+                 <h2 className="text-xl md:text-2xl font-bold text-white">光影瞬间</h2>
              </div>
-             <button onClick={() => onChangeView(View.PLAYLISTS)} className="text-xs font-bold text-gray-500 hover:text-white">更多</button>
+             <button onClick={() => onChangeView(View.GALLERY)} className="text-xs font-bold text-gray-500 hover:text-white border border-white/10 px-3 py-1.5 rounded-full transition-colors">
+                 进入画廊
+             </button>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {MOCK_PLAYLISTS.slice(0,4).map((playlist) => (
-                  <div key={playlist.id} className="group cursor-pointer">
-                      <div className="relative aspect-square rounded-[1.5rem] md:rounded-[2rem] overflow-hidden mb-3 border border-white/5">
-                          <img src={playlist.coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Play className="w-8 h-8 md:w-10 md:h-10 fill-white text-white" />
-                          </div>
+          <div className="flex overflow-x-auto gap-4 md:gap-6 pb-6 scrollbar-hide snap-x snap-mandatory">
+              {galleryItems.slice(0, 6).map((item) => (
+                  <div key={item.id} className="snap-center min-w-[280px] md:min-w-[320px] aspect-[4/3] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden group cursor-pointer border border-white/5 relative" onClick={() => onChangeView(View.GALLERY)}>
+                      <img src={item.imageUrl} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 filter brightness-90 group-hover:brightness-100" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="absolute bottom-6 left-6 translate-y-4 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                          <h3 className="font-bold text-white text-lg leading-none mb-1">{item.title}</h3>
+                          <p className="text-xs text-brand-cyan font-bold uppercase tracking-wider">{item.photographer}</p>
                       </div>
-                      <h3 className="font-bold text-white mb-1 text-sm md:text-base truncate">{playlist.name}</h3>
-                      <p className="text-xs text-gray-500">{playlist.songCount} 首歌曲</p>
                   </div>
               ))}
-              {/* Fallback Extra Playlists */}
-              <div className="group cursor-pointer">
-                  <div className="relative aspect-square rounded-[1.5rem] md:rounded-[2rem] overflow-hidden mb-3 border border-white/5">
-                      <img src="https://picsum.photos/id/145/400/400" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                  </div>
-                  <h3 className="font-bold text-white mb-1 text-sm md:text-base truncate">Coding Focus</h3>
-                  <p className="text-xs text-gray-500">128 首歌曲</p>
-              </div>
-              <div className="group cursor-pointer">
-                  <div className="relative aspect-square rounded-[1.5rem] md:rounded-[2rem] overflow-hidden mb-3 border border-white/5">
-                      <img src="https://picsum.photos/id/158/400/400" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                  </div>
-                  <h3 className="font-bold text-white mb-1 text-sm md:text-base truncate">Jazz & Coffee</h3>
-                  <p className="text-xs text-gray-500">45 首歌曲</p>
-              </div>
+               <div onClick={() => onChangeView(View.GALLERY)} className="snap-center min-w-[100px] flex items-center justify-center rounded-[2rem] bg-white/5 hover:bg-white/10 cursor-pointer border border-white/10 group">
+                    <div className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center text-gray-400 group-hover:text-white group-hover:border-white transition-all">
+                        <ArrowRight className="w-6 h-6" />
+                    </div>
+               </div>
           </div>
       </div>
 
