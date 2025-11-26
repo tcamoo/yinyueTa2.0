@@ -20,6 +20,11 @@ export default {
     // 1. GET DATA (Retrieve full state from KV)
     if (url.pathname === '/api/sync' && request.method === 'GET') {
       try {
+        if (!env.DB) {
+           console.warn("KV 'DB' binding not found. Serving empty/mock response.");
+           return new Response(JSON.stringify({ empty: true, warning: "KV not configured" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
         const data = await env.DB.get('app_data');
         if (!data) {
           return new Response(JSON.stringify({ empty: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -33,6 +38,10 @@ export default {
     // 2. SAVE DATA (Save full state to KV)
     if (url.pathname === '/api/sync' && request.method === 'POST') {
       try {
+        if (!env.DB) {
+           return new Response(JSON.stringify({ error: "Cloudflare KV 未配置。请在 wrangler.json 中添加 kv_namespaces 绑定。" }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
         const body = await request.json();
         await env.DB.put('app_data', JSON.stringify(body));
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -45,6 +54,10 @@ export default {
     // Usage: PUT /api/upload?filename=image.jpg
     if (url.pathname === '/api/upload' && request.method === 'PUT') {
       try {
+        if (!env.BUCKET) {
+           return new Response(JSON.stringify({ error: "Cloudflare R2 未配置。请在 wrangler.json 中添加 r2_buckets 绑定。" }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
         const filename = url.searchParams.get('filename') || `upload-${Date.now()}`;
         // Write to R2 Bucket
         await env.BUCKET.put(filename, request.body);
@@ -68,6 +81,10 @@ export default {
     // 4. SERVE FILE (Proxy R2 if no custom domain)
     // Usage: GET /api/file/filename.jpg
     if (url.pathname.startsWith('/api/file/') && request.method === 'GET') {
+        if (!env.BUCKET) {
+           return new Response("R2 Bucket Not Configured", { status: 404 });
+        }
+
         const filename = url.pathname.replace('/api/file/', '');
         const object = await env.BUCKET.get(filename);
 
