@@ -5,37 +5,24 @@
 
 ## ☁️ 云端配置指南 (必读)
 
-为了实现数据的永久保存和文件上传功能，你需要配置 Cloudflare KV 和 R2。
+您的项目目前已成功部署，但**尚未连接到数据库**。为了实现“永久保存”和“文件上传”功能，请务必执行以下步骤。
 
-### 1. 创建 KV 命名空间 (数据库)
+### 第一步：创建 KV 和 R2 资源
 
-KV 用于存储歌曲列表、文章元数据和主题设置。
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com)。
+2. 进入 **Workers & Pages** -> **KV**，点击 "Create a Namespace"，命名为 `yinyuetai-data`。复制生成的 `ID`。
+3. 进入 **R2** 菜单，点击 "Create Bucket"，命名为 `yinyuetai-media`。
 
-1. 登录 Cloudflare Dashboard。
-2. 进入 **Workers & Pages** -> **KV**.
-3. 点击 **Create a Namespace**.
-4. 命名为 `yinyuetai-data`.
-5. 获取 `ID`。
+### 第二步：更新 wrangler.json
 
-### 2. 创建 R2 存储桶 (文件存储)
-
-R2 用于存储上传的 MP3、图片和视频文件。
-
-1. 进入 **R2** 菜单。
-2. 点击 **Create Bucket**.
-3. 命名为 `yinyuetai-media`.
-4. (可选) 在 Bucket 设置中配置 **Custom Domain** (例如 `media.yourdomain.com`) 以获得更快的访问速度。
-
-### 3. 配置项目
-
-修改根目录下的 `wrangler.json` 文件：
+打开您项目根目录下的 `wrangler.json`，将空的绑定配置替换为实际的 ID：
 
 ```json
   "kv_namespaces": [
     {
       "binding": "DB",
-      "id": "替换为你的KV_ID",
-      "preview_id": "替换为你的KV_ID"
+      "id": "粘贴您的KV_ID",
+      "preview_id": "粘贴您的KV_ID"
     }
   ],
   "r2_buckets": [
@@ -45,26 +32,22 @@ R2 用于存储上传的 MP3、图片和视频文件。
       "preview_bucket_name": "yinyuetai-media"
     }
   ],
-  "vars": {
-    "R2_PUBLIC_URL": "" // 如果配置了自定义域名，填入 https://media.yourdomain.com，否则留空
-  }
 ```
 
-### 4. 部署
+### 第三步：重新部署
 
-```bash
-npx wrangler deploy
-```
+在修改完 `wrangler.json` 后，重新运行部署命令或推送到 GitHub，Cloudflare 将自动应用新的绑定。
 
 ---
 
-## 🛠 功能特性
+## 🛠 功能状态检查
 
-* **R2 文件直传**: 在控制台上传图片/音频时，文件会自动上传到 Cloudflare R2，并返回永久链接。
-* **KV 实时同步**: 添加歌曲、修改文章或更换主题后，数据会自动同步到 Cloudflare KV，刷新页面不会丢失。
-* **Admin 控制台**: 访问左侧边栏底部的 "系统控制台" 进行内容管理。
+在网站的“系统控制台” (Library) 页面，顶部会显示云端连接状态：
+* **🟢 CLOUD ACTIVE**: 配置正确，数据实时同步。
+* **🟡 NO DATABASE**: 未配置 KV/R2，数据仅保存在本地内存，刷新即逝。
 
-## ⚠️ 注意事项
+## 🎨 网站特性
 
-* 如果未配置 `R2_PUBLIC_URL`，系统将使用 Worker 作为文件代理 (`/api/file/...`)，这会消耗 Worker 的 CPU 时间。建议生产环境配置 R2 自定义域名。
-* 首次部署后，数据库为空，应用将加载默认的演示数据。当你第一次在控制台点击 "同步到云端" 或进行编辑保存操作后，演示数据将被你的云端数据覆盖。
+* **R2 文件直传**: 支持 MP3、图片、视频直接上传到 Cloudflare R2。
+* **KV 实时同步**: 歌单、文章、主题设置自动同步。
+* **沉浸式 UI**: 包含动态歌词、3D 视觉效果和全屏 MV 模式。
