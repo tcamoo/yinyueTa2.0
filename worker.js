@@ -2,25 +2,102 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // --- CORS HEADERS HELPER ---
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, POST, PUT, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    };
+
+    // --- HANDLE PREFLIGHT ---
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders });
+    }
+
+    // --- API ROUTES ---
+
+    // 1. GET DATA (Retrieve full state from KV)
+    if (url.pathname === '/api/sync' && request.method === 'GET') {
+      try {
+        const data = await env.DB.get('app_data');
+        if (!data) {
+          return new Response(JSON.stringify({ empty: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        return new Response(data, { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // 2. SAVE DATA (Save full state to KV)
+    if (url.pathname === '/api/sync' && request.method === 'POST') {
+      try {
+        const body = await request.json();
+        await env.DB.put('app_data', JSON.stringify(body));
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // 3. UPLOAD FILE (Put object to R2)
+    // Usage: PUT /api/upload?filename=image.jpg
+    if (url.pathname === '/api/upload' && request.method === 'PUT') {
+      try {
+        const filename = url.searchParams.get('filename') || `upload-${Date.now()}`;
+        // Write to R2 Bucket
+        await env.BUCKET.put(filename, request.body);
+        
+        // Construct Public URL
+        // If R2_PUBLIC_URL var is set (Custom Domain), use it.
+        // Otherwise, use the worker's proxy endpoint.
+        let publicUrl;
+        if (env.R2_PUBLIC_URL) {
+           publicUrl = `${env.R2_PUBLIC_URL}/${filename}`;
+        } else {
+           publicUrl = `/api/file/${filename}`;
+        }
+
+        return new Response(JSON.stringify({ url: publicUrl }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // 4. SERVE FILE (Proxy R2 if no custom domain)
+    // Usage: GET /api/file/filename.jpg
+    if (url.pathname.startsWith('/api/file/') && request.method === 'GET') {
+        const filename = url.pathname.replace('/api/file/', '');
+        const object = await env.BUCKET.get(filename);
+
+        if (object === null) {
+          return new Response('Object Not Found', { status: 404 });
+        }
+
+        const headers = new Headers();
+        object.writeHttpMetadata(headers);
+        headers.set('etag', object.httpEtag);
+        // Set Cache Control for performance
+        headers.set('Cache-Control', 'public, max-age=31536000');
+
+        return new Response(object.body, { headers });
+    }
+
+    // --- STATIC ASSETS & SPA FALLBACK (Existing Logic) ---
     try {
-      // First, try to fetch the requested asset (e.g., main.js, image.png)
-      // The ASSETS binding allows us to fetch static files from the 'dist' directory.
       let response = await env.ASSETS.fetch(request);
       
-      // If the asset is found (status 200) or it's a 304 (Not Modified), return it.
       if (response.status >= 200 && response.status < 400) {
         return response;
       }
 
-      // If it's a 404 and it's a navigation request (not an API call or image), serve index.html
-      // This enables client-side routing in React (SPA behavior).
       if (response.status === 404 && !url.pathname.startsWith('/api/') && !url.pathname.includes('.')) {
         return await env.ASSETS.fetch(new Request(new URL('/index.html', request.url), request));
       }
 
       return response;
     } catch (e) {
-      // Fallback
       return new Response("Internal Error", { status: 500 });
     }
   },
