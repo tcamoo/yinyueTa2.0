@@ -12,19 +12,24 @@ interface PlayerProps {
 
 // Helper to construct playable URL
 const getPlayableUrl = (song: Song | null) => {
-    if (!song || !song.fileUrl) return '';
+    if (!song) return '';
     
-    // If it's already a proxy link, use as is
-    if (song.fileUrl.startsWith('/api/proxy')) return song.fileUrl;
+    // PRIORITY 1: If it has a Netease ID (common for scraped content), 
+    // ALWAYS reconstruct the proxy URL dynamically. This fixes broken scraped links.
+    if (song.neteaseId) {
+        const targetUrl = `https://music.163.com/song/media/outer/url?id=${song.neteaseId}.mp3`;
+        return `/api/proxy?strategy=netease&url=${encodeURIComponent(targetUrl)}`;
+    }
 
-    // If it is a Netease link (by ID or URL pattern), route through proxy
-    // This fixes "previously added" songs that are direct links
-    if (song.neteaseId || song.fileUrl.includes('music.163.com') || song.fileUrl.includes('music.126.net')) {
-        // Encode the original URL as a parameter
+    // PRIORITY 2: If it's already a proxy link, use as is (Manual uploads or non-netease proxies)
+    if (song.fileUrl?.startsWith('/api/proxy')) return song.fileUrl;
+
+    // PRIORITY 3: If it's a raw Netease domain (Manually added URL), route through proxy
+    if (song.fileUrl && (song.fileUrl.includes('music.163.com') || song.fileUrl.includes('music.126.net'))) {
         return `/api/proxy?strategy=netease&url=${encodeURIComponent(song.fileUrl)}`;
     }
 
-    return song.fileUrl;
+    return song.fileUrl || '';
 };
 
 // --- DRAGGABLE SPIRIT COMPONENT (ENHANCED LIQUID SHADER STYLE) ---
@@ -232,9 +237,6 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
 
-  // We now route everything through the worker proxy if needed, so we can treat it as safe for CORS in many cases.
-  // However, we still fallback to simulation if AudioContext fails.
-  
   // --- ROBUST AUDIO DATA PROVIDER ---
   const getVisualData = () => {
       let bass = 0, mid = 0, high = 0;
@@ -307,13 +309,15 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (!currentSong?.fileUrl) return;
+    if (!currentSong) return;
 
     setHasError(false);
     
     // Update src manually to ensure proxy logic applies
     const playableUrl = getPlayableUrl(currentSong);
-    if (audio.src !== playableUrl && !audio.src.endsWith(playableUrl)) {
+    
+    // Only update src if it changed to prevent reloading
+    if (audio.src !== new URL(playableUrl, window.location.href).href) {
         audio.src = playableUrl;
     }
 
@@ -474,7 +478,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
       window.dispatchEvent(event);
   }, [currentTime]);
 
-  if (!currentSong || !currentSong.fileUrl) return null;
+  if (!currentSong) return null;
 
   return (
     <>
@@ -491,7 +495,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                 onError={(e) => {
                     console.error("Native Audio Error", e);
                     setHasError(true);
-                    if(isPlaying) onPlayPause();
+                    // Do not auto-pause on error for now, let it try
                 }}
             />
 
