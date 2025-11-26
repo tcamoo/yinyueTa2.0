@@ -11,11 +11,21 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
   const mainNavItems = [
     { id: View.HOME, label: '首映', sub: 'Premiere', icon: Home },
+    { id: View.MV, label: '视界', sub: 'Visuals', icon: Film }, // Added MV
     { id: View.CHARTS, label: '榜单', sub: 'Charts', icon: Globe },
     { id: View.DJ, label: '电音', sub: 'Club', icon: Disc },
     { id: View.ARTICLES, label: '专栏', sub: 'Read', icon: FileText },
     { id: View.PLAYLISTS, label: '歌单', sub: 'Mine', icon: List },
     { id: View.LIBRARY, label: '管理', sub: 'Admin', icon: LayoutGrid },
+  ];
+
+  // Mobile nav usually fits 5 items comfortably. We prioritize content consumption.
+  const mobileNavItems = [
+      mainNavItems[0], // Home
+      mainNavItems[1], // MV
+      mainNavItems[3], // DJ
+      mainNavItems[5], // Playlists (Mine)
+      mainNavItems[6]  // Library/Admin
   ];
 
   // Desktop Sidebar
@@ -107,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) =
       {/* --- MOBILE BOTTOM NAV (Visible only on Mobile) --- */}
       <nav className="lg:hidden fixed bottom-0 left-0 w-full bg-black/80 backdrop-blur-2xl border-t border-white/10 z-50 pb-safe safe-area-bottom">
           <div className="flex justify-around items-center h-16 px-2">
-              {mainNavItems.slice(0, 5).map((item) => {
+              {mobileNavItems.map((item) => {
                   const isActive = currentView === item.id;
                   const Icon = item.icon;
                   return (
@@ -123,13 +133,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) =
                       </button>
                   )
               })}
-              <button 
-                  onClick={() => onChangeView(View.LIBRARY)}
-                  className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-all ${currentView === View.LIBRARY ? 'text-brand-lime' : 'text-gray-500 hover:text-gray-300'}`}
-              >
-                   <LayoutGrid className="w-5 h-5" />
-                   <span className="text-[10px] font-bold transform scale-90">管理</span>
-              </button>
           </div>
       </nav>
     </>
