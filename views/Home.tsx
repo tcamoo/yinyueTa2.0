@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { Play, TrendingUp, ArrowRight, Zap, FileText, Mic2, Calendar, MapPin, Aperture, Disc, Star, ExternalLink, Activity, Headphones, Download, Speaker, Globe } from 'lucide-react';
+import { Play, TrendingUp, ArrowRight, Zap, FileText, Mic2, MapPin, Aperture, Disc, Activity, Headphones, Download, Speaker, Globe } from 'lucide-react';
 import { Song, MV, View, Article, PageHeaderConfig, GalleryItem, DJSet, SoftwareItem } from '../types';
 import { MOODS } from '../constants';
 
@@ -155,7 +155,7 @@ export const Home: React.FC<HomeProps> = ({
                   <span className="font-bold text-xl text-white">Vibe Check</span>
               </div>
               <div className="flex-1 flex flex-wrap content-start gap-3">
-                  {MOODS.slice(0, 8).map((mood, i) => (
+                  {MOODS.slice(0, 8).map((mood: {label: string, color: string}, i: number) => (
                       <div key={i} className="px-4 py-2 rounded-full border border-white/10 text-sm font-bold text-gray-300 hover:bg-brand-lime hover:text-black hover:border-brand-lime cursor-pointer transition-colors">
                           {mood.label}
                       </div>
