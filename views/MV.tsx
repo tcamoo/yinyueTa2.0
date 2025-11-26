@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { MV, PageHeaderConfig } from '../types';
-import { Play, Pause, Volume2, VolumeX, Maximize, Clock, Share2, Heart, SkipForward, Minimize } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize2, Clock, Share2, Heart, SkipForward, Minimize } from 'lucide-react';
 
 interface MVViewProps {
   mvs: MV[];
@@ -258,7 +258,7 @@ export const MVView: React.FC<MVViewProps> = ({ mvs, headerConfig }) => {
                          
                          <div>
                              <button onClick={toggleFullscreen} className="text-gray-300 hover:text-white transition-colors">
-                                 {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+                                 {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
                              </button>
                          </div>
                      </div>
