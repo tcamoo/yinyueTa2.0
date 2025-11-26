@@ -1,6 +1,6 @@
 
 // --- CONSTANTS ---
-// High-availability Fallback Sets (Hosting on Archive.org to guarantee playback)
+// High-availability Fallback Sets (Hosting on Archive.org to guarantee playback if Netease fails)
 const FALLBACK_DJ_SETS = [
     {
         id: "backup_mix_01",
@@ -23,208 +23,168 @@ const FALLBACK_DJ_SETS = [
         bpm: 124,
         tags: ["House", "Classic"],
         plays: 32100
-    },
-    {
-        id: "backup_mix_03",
-        title: "Techno Bunker Berlin",
-        djName: "Underground",
-        coverUrl: "https://picsum.photos/seed/techno1/400/400",
-        fileUrl: "https://archive.org/download/Techno_Mix_March_2003/01_Techno_Mix_March_2003.mp3",
-        duration: "62:15",
-        bpm: 135,
-        tags: ["Techno", "Dark"],
-        plays: 18900
-    },
-    {
-        id: "backup_mix_04",
-        title: "Liquid Drum & Bass",
-        djName: "Atmospheric",
-        coverUrl: "https://picsum.photos/seed/dnb1/400/400",
-        fileUrl: "https://archive.org/download/LTJBukemLogicalProgressionLevel1CD1/LTJ%20Bukem%20-%20Logical%20Progression%20Level%201%20-%20CD1.mp3",
-        duration: "70:00",
-        bpm: 174,
-        tags: ["DnB", "Liquid"],
-        plays: 25600
     }
 ];
 
 // --- HELPER: PROXY URL GENERATOR ---
 function makeProxyUrl(targetUrl, strategy = 'general') {
     if (!targetUrl) return '';
+    // If it's already a local path, return as is
     if (targetUrl.startsWith('/')) return targetUrl;
-    // Simple encoding to pass URL as param
     return `/api/proxy?strategy=${strategy}&url=${encodeURIComponent(targetUrl)}`;
 }
 
-// --- HELPER: SCRAPE PIXABAY MUSIC ---
-async function scrapePixabay(env) {
+// --- HELPER: SCRAPE NETEASE MUSIC (DANCE CATEGORY) ---
+async function scrapeNetease(env) {
   if (!env.DB) return { success: false, message: "KV DB not bound" };
 
-  const CATEGORY = "dj"; // Target specific category
-  const PAGES_TO_SCRAPE = 2; 
-  let newSets = [];
-  let processedIds = new Set();
-  let log = [];
-
-  // Use a real browser User-Agent
+  // Target: "Dance" (舞曲) category playlists
+  // Using the mobile/lite web headers often yields simpler HTML, but desktop usually has the song-list textarea
+  const LIST_URL = "https://music.163.com/discover/playlist/?cat=%E8%88%9E%E6%9B%B2&limit=35&order=hot";
+  
   const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Referer': 'https://pixabay.com/music/',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Referer': 'https://music.163.com/',
   };
 
-  for (let page = 1; page <= PAGES_TO_SCRAPE; page++) {
-    try {
-      // 1. Fetch search page
-      const url = `https://pixabay.com/music/search/${CATEGORY}/?pagi=${page}`;
-      const response = await fetch(url, { headers });
-      
-      if (!response.ok) {
-        log.push(`Page ${page} failed: ${response.status}`);
-        continue;
-      }
+  let log = [];
+  let newSets = [];
+  let processedIds = new Set();
 
-      const html = await response.text();
-      
-      // 2. Parse JSON-LD (Most reliable way to get Main Content vs Footer Sound Effects)
-      // Pixabay puts the track list in a <script type="application/ld+json"> tag
-      const jsonLdRegex = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi;
+  try {
+      // 1. Get the list of playlists
+      log.push(`Fetching Playlist Directory...`);
+      const listRes = await fetch(LIST_URL, { headers });
+      if (!listRes.ok) throw new Error(`List fetch failed: ${listRes.status}`);
+      const listHtml = await listRes.text();
+
+      // Regex to find playlist IDs: <a title="xxx" href="/playlist?id=123456"
+      const playlistRegex = /<a title="([^"]+)" href="\/playlist\?id=(\d+)"/g;
+      const playlists = [];
       let match;
-      let foundInJson = false;
-
-      while ((match = jsonLdRegex.exec(html)) !== null) {
-          try {
-              const data = JSON.parse(match[1]);
-              const items = Array.isArray(data) ? data : [data];
-              
-              for (const item of items) {
-                  // We only want AudioObjects that look like music
-                  // Some sound effects might be mixed in, but usually on /search/dj/ page, main items are music
-                  if (item.contentUrl && typeof item.contentUrl === 'string' && item.contentUrl.endsWith('.mp3')) {
-                      
-                      const rawUrl = item.contentUrl;
-                      
-                      // Skip if URL looks like a tiny preview or sound effect (heuristic)
-                      // But Pixabay URLs are opaque, so we trust the 'contentUrl' property of the main list
-                      
-                      const proxyUrl = makeProxyUrl(rawUrl, 'pixabay');
-                      const name = item.name || "Unknown Track";
-                      const author = item.author?.name || "Pixabay Artist";
-                      const duration = item.duration || "03:00"; // ISO format sometimes
-
-                      processTrack(proxyUrl, name, author, newSets, processedIds);
-                      foundInJson = true;
-                  }
-              }
-          } catch(e) {}
+      while ((match = playlistRegex.exec(listHtml)) !== null) {
+          playlists.push({ title: match[1], id: match[2] });
       }
-      
-      // 3. Fallback Regex (Only if JSON-LD failed)
-      // Tries to find MP3 links, but we must be careful not to grab footer SFX
-      if (!foundInJson) {
-          // Look for links that contain 'audio' path. 
-          // Note: escaped slashes in HTML source: https:\/\/cdn...
-          const wideRegex = /https?:\\?\/\\?\/cdn\.pixabay\.com\\?\/audio\\?\/[\w\-\/]+\.mp3/gi;
-          const regexMatches = html.match(wideRegex) || [];
+
+      log.push(`Found ${playlists.length} playlists.`);
+
+      if (playlists.length === 0) throw new Error("No playlists found in HTML");
+
+      // 2. Randomly select 2 playlists to scrape deep (avoiding timeouts)
+      const shuffled = playlists.sort(() => 0.5 - Math.random()).slice(0, 2);
+
+      for (const pl of shuffled) {
+          log.push(`Scraping Playlist: ${pl.title} (${pl.id})`);
           
-          // Deduplicate
-          const uniqueUrls = [...new Set(regexMatches)];
-          
-          for (let rawUrl of uniqueUrls) {
-            const cleanUrl = rawUrl.replace(/\\/g, '');
-            // Wrap in proxy
-            const proxyUrl = makeProxyUrl(cleanUrl, 'pixabay');
-            processTrack(proxyUrl, "DJ Mix Session", "Pixabay Artist", newSets, processedIds);
+          const detailUrl = `https://music.163.com/playlist?id=${pl.id}`;
+          const detailRes = await fetch(detailUrl, { headers });
+          const detailHtml = await detailRes.text();
+
+          // 3. Extract Songs from the magical textarea
+          // Netease puts the full song list JSON in <textarea id="song-list-pre-cache">
+          const jsonRegex = /<textarea id="song-list-pre-cache" style="display:none;">([\s\S]*?)<\/textarea>/;
+          const jsonMatch = detailHtml.match(jsonRegex);
+
+          if (jsonMatch && jsonMatch[1]) {
+              try {
+                  const rawSongs = JSON.parse(jsonMatch[1]);
+                  // Take top 10 songs from this playlist
+                  const topSongs = rawSongs.slice(0, 10);
+
+                  for (const song of topSongs) {
+                      const neteaseId = song.id;
+                      // Netease MP3 URL (Official external link pattern)
+                      const rawMp3Url = `http://music.163.com/song/media/outer/url?id=${neteaseId}.mp3`;
+                      // Wrap in our proxy to handle Referer/CORS for visualizer
+                      const proxyUrl = makeProxyUrl(rawMp3Url, 'netease');
+
+                      // Construct the item
+                      const uniqueId = `ne_${neteaseId}`;
+                      
+                      // Artists
+                      const artistName = song.artists ? song.artists.map(a => a.name).join('/') : 'Unknown DJ';
+                      
+                      // Cover Image (Netease usually provides album.picUrl)
+                      const coverUrl = song.album && song.album.picUrl 
+                          ? song.album.picUrl.replace('http:', 'https:') + '?param=400y400' 
+                          : `https://picsum.photos/seed/${uniqueId}/400/400`;
+
+                      if (!processedIds.has(uniqueId)) {
+                          newSets.push({
+                              id: uniqueId,
+                              title: song.name,
+                              djName: artistName,
+                              coverUrl: coverUrl,
+                              fileUrl: proxyUrl, // Proxy handles the audio
+                              neteaseId: neteaseId.toString(),
+                              duration: "03:30", // Netease JSON has duration in ms, could parse if needed
+                              bpm: 128, // Hard to guess
+                              tags: ["Dance", "Club", "Netease"],
+                              plays: Math.floor(Math.random() * 20000) + 1000
+                          });
+                          processedIds.add(uniqueId);
+                      }
+                  }
+              } catch (e) {
+                  log.push(`Failed to parse JSON for playlist ${pl.id}: ${e.message}`);
+              }
+          } else {
+              log.push(`No song-list textarea found for playlist ${pl.id}`);
           }
       }
 
-      log.push(`Page ${page}: Extracted count ${newSets.length}`);
-
-    } catch (e) {
-      log.push(`Page ${page} Error: ${e.message}`);
-    }
+  } catch (e) {
+      log.push(`Critical Error: ${e.message}`);
   }
 
-  // --- CRITICAL FALLBACK ---
-  // If scraping yields nothing (blocked) or very few items, inject high-quality backups.
-  // This ensures the site is NEVER empty or broken.
-  if (newSets.length < 5) {
-      log.push("Scrape yielded low items. Appending Archive.org Backups.");
-      for (const backup of FALLBACK_DJ_SETS) {
-          // Check for ID collision
-          if (!processedIds.has(backup.id)) {
-              newSets.push(backup);
-              processedIds.add(backup.id);
-          }
-      }
+  // --- FALLBACK INJECTION ---
+  if (newSets.length === 0) {
+      log.push("Netease scrape failed or empty. Injecting Archive.org Backups.");
+      newSets = [...FALLBACK_DJ_SETS];
   }
 
   // --- SAVE TO KV ---
   if (newSets.length > 0) {
-    try {
-      const currentDataStr = await env.DB.get('app_data');
-      let currentData = currentDataStr ? JSON.parse(currentDataStr) : {};
-      
-      let existingSets = currentData.djSets || [];
-      const existingIds = new Set(existingSets.map(s => s.id));
-      
-      // Add new ones
-      const uniqueNewSets = newSets.filter(s => !existingIds.has(s.id));
-      // Keep list fresh, limit size
-      const updatedSets = [...uniqueNewSets, ...existingSets].slice(0, 300); 
-      
-      currentData.djSets = updatedSets;
-      await env.DB.put('app_data', JSON.stringify(currentData));
-      return { success: true, count: uniqueNewSets.length, logs: log };
-    } catch (e) {
-      return { success: false, message: e.message, logs: log };
-    }
+      try {
+          const currentDataStr = await env.DB.get('app_data');
+          let currentData = currentDataStr ? JSON.parse(currentDataStr) : {};
+
+          let existingSets = currentData.djSets || [];
+          // Dedupe based on ID
+          const existingMap = new Map(existingSets.map(s => [s.id, s]));
+          
+          for (const s of newSets) {
+              existingMap.set(s.id, s);
+          }
+          
+          // Convert back to array, shuffle slightly or sort, limit size
+          let merged = Array.from(existingMap.values());
+          // Limit to 200 items to prevent KV bloat
+          if (merged.length > 200) merged = merged.slice(0, 200);
+
+          currentData.djSets = merged;
+          await env.DB.put('app_data', JSON.stringify(currentData));
+          
+          return { success: true, count: newSets.length, logs: log };
+      } catch (e) {
+          return { success: false, message: e.message, logs: log };
+      }
   }
 
   return { success: true, count: 0, logs: log };
 }
 
-function processTrack(fileUrl, rawTitle, djName, list, ids) {
-    // Generate deterministic ID from URL
-    let filename = "track";
-    try {
-        const parts = fileUrl.split('/');
-        // Handle both proxy URLs and raw URLs
-        const lastPart = parts[parts.length - 1];
-        filename = lastPart.split('?')[0]; // remove query params
-    } catch(e) {}
-    
-    const uniqueId = `pix_${filename.replace(/[^a-zA-Z0-9]/g, '').slice(-10)}_${Math.floor(Math.random()*1000)}`;
-
-    if (ids.has(uniqueId)) return;
-    ids.add(uniqueId);
-
-    list.push({
-      id: uniqueId,
-      title: rawTitle.replace(/_/g, ' ').replace(/-/g, ' '),
-      djName: djName,
-      coverUrl: `https://picsum.photos/seed/${uniqueId}/400/400`,
-      fileUrl: fileUrl,
-      duration: "04:00", // Placeholder if not found
-      bpm: 120 + Math.floor(Math.random() * 15),
-      tags: ["Electronic", "DJ", "Mix"],
-      plays: Math.floor(Math.random() * 5000) + 500
-    });
-}
-
-
 export default {
-  // --- SCHEDULED TASK ---
+  // --- SCHEDULED TASK (CRON) ---
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(scrapePixabay(env));
+    ctx.waitUntil(scrapeNetease(env));
   },
 
   // --- HTTP HANDLER ---
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // Common CORS headers
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, HEAD, POST, PUT, DELETE, OPTIONS",
@@ -242,7 +202,8 @@ export default {
       return authHeader === env.ADMIN_SECRET;
     };
 
-    // --- UNIVERSAL PROXY (Fixes Pixabay/DJUU playback) ---
+    // --- UNIVERSAL AUDIO PROXY ---
+    // Handles Netease, Pixabay, etc. to bypass Referer/CORS blocks
     if (url.pathname === '/api/proxy') {
         const targetUrl = url.searchParams.get('url');
         const strategy = url.searchParams.get('strategy') || 'general';
@@ -250,13 +211,16 @@ export default {
         if (!targetUrl) return new Response("Missing URL", { status: 400 });
 
         try {
-            // Determine best Referer based on strategy
+            // Strategy-specific headers
             let referer = 'https://google.com';
-            let userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+            let userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
             
-            if (strategy === 'pixabay' || targetUrl.includes('pixabay')) {
+            if (strategy === 'netease' || targetUrl.includes('163.com')) {
+                referer = 'https://music.163.com/';
+                // Netease sometimes requires cookies, but for /outer/url often works with just Referer
+            } else if (strategy === 'pixabay') {
                 referer = 'https://pixabay.com/';
-            } else if (strategy === 'djuu' || targetUrl.includes('djuu')) {
+            } else if (strategy === 'djuu') {
                 referer = 'https://www.djuu.com/';
             }
 
@@ -264,7 +228,7 @@ export default {
             proxyHeaders.set('User-Agent', userAgent);
             proxyHeaders.set('Referer', referer);
             
-            // Forward Range header for seeking
+            // Pass through Range header for seeking/partial content
             const range = request.headers.get('Range');
             if (range) proxyHeaders.set('Range', range);
 
@@ -273,12 +237,14 @@ export default {
                 headers: proxyHeaders
             });
 
-            // Reconstruct response with CORS
+            // Reconstruct headers for the browser
             const newHeaders = new Headers(response.headers);
+            
+            // IMPORTANT: Force CORS on the response
             Object.keys(corsHeaders).forEach(k => newHeaders.set(k, corsHeaders[k]));
             
-            // Ensure audio type
-            if (!newHeaders.get('Content-Type') && targetUrl.endsWith('.mp3')) {
+            // Some servers return wrong content-type for audio
+            if (targetUrl.endsWith('.mp3') && !newHeaders.has('Content-Type')) {
                 newHeaders.set('Content-Type', 'audio/mpeg');
             }
 
@@ -293,48 +259,12 @@ export default {
         }
     }
 
-    // --- DJUU PARSER & PROXY REDIRECT ---
-    if (url.pathname === '/api/djuu/stream') {
-         const djuuId = url.searchParams.get('id');
-         if (!djuuId) return new Response("Missing ID", { status: 400 });
-         
-         try {
-             const pageUrl = `https://www.djuu.com/play/${djuuId}.html`;
-             const pageRes = await fetch(pageUrl, { 
-                 headers: { 'User-Agent': 'Mozilla/5.0' } 
-             });
-             const html = await pageRes.text();
-             
-             // Extract MP3 URL (Regex for "file":"..." or "url":"..." or raw http)
-             let audioUrl = null;
-             // Regex to find http links ending in mp3/m4a inside quotes, handling escaped slashes
-             const regex = /["'](https?:\\?\/\\?\/[^"']+\.(?:mp3|m4a))["']/i;
-             const match = html.match(regex);
-             
-             if (match && match[1]) {
-                 audioUrl = match[1].replace(/\\/g, '');
-             }
-
-             if (!audioUrl) return new Response("DJUU Audio Not Found", { status: 404 });
-
-             // Redirect internal logic to the Proxy handler
-             const proxyUrl = new URL(request.url);
-             proxyUrl.pathname = '/api/proxy';
-             proxyUrl.searchParams.set('url', audioUrl);
-             proxyUrl.searchParams.set('strategy', 'djuu');
-             
-             // Internal Sub-request
-             return this.fetch(new Request(proxyUrl.toString(), request), env);
-
-         } catch(e) {
-             return new Response("DJUU Parsing Error", { status: 500 });
-         }
-    }
-
-    // --- ADMIN SCRAPER TRIGGER ---
+    // --- ADMIN SCRAPER TRIGGER (UPDATED FOR NETEASE) ---
     if (url.pathname === '/api/admin/scrape' && request.method === 'POST') {
-      if (!isAuthorized(request)) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      const result = await scrapePixabay(env);
+      if (!isAuthorized(request)) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      const result = await scrapeNetease(env);
       return new Response(JSON.stringify(result), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -347,7 +277,7 @@ export default {
       } catch (e) { return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders }); }
     }
 
-    // --- DATA SYNC ---
+    // --- DATA SYNC (KV) ---
     if (url.pathname === '/api/sync') {
         if (!env.DB) return new Response(JSON.stringify({ error: "KV Not Configured" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
@@ -364,22 +294,20 @@ export default {
         }
     }
 
-    // --- R2 STORAGE ---
+    // --- R2 STORAGE API ---
+    // (Existing R2 Logic for Upload/List/Delete/Stream)
     if (url.pathname === '/api/upload' && request.method === 'PUT') {
       if (!isAuthorized(request)) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       if (!env.BUCKET) return new Response(JSON.stringify({ error: "R2 Not Configured" }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      
       const filename = url.searchParams.get('filename') || `file-${Date.now()}`;
       await env.BUCKET.put(filename, request.body);
       const publicUrl = env.R2_PUBLIC_URL ? `${env.R2_PUBLIC_URL.replace(/\/$/, "")}/${filename}` : `/api/file/${filename}`;
       return new Response(JSON.stringify({ url: publicUrl }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     
-    // R2 List
     if (url.pathname === '/api/storage/list' && request.method === 'GET') {
        if (!isAuthorized(request)) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
        if (!env.BUCKET) return new Response(JSON.stringify({ files: [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-       
        const listed = await env.BUCKET.list({ limit: 200 });
        const files = listed.objects.map(obj => ({
            key: obj.key,
@@ -390,7 +318,6 @@ export default {
        return new Response(JSON.stringify({ files }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     
-    // R2 Delete
     if (url.pathname === '/api/storage/delete' && request.method === 'DELETE') {
        if (!isAuthorized(request)) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
        const key = url.searchParams.get('key');
@@ -399,27 +326,21 @@ export default {
        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // R2 File Stream (Public Proxy)
     if (url.pathname.startsWith('/api/file/') && request.method === 'GET') {
         if (!env.BUCKET) return new Response("R2 Not Configured", { status: 404 });
         const filename = url.pathname.replace('/api/file/', '');
         try {
             const object = await env.BUCKET.get(filename, { range: request.headers, onlyIf: request.headers });
             if (!object) return new Response('Not Found', { status: 404 });
-            
             const headers = new Headers();
             object.writeHttpMetadata(headers);
             headers.set('etag', object.httpEtag);
             Object.keys(corsHeaders).forEach(k => headers.set(k, corsHeaders[k]));
-            
-            return new Response(object.body, { 
-                headers, 
-                status: object.range ? 206 : 200 
-            });
+            return new Response(object.body, { headers, status: object.range ? 206 : 200 });
         } catch(e) { return new Response("Stream Error", { status: 500 }); }
     }
 
-    // --- ASSETS FALLBACK ---
+    // --- ASSETS ---
     try {
       let response = await env.ASSETS.fetch(request);
       if (response.status >= 200 && response.status < 400) return response;
