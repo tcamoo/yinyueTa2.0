@@ -1,10 +1,8 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// Ensure process is treated as a global variable for TypeScript to avoid build errors
-declare const process: { env: { API_KEY?: string } };
-
 const getAiClient = () => {
+  // process.env.API_KEY is replaced by Vite during build based on vite.config.ts define
   const apiKey = process.env.API_KEY || '';
   return new GoogleGenAI({ apiKey });
 };
