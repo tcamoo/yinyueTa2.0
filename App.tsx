@@ -382,7 +382,8 @@ const App: React.FC = () => {
         <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-brand-lime animate-pulse' : 'bg-gray-600'}`} />
       </div>
 
-      {currentView !== View.MV && currentView !== View.LIBRARY && (
+      {/* Hide Player on MV, Library, AND ARTICLES views to provide immersion */}
+      {currentView !== View.MV && currentView !== View.LIBRARY && currentView !== View.ARTICLES && (
         <Player 
           currentSong={currentSong} 
           isPlaying={isPlaying} 
