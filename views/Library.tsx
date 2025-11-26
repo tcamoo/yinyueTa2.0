@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link as LinkIcon, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink, RefreshCcw, Play, Pause, AlertOctagon } from 'lucide-react';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link as LinkIcon, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink, RefreshCcw, Play, Pause, AlertOctagon, Music2 } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem, NavItem } from '../types';
 import { THEMES, MOODS } from '../constants';
 import { cloudService } from '../services/cloudService';
@@ -49,11 +49,11 @@ export const Library: React.FC<LibraryProps> = ({
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
   
-  const [activeTab, setActiveTab] = useState<'media' | 'dj' | 'gallery' | 'articles' | 'decoration' | 'theme' | 'netdisk' | 'nav'>('media');
-  const [mediaSubTab, setMediaSubTab] = useState<'audio' | 'video'>('audio');
+  // TABS: 'dj' removed from top level, merged into 'media'
+  const [activeTab, setActiveTab] = useState<'media' | 'gallery' | 'articles' | 'decoration' | 'theme' | 'netdisk' | 'nav'>('media');
+  const [mediaSubTab, setMediaSubTab] = useState<'audio' | 'video' | 'dj'>('audio');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
   // Link Check State
@@ -61,10 +61,9 @@ export const Library: React.FC<LibraryProps> = ({
   const [checkProgress, setCheckProgress] = useState(0);
   const [brokenLinks, setBrokenLinks] = useState<string[]>([]);
   
-  // Media Selector State
-  const [showMediaSelector, setShowMediaSelector] = useState(false);
-  const [mediaSelectorType, setMediaSelectorType] = useState<'image' | 'audio' | 'video'>('image');
-  const [selectorContext, setSelectorContext] = useState<'content' | 'cover'>('content');
+  // Article Editor State
+  const [showMediaInserter, setShowMediaInserter] = useState(false);
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
   
   const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -76,7 +75,7 @@ export const Library: React.FC<LibraryProps> = ({
   
   const [isScraping, setIsScraping] = useState(false);
 
-  // Audio Preview State (Hidden Player)
+  // Audio Preview State
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement>(null);
@@ -142,7 +141,6 @@ export const Library: React.FC<LibraryProps> = ({
            
            if(data.success && data.count > 0) {
                notify('success', `成功抓取 ${data.count} 首新曲目，请刷新页面或等待同步`);
-               // In a real app we might reload data here, but user can refresh
            } else {
                notify('info', '爬虫完成，暂无更新');
            }
@@ -156,7 +154,6 @@ export const Library: React.FC<LibraryProps> = ({
   // --- PREVIEW LOGIC ---
   const handlePreview = (item: Song | DJSet) => {
       if (previewId === item.id) {
-          // Toggle
           if (previewPlaying) {
               previewAudioRef.current?.pause();
               setPreviewPlaying(false);
@@ -165,23 +162,21 @@ export const Library: React.FC<LibraryProps> = ({
               setPreviewPlaying(true);
           }
       } else {
-          // New Track
           setPreviewId(item.id);
           setPreviewPlaying(true);
-          
           if (previewAudioRef.current) {
                let url = item.fileUrl || '';
-               // AUTO-PROXY NETEASE LINKS FOR PREVIEW
-               if (item.neteaseId || url.includes('music.163.com') || url.includes('music.126.net')) {
+               if (item.neteaseId) {
+                   const targetUrl = `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
+                   url = `/api/proxy?strategy=netease&url=${encodeURIComponent(targetUrl)}`;
+               } else if (url.includes('music.163.com') || url.includes('music.126.net')) {
                    if (!url.startsWith('/api/proxy')) {
                        url = `/api/proxy?strategy=netease&url=${encodeURIComponent(url)}`;
                    }
                }
-               
                previewAudioRef.current.src = url;
                previewAudioRef.current.play().catch(e => {
-                   console.error("Preview Play Error", e);
-                   notify('error', '无法播放预览，请检查链接有效性');
+                   notify('error', '无法播放预览');
                    setPreviewPlaying(false);
                });
           }
@@ -208,7 +203,7 @@ export const Library: React.FC<LibraryProps> = ({
               const isValid = await cloudService.validateUrl(url);
               if(!isValid) invalidIds.push(item.id);
           } else {
-              invalidIds.push(item.id); // Empty URL is invalid
+              invalidIds.push(item.id); 
           }
           setCheckProgress(Math.round(((i+1)/total) * 100));
       }
@@ -217,19 +212,22 @@ export const Library: React.FC<LibraryProps> = ({
       setIsCheckingLinks(false);
 
       if(invalidIds.length > 0) {
-          notify('error', `发现 ${invalidIds.length} 个失效链接`);
+          notify('error', `检测到 ${invalidIds.length} 个失效链接，建议一键清理`);
       } else {
           notify('success', '所有链接有效！');
       }
   };
 
   const handleAutoDelete = (setItems: Function, currentItems: any[]) => {
-      if(!window.confirm(`确定要删除这 ${brokenLinks.length} 个失效项目吗？`)) return;
+      const count = brokenLinks.length;
+      if(count === 0) return;
+      
+      if(!window.confirm(`确定要永久删除这 ${count} 个失效项目吗？此操作无法撤销。`)) return;
       
       const newItems = currentItems.filter(i => !brokenLinks.includes(i.id));
       setItems(newItems);
       setBrokenLinks([]);
-      notify('success', '失效项目已清除，请记得保存更改');
+      notify('success', `已成功清理 ${count} 个失效项目，请记得点击 "Save Changes" 同步到云端`);
   };
 
   // --- GENERIC ITEM HANDLING ---
@@ -273,9 +271,13 @@ export const Library: React.FC<LibraryProps> = ({
       setIsModalOpen(true);
   };
 
+  const getRandomCover = (id: string) => `https://picsum.photos/seed/${id}/400/400`;
+
   const handleSave = () => {
       if (editingType === 'audio') {
-          const newItem = { ...songForm, id: editMode ? editingId! : `song_${Date.now()}` } as Song;
+          const id = editMode ? editingId! : `song_${Date.now()}`;
+          const finalCover = songForm.coverUrl?.trim() ? songForm.coverUrl : getRandomCover(id);
+          const newItem = { ...songForm, id, coverUrl: finalCover } as Song;
           setSongs(prev => editMode ? prev.map(i => i.id === editingId ? newItem : i) : [newItem, ...prev]);
       }
       if (editingType === 'video') {
@@ -283,7 +285,9 @@ export const Library: React.FC<LibraryProps> = ({
            setMvs(prev => editMode ? prev.map(i => i.id === editingId ? newItem : i) : [newItem, ...prev]);
       }
       if (editingType === 'dj') {
-           const newItem = { ...djForm, id: editMode ? editingId! : `dj_${Date.now()}` } as DJSet;
+           const id = editMode ? editingId! : `dj_${Date.now()}`;
+           const finalCover = djForm.coverUrl?.trim() ? djForm.coverUrl : getRandomCover(id);
+           const newItem = { ...djForm, id, coverUrl: finalCover } as DJSet;
            setDjSets(prev => editMode ? prev.map(i => i.id === editingId ? newItem : i) : [newItem, ...prev]);
       }
       if (editingType === 'gallery') {
@@ -295,18 +299,15 @@ export const Library: React.FC<LibraryProps> = ({
           setArticles(prev => editMode ? prev.map(i => i.id === editingId ? newItem : i) : [newItem, ...prev]);
       }
       setIsModalOpen(false);
-      notify('success', 'Item saved locally. Don\'t forget to Sync!');
+      notify('success', 'Saved locally. Remember to Sync!');
   };
 
-  // --- UPLOAD HANDLER ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string, context: 'audio' | 'video' | 'dj' | 'gallery' | 'article') => {
       const file = e.target.files?.[0];
       if (!file) return;
-
       setIsUploading(true);
       const url = await cloudService.uploadFile(file);
       setIsUploading(false);
-
       if (url) {
           if (context === 'audio') setSongForm(prev => ({ ...prev, [field]: url }));
           if (context === 'video') setMvForm(prev => ({ ...prev, [field]: url }));
@@ -315,6 +316,18 @@ export const Library: React.FC<LibraryProps> = ({
           if (context === 'article') setArticleForm(prev => ({ ...prev, [field]: url }));
           notify('success', 'File uploaded successfully');
       }
+  };
+
+  // --- ARTICLE EDITOR UTILS ---
+  const insertText = (before: string, after: string = '') => {
+      if (!textAreaRef.current) return;
+      const start = textAreaRef.current.selectionStart;
+      const end = textAreaRef.current.selectionEnd;
+      const text = articleForm.content || '';
+      const newText = text.substring(0, start) + before + text.substring(start, end) + after + text.substring(end);
+      setArticleForm({ ...articleForm, content: newText });
+      // Restore focus (simulated)
+      setTimeout(() => textAreaRef.current?.focus(), 50);
   };
 
   // --- LOGIN SCREEN ---
@@ -348,7 +361,6 @@ export const Library: React.FC<LibraryProps> = ({
   return (
     <div className="pb-40 animate-in fade-in duration-500 min-h-screen">
       
-      {/* Hidden Preview Audio */}
       <audio ref={previewAudioRef} onEnded={() => setPreviewPlaying(false)} onError={() => setPreviewPlaying(false)} className="hidden" />
 
       {/* --- HEADER --- */}
@@ -379,7 +391,6 @@ export const Library: React.FC<LibraryProps> = ({
       <div className="flex overflow-x-auto gap-2 mb-8 pb-2 scrollbar-hide">
           {[
             { id: 'media', label: '媒体库', icon: Database },
-            { id: 'dj', label: 'DJ Set', icon: Disc },
             { id: 'gallery', label: '画廊', icon: ImageIcon },
             { id: 'articles', label: '专栏', icon: FileText },
             { id: 'decoration', label: '页面装修', icon: Palette },
@@ -400,51 +411,73 @@ export const Library: React.FC<LibraryProps> = ({
 
       <div className="bg-[#050505] border border-white/5 rounded-[2.5rem] p-6 min-h-[600px] shadow-2xl relative overflow-hidden">
           
-          {/* --- TAB: MEDIA (SONGS / MV) --- */}
+          {/* --- TAB: MEDIA (Audio/Video/DJ) --- */}
           {activeTab === 'media' && (
               <div className="animate-in slide-in-from-right-4 duration-300">
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
                       <div className="flex gap-2 bg-white/5 p-1 rounded-xl">
                           <button onClick={() => setMediaSubTab('audio')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${mediaSubTab === 'audio' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}>Audio</button>
                           <button onClick={() => setMediaSubTab('video')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${mediaSubTab === 'video' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}>Video</button>
+                          <button onClick={() => setMediaSubTab('dj')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${mediaSubTab === 'dj' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}>DJ Set</button>
                       </div>
                       
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                           {/* Netease Scrape (DJ Only) */}
+                           {mediaSubTab === 'dj' && (
+                               <button 
+                                  onClick={handleScrape}
+                                  disabled={isScraping}
+                                  className="px-4 py-2 bg-red-600/20 text-red-500 border border-red-600/30 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all flex items-center gap-2"
+                               >
+                                  {isScraping ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCcw className="w-3 h-3" />}
+                                  Netease Sync
+                               </button>
+                           )}
+
                            {/* Health Check Button */}
                            <button 
-                               onClick={() => handleHealthCheck(mediaSubTab === 'audio' ? songs : mvs, mediaSubTab === 'audio' ? '歌曲' : 'MV')}
+                               onClick={() => {
+                                   if(mediaSubTab === 'audio') handleHealthCheck(songs, '歌曲');
+                                   else if(mediaSubTab === 'video') handleHealthCheck(mvs, 'MV');
+                                   else handleHealthCheck(djSets, 'DJ Set');
+                               }}
                                disabled={isCheckingLinks}
-                               className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-red-400 rounded-lg flex items-center gap-2 font-bold transition-colors text-sm"
+                               className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-red-400 rounded-lg flex items-center gap-2 font-bold transition-colors text-xs"
                            >
-                               {isCheckingLinks ? <Loader2 className="w-4 h-4 animate-spin" /> : <LinkIcon className="w-4 h-4" />}
-                               {isCheckingLinks ? `${checkProgress}%` : '检查链接'}
+                               {isCheckingLinks ? <Loader2 className="w-3 h-3 animate-spin" /> : <LinkIcon className="w-3 h-3" />}
+                               Check Links
                            </button>
 
                            {brokenLinks.length > 0 && (
                                <button 
-                                  onClick={() => handleAutoDelete(mediaSubTab === 'audio' ? setSongs : setMvs, mediaSubTab === 'audio' ? songs : mvs)}
-                                  className="px-4 py-2 bg-red-500 hover:bg-red-400 text-white rounded-lg flex items-center gap-2 font-bold transition-colors text-sm animate-pulse"
+                                  onClick={() => {
+                                      if(mediaSubTab === 'audio') handleAutoDelete(setSongs, songs);
+                                      else if(mediaSubTab === 'video') handleAutoDelete(setMvs, mvs);
+                                      else handleAutoDelete(setDjSets, djSets);
+                                  }}
+                                  className="px-4 py-2 bg-red-500 hover:bg-red-400 text-white rounded-lg flex items-center gap-2 font-bold transition-colors text-xs animate-pulse shadow-lg shadow-red-500/20"
                                >
-                                  <Trash2 className="w-4 h-4" /> 清理 {brokenLinks.length} 个失效项
+                                  <Trash2 className="w-3 h-3" /> Fix All ({brokenLinks.length})
                                </button>
                            )}
 
                            <button 
-                               onClick={() => handleCreate(mediaSubTab === 'audio' ? 'audio' : 'video')}
-                               className="px-4 py-2 bg-brand-lime text-black rounded-lg flex items-center gap-2 font-bold hover:bg-white transition-colors text-sm"
+                               onClick={() => handleCreate(mediaSubTab)}
+                               className="px-4 py-2 bg-brand-lime text-black rounded-lg flex items-center gap-2 font-bold hover:bg-white transition-colors text-xs"
                            >
                                <Plus className="w-4 h-4" /> New Item
                            </button>
                       </div>
                   </div>
 
+                  {/* List Content */}
                   <div className="grid gap-2">
-                      {(mediaSubTab === 'audio' ? songs : mvs).map((item) => (
-                          <div key={item.id} className={`flex items-center justify-between p-3 rounded-xl hover:bg-white/5 group border border-transparent hover:border-white/5 ${brokenLinks.includes(item.id) ? 'bg-red-900/20 border-red-500/30' : ''}`}>
+                      {/* AUDIO & VIDEO LIST */}
+                      {(mediaSubTab === 'audio' || mediaSubTab === 'video') && (mediaSubTab === 'audio' ? songs : mvs).map((item) => (
+                          <div key={item.id} className={`flex items-center justify-between p-3 rounded-xl hover:bg-white/5 group border border-transparent hover:border-white/5 ${brokenLinks.includes(item.id) ? 'bg-red-900/10 border-red-500/30' : ''}`}>
                               <div className="flex items-center gap-4">
                                   <div className="relative w-10 h-10 rounded overflow-hidden bg-white/10 shrink-0 group/img">
                                       <img src={item.coverUrl} className="w-full h-full object-cover" />
-                                      {/* List Item Play Button for Preview */}
                                       {mediaSubTab === 'audio' && (
                                           <div 
                                               onClick={() => handlePreview(item as Song)}
@@ -460,83 +493,45 @@ export const Library: React.FC<LibraryProps> = ({
                                   </div>
                               </div>
                               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {brokenLinks.includes(item.id) && <span className="text-[10px] text-red-500 font-bold bg-red-900/50 px-2 py-0.5 rounded">INVALID LINK</span>}
-                                  <button onClick={() => handleEdit(item, mediaSubTab === 'audio' ? 'audio' : 'video')} className="p-2 hover:bg-white/10 rounded text-gray-400 hover:text-white"><Edit3 className="w-4 h-4" /></button>
-                                  <button onClick={() => handleDelete(item.id, mediaSubTab === 'audio' ? 'audio' : 'video')} className="p-2 hover:bg-red-500/10 rounded text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                  {brokenLinks.includes(item.id) && <span className="text-[10px] text-red-500 font-bold bg-red-900/50 px-2 py-0.5 rounded flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> 失效</span>}
+                                  <button onClick={() => handleEdit(item, mediaSubTab)} className="p-2 hover:bg-white/10 rounded text-gray-400 hover:text-white"><Edit3 className="w-4 h-4" /></button>
+                                  <button onClick={() => handleDelete(item.id, mediaSubTab)} className="p-2 hover:bg-red-500/10 rounded text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                               </div>
                           </div>
                       ))}
+
+                      {/* DJ SET LIST */}
+                      {mediaSubTab === 'dj' && (
+                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {djSets.map(set => (
+                                  <div key={set.id} className={`bg-white/5 rounded-xl p-4 flex gap-4 hover:border-brand-pink/50 border border-transparent transition-all group ${brokenLinks.includes(set.id) ? 'bg-red-900/10 border-red-500' : ''}`}>
+                                      <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-black shrink-0 group/img">
+                                          <img src={set.coverUrl} className="w-full h-full object-cover" />
+                                          <div className="absolute top-1 left-1 bg-black/60 px-1 rounded text-[9px] font-bold text-white">{set.bpm} BPM</div>
+                                          <div 
+                                              onClick={() => handlePreview(set)}
+                                              className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover/img:opacity-100 cursor-pointer transition-opacity"
+                                          >
+                                              {previewId === set.id && previewPlaying ? <Pause className="w-6 h-6 text-brand-pink fill-current" /> : <Play className="w-6 h-6 text-white fill-current" />}
+                                          </div>
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                          <h4 className={`font-bold truncate text-white mb-1 ${brokenLinks.includes(set.id) ? 'line-through text-red-400' : ''}`}>{set.title}</h4>
+                                          <p className="text-xs text-gray-500 mb-2">{set.djName}</p>
+                                          <div className="flex gap-2">
+                                              <button onClick={() => handleEdit(set, 'dj')} className="px-3 py-1 bg-white/10 rounded text-xs hover:bg-white hover:text-black transition-colors">Edit</button>
+                                              <button onClick={() => handleDelete(set.id, 'dj')} className="px-3 py-1 bg-white/10 rounded text-xs hover:bg-red-500 hover:text-white transition-colors">Delete</button>
+                                          </div>
+                                      </div>
+                                  </div>
+                              ))}
+                           </div>
+                      )}
                   </div>
               </div>
           )}
 
-          {/* --- TAB: DJ SETS --- */}
-          {activeTab === 'dj' && (
-              <div className="animate-in slide-in-from-right-4 duration-300">
-                  <div className="flex justify-between items-center mb-6">
-                      <div className="flex items-center gap-4">
-                          <h2 className="text-2xl font-bold text-white">DJ Mixes</h2>
-                          <button 
-                              onClick={handleScrape}
-                              disabled={isScraping}
-                              className="px-4 py-1.5 bg-red-600/20 text-red-500 border border-red-600/30 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all flex items-center gap-2"
-                          >
-                              {isScraping ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCcw className="w-3 h-3" />}
-                              Fetch from Netease
-                          </button>
-                          
-                          {/* DJ Health Check */}
-                          <button 
-                               onClick={() => handleHealthCheck(djSets, 'DJ Set')}
-                               disabled={isCheckingLinks}
-                               className="px-4 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-red-400 rounded-lg flex items-center gap-2 font-bold transition-colors text-xs"
-                           >
-                               {isCheckingLinks ? <Loader2 className="w-3 h-3 animate-spin" /> : <LinkIcon className="w-3 h-3" />}
-                               Check Links
-                           </button>
-
-                           {brokenLinks.length > 0 && (
-                               <button 
-                                  onClick={() => handleAutoDelete(setDjSets, djSets)}
-                                  className="px-4 py-1.5 bg-red-500 hover:bg-red-400 text-white rounded-lg flex items-center gap-2 font-bold transition-colors text-xs animate-pulse"
-                               >
-                                  <Trash2 className="w-3 h-3" /> Fix ({brokenLinks.length})
-                               </button>
-                           )}
-                      </div>
-                      <button onClick={() => handleCreate('dj')} className="px-4 py-2 bg-brand-pink text-white rounded-lg flex items-center gap-2 font-bold hover:bg-white hover:text-black transition-colors text-sm">
-                          <Plus className="w-4 h-4" /> New Set
-                      </button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {djSets.map(set => (
-                          <div key={set.id} className={`bg-white/5 rounded-xl p-4 flex gap-4 hover:border-brand-pink/50 border border-transparent transition-all group ${brokenLinks.includes(set.id) ? 'bg-red-900/20 border-red-500' : ''}`}>
-                              <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-black shrink-0 group/img">
-                                  <img src={set.coverUrl} className="w-full h-full object-cover" />
-                                  <div className="absolute top-1 left-1 bg-black/60 px-1 rounded text-[9px] font-bold text-white">{set.bpm} BPM</div>
-                                  
-                                  {/* DJ Preview Button */}
-                                  <div 
-                                      onClick={() => handlePreview(set)}
-                                      className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover/img:opacity-100 cursor-pointer transition-opacity"
-                                  >
-                                      {previewId === set.id && previewPlaying ? <Pause className="w-6 h-6 text-brand-pink fill-current" /> : <Play className="w-6 h-6 text-white fill-current" />}
-                                  </div>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                  <h4 className={`font-bold truncate text-white mb-1 ${brokenLinks.includes(set.id) ? 'line-through text-red-400' : ''}`}>{set.title}</h4>
-                                  <p className="text-xs text-gray-500 mb-2">{set.djName}</p>
-                                  <div className="flex gap-2">
-                                      <button onClick={() => handleEdit(set, 'dj')} className="px-3 py-1 bg-white/10 rounded text-xs hover:bg-white hover:text-black transition-colors">Edit</button>
-                                      <button onClick={() => handleDelete(set.id, 'dj')} className="px-3 py-1 bg-white/10 rounded text-xs hover:bg-red-500 hover:text-white transition-colors">Delete</button>
-                                  </div>
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-          )}
-
+          {/* --- TAB: GALLERY --- */}
           {activeTab === 'gallery' && (
              <div className="animate-in slide-in-from-right-4 duration-300">
                  <div className="flex justify-between mb-6">
@@ -557,10 +552,12 @@ export const Library: React.FC<LibraryProps> = ({
              </div>
           )}
 
+          {/* --- TAB: NETDISK --- */}
           {activeTab === 'netdisk' && (
               <Netdisk notify={notify} softwareItems={softwareItems} setSoftwareItems={setSoftwareItems} onSync={handleSync} />
           )}
 
+          {/* --- TAB: ARTICLES --- */}
           {activeTab === 'articles' && (
               <div className="animate-in slide-in-from-right-4 duration-300">
                   <div className="flex justify-between mb-6">
@@ -585,6 +582,69 @@ export const Library: React.FC<LibraryProps> = ({
               </div>
           )}
           
+          {/* --- TAB: DECORATION (RESTORED) --- */}
+          {activeTab === 'decoration' && (
+              <div className="animate-in slide-in-from-right-4 duration-300">
+                  <h2 className="text-2xl font-bold text-white mb-6">页面装修 / Page Decoration</h2>
+                  <div className="grid gap-8">
+                      {Object.entries(pageHeaders).map(([key, config]) => (
+                          <div key={key} className="bg-white/5 border border-white/5 rounded-2xl p-6">
+                              <div className="flex justify-between items-center mb-4">
+                                  <h3 className="font-bold text-lg text-brand-lime uppercase tracking-wider">{key} Page</h3>
+                                  <div className="px-2 py-1 bg-white/10 rounded text-[10px] text-gray-400 font-mono">ID: {key}</div>
+                              </div>
+                              <div className="space-y-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div>
+                                          <label className="text-xs font-bold text-gray-500 uppercase">主标题 (Title)</label>
+                                          <input 
+                                              value={config.title} 
+                                              onChange={(e) => setPageHeaders(prev => ({ ...prev, [key]: { ...prev[key], title: e.target.value } }))}
+                                              className="w-full bg-black border border-white/10 rounded-lg p-2 text-white focus:border-brand-lime outline-none mt-1" 
+                                          />
+                                      </div>
+                                      <div>
+                                          <label className="text-xs font-bold text-gray-500 uppercase">副标题 (Subtitle)</label>
+                                          <input 
+                                              value={config.subtitle} 
+                                              onChange={(e) => setPageHeaders(prev => ({ ...prev, [key]: { ...prev[key], subtitle: e.target.value } }))}
+                                              className="w-full bg-black border border-white/10 rounded-lg p-2 text-white focus:border-brand-lime outline-none mt-1" 
+                                          />
+                                      </div>
+                                  </div>
+                                  <div>
+                                      <label className="text-xs font-bold text-gray-500 uppercase">页面描述 (Description)</label>
+                                      <textarea 
+                                          value={config.description} 
+                                          onChange={(e) => setPageHeaders(prev => ({ ...prev, [key]: { ...prev[key], description: e.target.value } }))}
+                                          className="w-full bg-black border border-white/10 rounded-lg p-2 text-white focus:border-brand-lime outline-none mt-1 h-20 resize-none" 
+                                      />
+                                  </div>
+                                  {/* Featured Item Selector for Specific Pages */}
+                                  {(key === View.HOME || key === View.CHARTS || key === View.DJ) && (
+                                      <div>
+                                          <label className="text-xs font-bold text-gray-500 uppercase">Featured Item ID (Hero Content)</label>
+                                          <select 
+                                             value={config.featuredItemId || ''}
+                                             onChange={(e) => setPageHeaders(prev => ({ ...prev, [key]: { ...prev[key], featuredItemId: e.target.value } }))}
+                                             className="w-full bg-black border border-white/10 rounded-lg p-2 text-white focus:border-brand-lime outline-none mt-1"
+                                          >
+                                              <option value="">-- Auto / Default --</option>
+                                              {key === View.DJ ? (
+                                                  djSets.map(d => <option key={d.id} value={d.id}>DJ: {d.title}</option>)
+                                              ) : (
+                                                  songs.map(s => <option key={s.id} value={s.id}>Song: {s.title}</option>)
+                                              )}
+                                          </select>
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          )}
+
           {activeTab === 'theme' && (
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in slide-in-from-right-4">
                   <div>
@@ -665,9 +725,9 @@ export const Library: React.FC<LibraryProps> = ({
                           <div className="flex gap-4">
                                 <div className="relative w-32 h-32 bg-white/5 rounded-xl overflow-hidden shrink-0 border border-white/10 group cursor-pointer hover:border-brand-lime/50 transition-colors">
                                     <img src={
-                                        editingType === 'audio' ? songForm.coverUrl : 
+                                        (editingType === 'audio' ? songForm.coverUrl : 
                                         editingType === 'video' ? mvForm.coverUrl : 
-                                        djForm.coverUrl
+                                        djForm.coverUrl) || 'https://via.placeholder.com/400x400?text=Auto'
                                     } className="w-full h-full object-cover" />
                                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <Upload className="w-6 h-6 text-white mb-1" />
@@ -723,16 +783,15 @@ export const Library: React.FC<LibraryProps> = ({
                                       placeholder="https://..."
                                   />
                                   <div className="relative">
-                                      {/* UPDATED: MORE PROMINENT UPLOAD BUTTON FOR DJ AND AUDIO */}
-                                      <button className="px-6 py-2 bg-white/10 hover:bg-white hover:text-black rounded-lg text-white font-bold text-xs flex items-center gap-2 transition-colors border border-white/20">
-                                          <UploadCloud className="w-4 h-4" /> Upload to Website (R2)
+                                      <button className="h-full px-4 bg-brand-pink text-white rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-white hover:text-black transition-colors shadow-lg">
+                                          <UploadCloud className="w-4 h-4" /> Upload (R2)
+                                          <input 
+                                              type="file" 
+                                              className="absolute inset-0 opacity-0 cursor-pointer" 
+                                              accept="audio/*"
+                                              onChange={(e) => handleFileUpload(e, 'fileUrl', editingType as any)} 
+                                          />
                                       </button>
-                                      <input 
-                                          type="file" 
-                                          className="absolute inset-0 opacity-0 cursor-pointer" 
-                                          accept="audio/*"
-                                          onChange={(e) => handleFileUpload(e, 'fileUrl', editingType as any)} 
-                                      />
                                   </div>
                               </div>
                               <p className="text-[10px] text-gray-500 mt-1">支持：上传本地文件 (R2) / 外部直链 / 网易云链接。</p>
@@ -768,7 +827,7 @@ export const Library: React.FC<LibraryProps> = ({
                           </div>
                       )}
 
-                      {/* Article Fields */}
+                      {/* Super Article Editor */}
                       {editingType === 'article' && (
                           <div className="space-y-4">
                                <input value={articleForm.title} onChange={e => setArticleForm({...articleForm, title: e.target.value})} placeholder="Article Title" className="w-full bg-black border border-white/10 rounded-lg p-3 text-xl font-bold text-white" />
@@ -777,7 +836,41 @@ export const Library: React.FC<LibraryProps> = ({
                                    <input value={articleForm.date} type="date" onChange={e => setArticleForm({...articleForm, date: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-2 text-white" />
                                </div>
                                <textarea value={articleForm.excerpt} onChange={e => setArticleForm({...articleForm, excerpt: e.target.value})} placeholder="Excerpt..." className="w-full bg-black border border-white/10 rounded-lg p-2 text-white h-20 resize-none" />
-                               <textarea value={articleForm.content} onChange={e => setArticleForm({...articleForm, content: e.target.value})} placeholder="HTML Content..." className="w-full bg-black border border-white/10 rounded-lg p-2 text-white font-mono text-sm h-64" />
+                               
+                               {/* Rich Toolbar */}
+                               <div className="border border-white/10 rounded-xl overflow-hidden">
+                                   <div className="bg-white/5 border-b border-white/10 p-2 flex items-center gap-1 overflow-x-auto">
+                                       <button onClick={() => insertText('<b>', '</b>')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="Bold"><Bold className="w-4 h-4" /></button>
+                                       <button onClick={() => insertText('<i>', '</i>')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="Italic"><Italic className="w-4 h-4" /></button>
+                                       <button onClick={() => insertText('<h1>', '</h1>')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="H1"><Heading1 className="w-4 h-4" /></button>
+                                       <button onClick={() => insertText('<h2>', '</h2>')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="H2"><Heading2 className="w-4 h-4" /></button>
+                                       <div className="w-[1px] h-4 bg-white/10 mx-1"></div>
+                                       <button onClick={() => insertText('<img src="URL" alt="" />')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="Image"><ImagePlus className="w-4 h-4" /></button>
+                                       
+                                       <div className="relative">
+                                           <button onClick={() => setShowMediaInserter(!showMediaInserter)} className={`p-1.5 rounded flex items-center gap-1 ${showMediaInserter ? 'bg-brand-lime text-black' : 'hover:bg-white/10 text-gray-300'}`} title="Insert Media">
+                                               <Music2 className="w-4 h-4" /> <span className="text-xs font-bold">Link Song</span>
+                                           </button>
+                                           {showMediaInserter && (
+                                               <div className="absolute top-full left-0 mt-2 w-64 bg-[#1a1a1a] border border-white/20 rounded-xl shadow-2xl p-2 z-50 max-h-60 overflow-y-auto">
+                                                   <div className="text-xs font-bold text-gray-500 px-2 py-1 uppercase">Select to link</div>
+                                                   {songs.map(s => (
+                                                       <div key={s.id} onClick={() => { setArticleForm({ ...articleForm, linkedSongId: s.id }); setShowMediaInserter(false); notify('success', 'Song Linked!'); }} className="px-2 py-1.5 hover:bg-white/10 rounded cursor-pointer text-xs truncate text-white">
+                                                           {s.title}
+                                                       </div>
+                                                   ))}
+                                               </div>
+                                           )}
+                                       </div>
+                                   </div>
+                                   <textarea 
+                                       ref={textAreaRef}
+                                       value={articleForm.content} 
+                                       onChange={e => setArticleForm({...articleForm, content: e.target.value})} 
+                                       placeholder="Write content (HTML supported)..." 
+                                       className="w-full bg-black p-4 text-white font-mono text-sm h-64 outline-none border-none resize-none" 
+                                   />
+                               </div>
                           </div>
                       )}
 
