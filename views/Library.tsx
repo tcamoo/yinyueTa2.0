@@ -212,12 +212,17 @@ export const Library: React.FC<LibraryProps> = ({
           // Inserting Content into Article
           let tag = '';
           if (mediaSelectorType === 'image') {
-              tag = `\n<div class="my-6">\n  <img src="${item.imageUrl}" class="w-full rounded-xl shadow-lg" alt="${item.title}" />\n  <div class="text-center text-xs text-gray-500 mt-2 italic">${item.title}</div>\n</div>\n`;
+              // Image Card
+              tag = `<div class="not-prose my-10 relative group rounded-2xl overflow-hidden bg-black/20 border border-white/5"><div class="absolute inset-0 bg-noise opacity-[0.05]"></div><img src="${item.imageUrl}" class="w-full h-auto object-cover" alt="${item.title}" /><div class="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-between"><span class="text-xs font-bold text-white tracking-widest uppercase">${item.title}</span><span class="text-[10px] text-brand-cyan border border-brand-cyan/20 px-2 py-0.5 rounded-full backdrop-blur-sm">${item.photographer || 'Gallery'}</span></div></div>`;
           } else if (mediaSelectorType === 'audio') {
               const url = item.fileUrl || `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
-              tag = `\n<div class="my-6 p-4 bg-white/5 rounded-xl border border-white/10 flex flex-col gap-3">\n  <div class="flex items-center gap-3">\n    <div class="w-10 h-10 rounded bg-black/50 flex items-center justify-center text-brand-lime font-bold">♫</div>\n    <div>\n       <div class="font-bold text-white text-sm">${item.title}</div>\n       <div class="text-xs text-gray-500">${item.artist}</div>\n    </div>\n  </div>\n  <audio controls src="${url}" class="w-full"></audio>\n</div>\n`;
+              
+              // Premium Audio Card Design
+              tag = `<div class="not-prose my-10 relative group rounded-[2rem] overflow-hidden bg-[#0f0f0f] border border-white/10 p-6 shadow-2xl transition-all hover:border-brand-lime/30 hover:shadow-[0_20px_60px_rgba(0,0,0,0.6)]"><div class="absolute -top-24 -right-24 w-64 h-64 bg-brand-lime/5 blur-[80px] rounded-full pointer-events-none group-hover:bg-brand-lime/10 transition-colors duration-700"></div><div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-brand-lime/50 to-transparent opacity-50"></div><div class="flex flex-col sm:flex-row gap-6 items-center relative z-10"><div class="relative w-32 h-32 shrink-0"><div class="absolute inset-0 rounded-full bg-black border-[4px] border-[#222] shadow-xl overflow-hidden group-hover:rotate-[360deg] transition-transform duration-[10s] ease-linear"><img src="${item.coverUrl}" class="w-full h-full object-cover opacity-90" alt="${item.title}" /><div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-[#0f0f0f] rounded-full border border-white/10 flex items-center justify-center"><div class="w-2 h-2 bg-brand-lime/50 rounded-full"></div></div></div></div><div class="flex-1 min-w-0 w-full text-center sm:text-left space-y-4"><div><div class="flex items-center justify-center sm:justify-start gap-3 mb-2"><span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-brand-lime text-black">Now Playing</span><span class="text-xs font-mono text-gray-500">${item.duration || '00:00'}</span></div><h4 class="text-2xl md:text-3xl font-black text-white leading-none tracking-tight mb-1 truncate">${item.title}</h4><p class="text-sm font-bold text-gray-400 uppercase tracking-widest truncate">${item.artist}</p></div><div class="w-full relative h-10 bg-white/5 rounded-full flex items-center px-1 border border-white/5 group-hover:border-white/10 transition-colors"><audio controls src="${url}" class="w-full h-8 opacity-90" style="filter: invert(0.9) hue-rotate(180deg) saturate(0); mix-blend-mode: screen;"></audio></div></div></div></div>`;
+
           } else if (mediaSelectorType === 'video') {
-              tag = `\n<div class="my-6">\n  <video controls poster="${item.coverUrl}" src="${item.videoUrl}" class="w-full rounded-xl shadow-lg border border-white/5"></video>\n  <div class="text-xs text-gray-500 mt-2 flex items-center gap-1"><span class="w-1.5 h-1.5 bg-brand-pink rounded-full"></span> ${item.title}</div>\n</div>\n`;
+              // Video Card
+              tag = `<div class="not-prose my-10"><div class="rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl bg-black relative group"><video controls poster="${item.coverUrl}" src="${item.videoUrl}" class="w-full aspect-video object-cover"></video><div class="absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-xs font-bold text-white border border-white/10 pointer-events-none">${item.title}</div></div></div>`;
           }
           insertAtCursor(tag);
           notify('success', '媒体已插入文章');
@@ -247,11 +252,11 @@ export const Library: React.FC<LibraryProps> = ({
                   if (url) {
                       let tag = '';
                       if (type === 'image') {
-                          tag = `\n<img src="${url}" class="w-full rounded-xl my-4 shadow-lg" alt="image" />\n`;
+                          tag = `<img src="${url}" class="w-full rounded-xl my-4 shadow-lg" alt="image" />`;
                       } else if (type === 'audio') {
-                          tag = `\n<audio controls src="${url}" class="w-full my-4"></audio>\n`;
+                           tag = `<div class="not-prose my-8 p-4 bg-white/5 rounded-2xl border border-white/10"><audio controls src="${url}" class="w-full"></audio></div>`;
                       } else if (type === 'video') {
-                          tag = `\n<video controls src="${url}" class="w-full rounded-xl my-4 shadow-lg"></video>\n`;
+                          tag = `<video controls src="${url}" class="w-full rounded-xl my-4 shadow-lg"></video>`;
                       }
                       insertAtCursor(tag);
                       notify('success', `${type} 已插入`);
