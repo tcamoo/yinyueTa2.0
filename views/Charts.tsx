@@ -1,5 +1,4 @@
 
-
 import React, { useMemo } from 'react';
 import { Song, PageHeaderConfig } from '../types';
 import { Play, Globe, Sparkles, Activity, Zap, ArrowUp, Music2, Disc, Star, BarChart3, TrendingUp, Shuffle, Heart, Search } from 'lucide-react';
@@ -15,22 +14,15 @@ interface ChartsProps {
 
 export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId, isPlaying, headerConfig }) => {
   
-  // Logic: 
-  // 1. Top Charts = Sorted by plays (descending)
-  // 2. New Releases = Songs are assumed to be added chronologically (newest first).
-  // 3. Guess You Like = Random shuffle
-  
   const topSongs = useMemo(() => {
     return [...songs].sort((a, b) => b.plays - a.plays).slice(0, 50);
   }, [songs]);
 
   const newReleases = useMemo(() => {
-    // Assuming newer songs are at the beginning of the list based on Library logic
     return songs.slice(0, 8); 
   }, [songs]);
 
   const guessYouLike = useMemo(() => {
-      // Simple Fisher-Yates shuffle simulation for random pick
       const shuffled = [...songs].sort(() => 0.5 - Math.random());
       return shuffled.slice(0, 4);
   }, [songs]);
@@ -48,7 +40,6 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
       {/* 1. HERO FEATURED SONG (Configurable) */}
       {featuredSong ? (
            <header className="relative mb-24 min-h-[500px] flex items-end p-8 md:p-16 rounded-[3rem] overflow-hidden border border-white/5 shadow-[0_40px_100px_rgba(0,0,0,0.8)] group">
-                {/* Background Cover Blurred */}
                 <div className="absolute inset-0 z-0">
                     <img src={featuredSong.coverUrl} className="w-full h-full object-cover blur-3xl opacity-40 scale-125" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
@@ -78,7 +69,6 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
                         </button>
                     </div>
                     
-                    {/* Visualizer Widget */}
                     <div className="w-64 h-64 bg-black/40 backdrop-blur-xl border border-white/10 rounded-[2rem] p-6 flex flex-col justify-between">
                          <div className="flex justify-between items-center text-gray-400 text-xs font-bold uppercase tracking-wider">
                              <span>Current Trend</span>
@@ -93,7 +83,6 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
                 </div>
            </header>
       ) : (
-          /* Fallback Header if no song found */
           <header className="relative mb-24 min-h-[400px] flex items-end p-16 rounded-[3rem] bg-gradient-to-br from-gray-900 to-black border border-white/10">
                <div>
                    <h1 className="text-8xl font-black text-white mb-4">{headerConfig.title}</h1>
@@ -102,7 +91,7 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
           </header>
       )}
 
-      {/* 2. NEW RELEASES - HORIZONTAL SCROLL */}
+      {/* 2. NEW RELEASES */}
       <section className="mb-24 relative z-10">
          <div className="flex items-center justify-between mb-10 px-4">
              <div className="flex items-center gap-4">
@@ -129,13 +118,11 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
                     <div className="relative aspect-square rounded-[2rem] overflow-hidden mb-4 border border-white/5 bg-white/5 shadow-lg transition-all duration-500 group-hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] group-hover:-translate-y-2 group-hover:border-brand-lime/30">
                         <img src={song.coverUrl} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 filter brightness-90 group-hover:brightness-100" alt={song.title} />
                         
-                        {/* Status Badges */}
                         <div className="absolute top-4 left-4 flex flex-col gap-2">
                              {i < 3 && <span className="px-2 py-1 bg-brand-lime/90 backdrop-blur-md text-black text-[10px] font-black uppercase tracking-wider rounded shadow-lg">NEW</span>}
                              {song.neteaseId && <span className="px-2 py-1 bg-red-600/90 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-wider rounded shadow-lg">NETEASE</span>}
                         </div>
 
-                        {/* Play Overlay */}
                         <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity duration-300 ${currentSongId === song.id ? 'opacity-100 bg-black/60' : 'opacity-0 group-hover:opacity-100'}`}>
                              <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 transform group-hover:scale-110 ${currentSongId === song.id ? 'bg-brand-lime text-black' : 'bg-white/20 backdrop-blur-xl border border-white/30 text-white hover:bg-brand-lime hover:text-black hover:border-brand-lime'}`}>
                                  {currentSongId === song.id && isPlaying ? (
@@ -162,10 +149,8 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
          </div>
       </section>
 
-      {/* 3. GUESS YOU LIKE & MOODS SECTION */}
+      {/* 3. GUESS YOU LIKE & MOODS */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-12 mb-24 px-4">
-          
-          {/* GUESS YOU LIKE */}
           <div className="lg:col-span-8">
                <div className="flex items-center gap-4 mb-8">
                   <div className="w-10 h-10 rounded-xl bg-brand-pink/10 flex items-center justify-center text-brand-pink border border-brand-pink/20">
@@ -206,7 +191,6 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
                </div>
           </div>
 
-          {/* MOODS */}
           <div className="lg:col-span-4 flex flex-col">
                 <div className="flex items-center gap-4 mb-8">
                     <div className="w-10 h-10 rounded-xl bg-brand-lime/10 flex items-center justify-center text-brand-lime border border-brand-lime/20">
@@ -216,7 +200,7 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
                 </div>
                 
                 <div className="flex-1 grid grid-cols-2 gap-3">
-                    {MOODS.map((mood, i) => (
+                    {MOODS.map((mood: {label: string, color: string}, i: number) => (
                         <div 
                            key={i}
                            className="relative overflow-hidden rounded-2xl group cursor-pointer border border-white/5 hover:border-white/20 transition-all"
@@ -246,11 +230,8 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-              
-              {/* LEFT: CHART TABLE */}
               <div className="lg:col-span-8">
                    <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden relative">
-                       {/* Table Header */}
                        <div className="grid grid-cols-12 gap-4 px-8 py-6 border-b border-white/5 text-xs font-bold text-gray-500 uppercase tracking-wider">
                            <div className="col-span-1">#</div>
                            <div className="col-span-6 md:col-span-5">Title</div>
@@ -259,7 +240,6 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
                            <div className="col-span-3 md:col-span-1 text-right">Time</div>
                        </div>
 
-                       {/* Table Body */}
                        <div className="divide-y divide-white/5">
                           {topSongs.map((song, index) => (
                               <div 
@@ -270,21 +250,17 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
                                       ${currentSongId === song.id ? 'bg-white/[0.06]' : ''}
                                   `}
                               >
-                                  {/* Active Indicator Bar */}
                                   {currentSongId === song.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-lime"></div>}
 
-                                  {/* Rank */}
                                   <div className="col-span-1 font-display font-black text-xl italic text-gray-700 group-hover:text-white transition-colors relative">
                                       {index + 1}
                                       {index < 3 && <Star className="w-3 h-3 text-brand-lime absolute -top-1 -right-1 fill-current" />}
                                   </div>
 
-                                  {/* Title & Cover */}
                                   <div className="col-span-6 md:col-span-5 flex items-center gap-4">
                                       <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-black/20">
                                           <img src={song.coverUrl} className={`w-full h-full object-cover transition-all ${currentSongId === song.id ? 'opacity-40' : 'group-hover:opacity-40'}`} alt={song.title} />
                                           
-                                          {/* Playing Animation overlaid on small cover */}
                                           <div className={`absolute inset-0 flex items-center justify-center ${currentSongId === song.id && isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                                                {currentSongId === song.id && isPlaying ? (
                                                    <div className="flex gap-0.5 items-end h-4">
@@ -303,17 +279,14 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
                                       </div>
                                   </div>
 
-                                  {/* Artist */}
                                   <div className="col-span-3 hidden md:block text-sm font-bold text-gray-400 group-hover:text-white transition-colors">
                                       {song.artist}
                                   </div>
 
-                                  {/* Plays */}
                                   <div className="col-span-2 hidden md:block text-right">
                                       <span className="text-xs font-mono text-gray-500">{song.plays.toLocaleString()}</span>
                                   </div>
 
-                                  {/* Duration */}
                                   <div className="col-span-3 md:col-span-1 text-right text-sm font-mono text-gray-600 group-hover:text-white">
                                       {song.duration}
                                   </div>
@@ -323,10 +296,7 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
                    </div>
               </div>
 
-              {/* RIGHT: FEATURED PROMO CARDS */}
               <div className="lg:col-span-4 flex flex-col gap-8">
-                  
-                  {/* Editor's Pick Card */}
                   <div className="group relative aspect-[3/4] rounded-[2.5rem] overflow-hidden cursor-pointer border border-white/10 shadow-2xl">
                       <img src="https://picsum.photos/id/42/600/800" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" alt="Editor Pick" />
                       <div className="absolute inset-0 bg-gradient-to-t from-brand-purple/90 via-transparent to-transparent opacity-80"></div>
@@ -350,7 +320,6 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
                       </div>
                   </div>
 
-                  {/* Trends Mini Widget */}
                   <div className="bg-[#111] rounded-[2.5rem] p-8 border border-white/10 relative overflow-hidden group">
                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-brand-cyan/10 blur-[50px] rounded-full group-hover:bg-brand-cyan/20 transition-colors"></div>
                        
@@ -379,7 +348,6 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
           </div>
       </section>
 
-      {/* 5. ALL MUSIC LIST - EXPANDED VIEW */}
       <section className="px-4">
            <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
                 <div className="flex items-center gap-4">
@@ -389,7 +357,6 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
                    <h2 className="text-2xl font-bold text-white">全部音乐</h2>
                 </div>
                 
-                {/* Search Bar Visual */}
                 <div className="relative w-full md:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                     <input type="text" placeholder="Search library..." className="w-full bg-white/5 border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-brand-lime transition-colors" />
@@ -423,7 +390,6 @@ export const Charts: React.FC<ChartsProps> = ({ songs, onPlaySong, currentSongId
            </div>
       </section>
       
-      {/* GLOBAL CSS FOR VISUALIZER ANIMATION */}
       <style>{`
         @keyframes bounceVisualizer {
           0%, 100% { height: 20%; }
