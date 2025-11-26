@@ -18,6 +18,8 @@ interface LrcLine {
 
 export const LyricsOverlay: React.FC<LyricsOverlayProps> = ({ song, currentTime, isOpen, onClose, isPlaying }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const bgImageRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   // Parse Lyrics
   const lyrics = useMemo(() => {
@@ -66,26 +68,55 @@ export const LyricsOverlay: React.FC<LyricsOverlayProps> = ({ song, currentTime,
     }
   }, [activeIndex, isOpen]);
 
+  // --- AUDIO REACTIVE ANIMATION ENGINE ---
+  useEffect(() => {
+      if (!isOpen || !isPlaying) return;
+
+      const handleAudioData = (e: CustomEvent<{ bass: number, mid: number, high: number }>) => {
+          const { bass, high } = e.detail;
+          
+          if (bgImageRef.current) {
+              // Bass controls Scale (Thumping effect)
+              // Base scale 1.5, add up to 0.15 based on bass
+              const scale = 1.5 + (bass / 255) * 0.15;
+              
+              // Highs control brightness/opacity slightly (Shimmer effect)
+              const opacity = 0.4 + (high / 255) * 0.2;
+
+              bgImageRef.current.style.transform = `scale(${scale})`;
+              bgImageRef.current.style.opacity = `${opacity}`;
+          }
+      };
+
+      window.addEventListener('audio-visual-data' as any, handleAudioData);
+      return () => window.removeEventListener('audio-visual-data' as any, handleAudioData);
+  }, [isOpen, isPlaying]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-dark-950 text-white animate-in slide-in-from-bottom duration-500">
+    <div ref={containerRef} className="fixed inset-0 z-[60] flex flex-col bg-dark-950 text-white animate-in slide-in-from-bottom duration-500 overflow-hidden">
         {/* Dynamic Background */}
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-             <div className="absolute inset-0 bg-black/60 z-10"></div>
+             <div className="absolute inset-0 bg-black z-0"></div>
+             {/* Reactive Image Layer */}
              <img 
+                ref={bgImageRef}
                 src={song.coverUrl} 
-                className="w-full h-full object-cover blur-[100px] opacity-60 scale-150 animate-pulse-slow" 
+                className="absolute inset-0 w-full h-full object-cover blur-[80px] transition-transform duration-75 ease-out will-change-transform opacity-50" 
                 alt="bg"
              />
              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/80 z-10"></div>
+             
+             {/* Noise Texture */}
+             <div className="absolute inset-0 bg-noise opacity-[0.05] z-20"></div>
         </div>
 
         {/* Header */}
-        <div className="relative z-20 flex justify-between items-center p-6 md:p-10">
+        <div className="relative z-30 flex justify-between items-center p-6 md:p-10">
              <button 
                 onClick={onClose}
-                className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center transition-all group"
+                className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center transition-all group border border-white/5"
              >
                  <ChevronDown className="w-6 h-6 text-white group-hover:translate-y-1 transition-transform" />
              </button>
@@ -99,12 +130,12 @@ export const LyricsOverlay: React.FC<LyricsOverlayProps> = ({ song, currentTime,
         </div>
 
         {/* Main Content */}
-        <div className="relative z-20 flex-1 flex flex-col md:flex-row items-center justify-center gap-12 lg:gap-24 px-8 pb-20 overflow-hidden">
+        <div className="relative z-30 flex-1 flex flex-col md:flex-row items-center justify-center gap-12 lg:gap-24 px-8 pb-20 overflow-hidden">
              
              {/* Left: Album Art (Vinyl Style with Rotation) */}
              <div className="hidden md:flex flex-col items-center justify-center max-w-lg w-full">
-                 <div className={`relative w-[28vw] max-w-[400px] aspect-square rounded-full shadow-[0_20px_60px_rgba(0,0,0,0.5)] border-[8px] border-black/80 overflow-hidden`}>
-                     <div className={`w-full h-full ${isPlaying ? 'animate-spin-slow' : ''}`} style={{ animationDuration: '8s' }}>
+                 <div className={`relative w-[28vw] max-w-[400px] aspect-square rounded-full shadow-[0_30px_80px_rgba(0,0,0,0.6)] border-[8px] border-black/80 overflow-hidden`}>
+                     <div className={`w-full h-full ${isPlaying ? 'animate-spin-slow' : ''}`} style={{ animationDuration: '12s' }}>
                         <img src={song.coverUrl} className="w-full h-full object-cover" alt="Album" />
                      </div>
                      
@@ -123,7 +154,7 @@ export const LyricsOverlay: React.FC<LyricsOverlayProps> = ({ song, currentTime,
                  </div>
                  
                  <div className="mt-12 text-center">
-                     <h1 className="text-4xl lg:text-5xl font-display font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 leading-tight">
+                     <h1 className="text-4xl lg:text-5xl font-display font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 leading-tight tracking-tight">
                          {song.title}
                      </h1>
                      <p className="text-xl text-gray-400 font-light">{song.artist}</p>
@@ -137,15 +168,15 @@ export const LyricsOverlay: React.FC<LyricsOverlayProps> = ({ song, currentTime,
                  {lyrics.length > 0 ? (
                      <div 
                         ref={scrollRef} 
-                        className="h-full overflow-y-auto scrollbar-hide py-[50vh] px-4 text-center space-y-8 md:space-y-10"
+                        className="h-full overflow-y-auto scrollbar-hide py-[50vh] px-4 text-center space-y-10 md:space-y-12"
                      >
                          {lyrics.map((line, i) => (
                              <p 
                                 key={i}
-                                className={`transition-all duration-700 ease-out cursor-pointer hover:text-white
+                                className={`transition-all duration-500 ease-out cursor-pointer hover:text-white
                                     ${i === activeIndex 
-                                        ? 'text-3xl md:text-5xl font-bold text-brand-lime scale-105 drop-shadow-[0_0_20px_rgba(0,0,0,0.5)]' 
-                                        : 'text-lg md:text-2xl text-gray-500 font-medium blur-[0.5px] hover:blur-0'
+                                        ? 'text-3xl md:text-5xl font-bold text-brand-lime scale-110 drop-shadow-[0_0_30px_rgba(204,255,0,0.6)] origin-center' 
+                                        : 'text-lg md:text-2xl text-gray-500 font-medium blur-[1px] hover:blur-0 hover:text-gray-300'
                                     }
                                 `}
                                 onClick={() => {
@@ -158,11 +189,15 @@ export const LyricsOverlay: React.FC<LyricsOverlayProps> = ({ song, currentTime,
                      </div>
                  ) : (
                      <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-4">
-                         <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center animate-spin-slow">
+                         <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center animate-spin-slow border border-white/10">
                             <Disc className="w-10 h-10 opacity-50" />
                          </div>
-                         <p className="text-xl font-light">暂无歌词</p>
-                         <p className="text-sm opacity-50">纯音乐，请欣赏</p>
+                         <p className="text-xl font-light tracking-widest uppercase">Instrumental</p>
+                         <div className="flex gap-1">
+                             <span className="w-1 h-1 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></span>
+                             <span className="w-1 h-1 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+                             <span className="w-1 h-1 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></span>
+                         </div>
                      </div>
                  )}
                  
