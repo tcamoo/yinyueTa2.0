@@ -27,6 +27,27 @@ export default {
 
     // --- API ROUTES ---
 
+    // 0. AUTH VERIFICATION ENDPOINT (NEW)
+    if (url.pathname === '/api/auth' && request.method === 'POST') {
+      try {
+        const body = await request.json();
+        const providedKey = body.key;
+        
+        // If no secret is configured on server, everything is allowed
+        if (!env.ADMIN_SECRET) {
+             return new Response(JSON.stringify({ valid: true, message: "No server secret configured" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        
+        if (providedKey === env.ADMIN_SECRET) {
+             return new Response(JSON.stringify({ valid: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        } else {
+             return new Response(JSON.stringify({ valid: false }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      } catch (e) {
+         return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
+      }
+    }
+
     // 1. GET DATA (Retrieve full state from KV) - PUBLIC READ
     if (url.pathname === '/api/sync' && request.method === 'GET') {
       try {
