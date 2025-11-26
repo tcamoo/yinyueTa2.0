@@ -51,7 +51,8 @@ const FALLBACK_DJ_SETS = [
 async function scrapePixabay(env) {
   if (!env.DB) return { success: false, message: "KV DB not bound" };
 
-  const CATEGORY = "ambient"; // Changed to ambient/electronic for better hit rate
+  // CHANGED: User specifically asked for DJ category
+  const CATEGORY = "dj"; 
   const PAGES_TO_SCRAPE = 3; 
   let newSets = [];
   let processedIds = new Set();
@@ -59,22 +60,16 @@ async function scrapePixabay(env) {
 
   console.log(`[Scraper] Starting Pixabay scrape for category: ${CATEGORY}`);
 
-  // Advanced Browser Headers to bypass simple bot detection
   const headers = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.9',
-    'Referer': 'https://pixabay.com/',
-    'Cache-Control': 'no-cache',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'same-origin',
-    'Sec-Fetch-User': '?1',
-    'Upgrade-Insecure-Requests': '1'
+    'Referer': 'https://pixabay.com/music/',
   };
 
   for (let page = 1; page <= PAGES_TO_SCRAPE; page++) {
     try {
+      // Use the specific DJ search URL
       const url = `https://pixabay.com/music/search/${CATEGORY}/?pagi=${page}`;
       const response = await fetch(url, { headers });
 
@@ -85,69 +80,64 @@ async function scrapePixabay(env) {
 
       const html = await response.text();
       
-      // --- ROBUST REGEX STRATEGY ---
-      // 1. Look for direct mp3 links in the HTML source (attributes or scripts)
-      // Matches both standard and JSON-escaped slashes
-      // Example: https://cdn.pixabay.com/audio/2023/10/22/audio_123.mp3
-      const wideRegex = /https?:\\?\/\\?\/cdn\.pixabay\.com\\?\/audio\\?\/[^"'\s<>]+\.mp3/gi;
+      // --- STRATEGY 1: JSON-LD Extraction (Most Accurate) ---
+      // Pixabay often includes a JSON-LD script for Schema.org "MusicRecording" or "AudioObject"
+      // This usually contains the high quality 'contentUrl'
+      const jsonLdRegex = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi;
+      let match;
       
-      const matches = html.match(wideRegex) || [];
-      const uniqueUrls = [...new Set(matches)];
+      while ((match = jsonLdRegex.exec(html)) !== null) {
+          try {
+              const jsonStr = match[1];
+              const data = JSON.parse(jsonStr);
+              // Data can be an array or single object
+              const items = Array.isArray(data) ? data : [data];
+              
+              for (const item of items) {
+                  // We look for AudioObject or things with contentUrl
+                  if (item.contentUrl && typeof item.contentUrl === 'string' && item.contentUrl.endsWith('.mp3')) {
+                      // Found a high quality link
+                      const fileUrl = item.contentUrl;
+                      const name = item.name || item.description || "Unknown Track";
+                      const author = item.author?.name || "Pixabay Artist";
+                      
+                      processTrack(fileUrl, name, author, newSets, processedIds);
+                  }
+              }
+          } catch(e) {
+              // Ignore parse errors in random script tags
+          }
+      }
 
-      for (let rawUrl of uniqueUrls) {
-        // Clean URL: remove JSON escape slashes
-        const fileUrl = rawUrl.replace(/\\/g, '');
-        
-        // Skip tiny previews if possible (optional logic)
-        
-        // Generate a stable ID
-        // Extract filename: audio_123456.mp3
-        const filenameMatch = fileUrl.match(/\/([^/]+)\.mp3$/);
-        const filename = filenameMatch ? filenameMatch[1] : Math.random().toString(36);
-        const uniqueId = `pix_${filename.replace(/[^a-zA-Z0-9]/g, '')}`;
-
-        if (processedIds.has(uniqueId)) continue;
-        processedIds.add(uniqueId);
-
-        // Generate Human Readable Title
-        let cleanTitle = filename
-          .replace(/^audio_/, '')
-          .replace(/[0-9-]/g, ' ')
-          .trim();
-        
-        if (cleanTitle.length < 3) cleanTitle = `Session ${Math.floor(Math.random() * 1000)}`;
-        cleanTitle = cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1);
-
-        newSets.push({
-          id: uniqueId,
-          title: cleanTitle,
-          djName: 'Pixabay Artist',
-          coverUrl: `https://picsum.photos/seed/${uniqueId}/400/400`,
-          fileUrl: fileUrl,
-          duration: "03:00", // Pixabay doesn't expose duration in URL, using generic
-          bpm: 120 + Math.floor(Math.random() * 15),
-          tags: ["Electronic", "Royalty Free"],
-          plays: Math.floor(Math.random() * 5000) + 1000
-        });
+      // --- STRATEGY 2: Fallback Regex (If JSON-LD missing) ---
+      // Look for the specific CDN pattern, ignoring small files or potential sound effects if possible
+      // Pixabay music usually is in /audio/ directory
+      const wideRegex = /https?:\\?\/\\?\/cdn\.pixabay\.com\\?\/audio\\?\/[\w\-\/]+\.mp3/gi;
+      const regexMatches = html.match(wideRegex) || [];
+      
+      for (let rawUrl of regexMatches) {
+        const fileUrl = rawUrl.replace(/\\/g, ''); // Fix JSON slashes
+        // Basic heuristic: Music tracks often have longer filenames or timestamps in path
+        // Sound effects often look different, but it's hard to filter purely on URL.
+        // We rely on the search page 'music/search/dj' being accurate.
+        processTrack(fileUrl, "DJ Session", "Pixabay Artist", newSets, processedIds);
       }
       
-      log.push(`Page ${page}: Found ${uniqueUrls.length} items`);
-      await new Promise(r => setTimeout(r, 500)); // Be polite
+      log.push(`Page ${page}: Extracted count ${newSets.length}`);
+      await new Promise(r => setTimeout(r, 500)); 
 
     } catch (e) {
       log.push(`Page ${page} Error: ${e.message}`);
     }
   }
 
-  // --- FALLBACK STRATEGY ---
-  // If we got 0 items (likely blocked), load the hardcoded fallback sets
-  // This ensures the user NEVER sees an empty list.
+  // --- FALLBACK ---
   if (newSets.length === 0) {
-      log.push("Scrape yielded 0 items. Using Backup Data Source.");
+      log.push("Scrape yielded 0 items. Using Backup Data.");
       newSets = [...FALLBACK_DJ_SETS];
   }
 
-  // --- SAVE TO KV ---
+  // --- SAVE ---
   if (newSets.length > 0) {
     try {
       const currentDataStr = await env.DB.get('app_data');
@@ -156,21 +146,54 @@ async function scrapePixabay(env) {
       let existingSets = currentData.djSets || [];
       const existingIds = new Set(existingSets.map(s => s.id));
       
-      // Filter out global duplicates
       const uniqueNewSets = newSets.filter(s => !existingIds.has(s.id));
-      
-      // Merge: New sets go to the TOP
       const updatedSets = [...uniqueNewSets, ...existingSets].slice(0, 300); 
-      currentData.djSets = updatedSets;
       
+      currentData.djSets = updatedSets;
       await env.DB.put('app_data', JSON.stringify(currentData));
-      return { success: true, count: uniqueNewSets.length, logs: log, usedFallback: uniqueNewSets.length === 0 };
+      return { success: true, count: uniqueNewSets.length, logs: log };
     } catch (e) {
       return { success: false, message: e.message, logs: log };
     }
   }
 
   return { success: true, count: 0, logs: log };
+}
+
+// Helper to add track
+function processTrack(fileUrl, rawTitle, djName, list, ids) {
+    // Generate ID from filename
+    const filenameMatch = fileUrl.match(/\/([^/]+)\.mp3$/);
+    const filename = filenameMatch ? filenameMatch[1] : Math.random().toString(36);
+    const uniqueId = `pix_${filename.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+    if (ids.has(uniqueId)) return;
+    ids.add(uniqueId);
+
+    // Improve Title formatting
+    let cleanTitle = rawTitle;
+    if (rawTitle === "DJ Session") {
+         cleanTitle = filename
+          .replace(/^audio_/, '')
+          .replace(/[0-9-]/g, ' ')
+          .replace(/_/g, ' ')
+          .trim();
+          if (cleanTitle.length < 3) cleanTitle = `Mix Session ${Math.floor(Math.random() * 99)}`;
+    }
+    // Capitalize
+    cleanTitle = cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1);
+
+    list.push({
+      id: uniqueId,
+      title: cleanTitle,
+      djName: djName,
+      coverUrl: `https://picsum.photos/seed/${uniqueId}/400/400`, // Random cover
+      fileUrl: fileUrl,
+      duration: "03:45", // Estimate
+      bpm: 120 + Math.floor(Math.random() * 15),
+      tags: ["Electronic", "DJ"],
+      plays: Math.floor(Math.random() * 5000) + 100
+    });
 }
 
 
@@ -201,7 +224,7 @@ export default {
       return authHeader === env.ADMIN_SECRET;
     };
 
-    // --- DJUU PROXY REWRITTEN (DEEP SEARCH) ---
+    // --- DJUU PROXY REWRITTEN (SPECIFIC FIX) ---
     if (url.pathname === '/api/djuu/stream' && request.method === 'GET') {
         const djuuId = url.searchParams.get('id');
         if (!djuuId) return new Response("Missing DJUU ID", { status: 400 });
@@ -209,62 +232,61 @@ export default {
         try {
             const pageUrl = `https://www.djuu.com/play/${djuuId}.html`;
             
-            // 1. Fetch Page with desktop UA and Referer
+            // 1. Fetch Page
             const pageResponse = await fetch(pageUrl, { 
                 headers: { 
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 
-                    'Referer': 'https://www.djuu.com/',
-                    'Accept': 'text/html,application/xhtml+xml'
+                    'Referer': 'https://www.djuu.com/'
                 } 
             });
             
             if (!pageResponse.ok) return new Response(`DJUU Page Error: ${pageResponse.status}`, { status: 502 });
             const html = await pageResponse.text();
 
-            // 2. AGGRESSIVE URL EXTRACTION
-            // DJUU links often look like: http://mp3.djuu.com/group1/M00/../file.mp3
-            // Or inside JSON: "mp3":"http:\/\/..."
-            
-            // Regex to catch http/https links ending in mp3/m4a, handling escaped slashes
-            const regex = /(https?:\\?\/\\?\/[^"'\s<>]+\.(?:mp3|m4a))/gi;
-            const matches = html.match(regex);
-
+            // 2. EXTRACTION STRATEGIES
+            // Strategy A: JSON variable "mp3":"..." or 'mp3':'...' (most common in protected players)
+            // Handling escaped slashes: http:\/\/...
             let audioUrl = null;
-            if (matches && matches.length > 0) {
-                // Filter out likely ads or tracking pixels
-                // Prefer links containing 'mp3.djuu.com' or 'music'
-                const likelyMusic = matches.find(m => m.includes('mp3.djuu') || m.includes('audio') || m.includes('music'));
-                audioUrl = likelyMusic || matches[0];
+
+            // Look for: mp3: "http..." or file: "http..."
+            const playerVarRegex = /(?:mp3|file|url)\s*[:=]\s*["'](https?:\\?\/\\?\/[^"']+\.(?:mp3|m4a))["']/i;
+            const matchA = html.match(playerVarRegex);
+            
+            if (matchA && matchA[1]) {
+                audioUrl = matchA[1];
+            } else {
+                // Strategy B: General search for any mp3 link in the source
+                const generalRegex = /(https?:\\?\/\\?\/[^"'\s<>]+\.(?:mp3|m4a))/gi;
+                const matches = html.match(generalRegex);
+                if (matches && matches.length > 0) {
+                     // Prioritize links that look like content servers
+                     const priority = matches.find(m => m.includes('mp3.djuu') || m.includes('/group'));
+                     audioUrl = priority || matches[0];
+                }
             }
 
             if (!audioUrl) {
-                // Fallback attempt: sometimes links are relative or specific structure
-                // Just return 404 so the client knows it failed
                 return new Response("Could not find audio URL in DJUU source", { status: 404 });
             }
 
-            // 3. Clean the URL
-            audioUrl = audioUrl.replace(/\\/g, ''); // Unescape JSON slashes
-            // Ensure protocol
-            if (audioUrl.startsWith('//')) audioUrl = 'https:' + audioUrl;
+            // 3. CLEAN URL
+            // Unescape JSON slashes (e.g., http:\/\/ -> http://)
+            audioUrl = audioUrl.replace(/\\/g, ''); 
 
-            // 4. Proxy Stream with CORRECT HEADERS
-            // DJUU servers often check the Referer strictly
+            // 4. PROXY STREAM
+            // DJUU servers check Referer strictly. We MUST send the page URL as Referer.
             const rangeHeader = request.headers.get('Range');
             const audioHeaders = { 
-                'Referer': pageUrl, // Crucial
+                'Referer': pageUrl, 
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': '*/*'
             };
             if (rangeHeader) audioHeaders['Range'] = rangeHeader;
 
             const audioResponse = await fetch(audioUrl, { headers: audioHeaders });
             
-            // 5. Stream Response Back
             const responseHeaders = new Headers(audioResponse.headers);
             Object.keys(corsHeaders).forEach(k => responseHeaders.set(k, corsHeaders[k]));
             
-            // Force content type if missing
             if (!responseHeaders.get('Content-Type')) responseHeaders.set('Content-Type', 'audio/mpeg');
 
             return new Response(audioResponse.body, { 
