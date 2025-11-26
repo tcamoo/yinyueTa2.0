@@ -1,6 +1,6 @@
 
 
-import { Song, GalleryItem, MV, Playlist, Theme, DJSet, Article, PageHeaders, View } from './types';
+import { Song, GalleryItem, MV, Playlist, Theme, DJSet, Article, PageHeaders, View, SoftwareItem } from './types';
 
 // --- PAGE HEADERS ---
 export const DEFAULT_HEADERS: PageHeaders = {
@@ -28,6 +28,11 @@ export const DEFAULT_HEADERS: PageHeaders = {
     title: 'MV 频道',
     subtitle: 'VISUAL CHANNEL',
     description: '视觉与听觉的终极共鸣。'
+  },
+  [View.SOFTWARE]: {
+    title: '资源中心',
+    subtitle: 'DOWNLOADS',
+    description: '精选音频工具、DAW 插件与独家资源包下载。'
   }
 };
 
@@ -269,6 +274,45 @@ export const MOCK_PLAYLISTS: Playlist[] = [
     coverUrl: 'https://picsum.photos/id/160/300/300',
     songCount: 128
   }
+];
+
+export const MOCK_SOFTWARE: SoftwareItem[] = [
+    {
+        id: 'soft1',
+        name: 'Ableton Live 12 Suite',
+        version: 'v12.0.5',
+        description: '专为现场表演和创作设计的数字音频工作站。包含完整的乐器包和 Max for Live。',
+        platform: 'win',
+        size: '2.8 GB',
+        provider: 'aliyun',
+        downloadUrl: '#',
+        updateDate: '2024-11-20',
+        isOfficial: true
+    },
+    {
+        id: 'soft2',
+        name: 'Xfer Serum',
+        version: 'v1.363',
+        description: '终极波表合成器。包含 500+ 自定义预设包，EDM 制作必备。',
+        platform: 'mac',
+        size: '150 MB',
+        provider: 'onedrive',
+        downloadUrl: '#',
+        updateDate: '2024-10-15',
+        isOfficial: false
+    },
+    {
+        id: 'soft3',
+        name: 'FabFilter Total Bundle',
+        version: '2024.1',
+        description: '专业混音母带插件合集。Pro-Q3, Pro-L2, Saturn 2 等全部包含。',
+        platform: 'win',
+        size: '850 MB',
+        provider: 'r2',
+        downloadUrl: '#',
+        updateDate: '2024-11-01',
+        isOfficial: true
+    }
 ];
 
 // --- HELPER TO GENERATE LARGE DATA SETS ---
