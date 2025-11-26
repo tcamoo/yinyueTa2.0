@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Home, Image, Radio, Film, LayoutGrid, Disc, FileText, Globe } from 'lucide-react';
+import { Home, Image, Radio, Film, LayoutGrid, Disc, FileText, Globe, Download } from 'lucide-react';
 import { View } from '../types';
 
 interface SidebarProps {
@@ -12,9 +12,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) =
   const mainNavItems = [
     { id: View.HOME, label: '首映', sub: 'Premiere', icon: Home },
     { id: View.MV, label: '视界', sub: 'Visuals', icon: Film },
-    { id: View.GALLERY, label: '画廊', sub: 'Gallery', icon: Image }, // Added Gallery
+    { id: View.GALLERY, label: '画廊', sub: 'Gallery', icon: Image },
     { id: View.CHARTS, label: '榜单', sub: 'Charts', icon: Globe },
     { id: View.DJ, label: '电音', sub: 'Club', icon: Disc },
+    { id: View.SOFTWARE, label: '资源', sub: 'Downloads', icon: Download }, // New Item
     { id: View.ARTICLES, label: '专栏', sub: 'Read', icon: FileText },
     { id: View.LIBRARY, label: '管理', sub: 'Admin', icon: LayoutGrid },
   ];
@@ -23,9 +24,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) =
   const mobileNavItems = [
       mainNavItems[0], // Home
       mainNavItems[1], // MV
-      mainNavItems[2], // Gallery (Replaced DJ/Playlists priority)
-      mainNavItems[4], // DJ
-      mainNavItems[6]  // Library
+      mainNavItems[5], // Software (Important for mobile downloads)
+      mainNavItems[2], // Gallery 
+      mainNavItems[7]  // Library
   ];
 
   // Desktop Sidebar
