@@ -170,16 +170,18 @@ export const Library: React.FC<LibraryProps> = ({
           setPreviewPlaying(true);
           
           if (previewAudioRef.current) {
-               // Handle Netease or Proxy Links
                let url = item.fileUrl || '';
-               const isNetease = !!item.neteaseId || (url.includes('music.163.com') && !url.includes('/api/'));
-               // If it's netease, we might need a proxy url construction if not already one
-               // But usually fileUrl should be valid. We assume it is playable.
+               // AUTO-PROXY NETEASE LINKS FOR PREVIEW
+               if (item.neteaseId || url.includes('music.163.com') || url.includes('music.126.net')) {
+                   if (!url.startsWith('/api/proxy')) {
+                       url = `/api/proxy?strategy=netease&url=${encodeURIComponent(url)}`;
+                   }
+               }
                
                previewAudioRef.current.src = url;
                previewAudioRef.current.play().catch(e => {
                    console.error("Preview Play Error", e);
-                   notify('error', '无法播放预览');
+                   notify('error', '无法播放预览，请检查链接有效性');
                    setPreviewPlaying(false);
                });
           }
@@ -535,9 +537,6 @@ export const Library: React.FC<LibraryProps> = ({
               </div>
           )}
 
-          {/* ... OTHER TABS (Gallery, Articles, Decoration, Nav, Theme, Netdisk) ... */}
-          {/* I will include the Netdisk tab and others to complete the file as requested */}
-          
           {activeTab === 'gallery' && (
              <div className="animate-in slide-in-from-right-4 duration-300">
                  <div className="flex justify-between mb-6">
@@ -586,9 +585,6 @@ export const Library: React.FC<LibraryProps> = ({
               </div>
           )}
           
-          {/* ... [Theme, Decoration, Nav Tabs omitted for brevity but should be part of full file in real implementation] ... */}
-          {/* For the purpose of the diff, I am assuming the other tabs remain largely unchanged or standard CRUD. */}
-          {/* Adding Theme Tab for completeness of logic */}
           {activeTab === 'theme' && (
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in slide-in-from-right-4">
                   <div>
@@ -627,7 +623,6 @@ export const Library: React.FC<LibraryProps> = ({
                                       const temp = newItems[idx];
                                       newItems[idx] = newItems[idx-1];
                                       newItems[idx-1] = temp;
-                                      // Update orders
                                       newItems.forEach((it, i) => it.order = i);
                                       setNavItems(newItems);
                                   }} className="p-1 hover:text-white text-gray-500 disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
@@ -728,8 +723,9 @@ export const Library: React.FC<LibraryProps> = ({
                                       placeholder="https://..."
                                   />
                                   <div className="relative">
-                                      <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white font-bold text-xs flex items-center gap-2">
-                                          <UploadCloud className="w-4 h-4" /> Upload
+                                      {/* UPDATED: MORE PROMINENT UPLOAD BUTTON FOR DJ AND AUDIO */}
+                                      <button className="px-6 py-2 bg-white/10 hover:bg-white hover:text-black rounded-lg text-white font-bold text-xs flex items-center gap-2 transition-colors border border-white/20">
+                                          <UploadCloud className="w-4 h-4" /> Upload to Website (R2)
                                       </button>
                                       <input 
                                           type="file" 
@@ -739,9 +735,7 @@ export const Library: React.FC<LibraryProps> = ({
                                       />
                                   </div>
                               </div>
-                              {editingType === 'dj' && (
-                                  <p className="text-[10px] text-gray-500 mt-1">支持上传到 R2 存储桶，或输入网易云/外部直链。</p>
-                              )}
+                              <p className="text-[10px] text-gray-500 mt-1">支持：上传本地文件 (R2) / 外部直链 / 网易云链接。</p>
                           </div>
                       )}
 
