@@ -1,5 +1,4 @@
 
-
 export enum View {
   HOME = 'HOME',
   CHARTS = 'CHARTS',
@@ -9,10 +8,9 @@ export enum View {
   PLAYLISTS = 'PLAYLISTS',
   DJ = 'DJ',
   ARTICLES = 'ARTICLES',
-  SOFTWARE = 'SOFTWARE', // New View
+  SOFTWARE = 'SOFTWARE',
 }
 
-// New Interface for Dynamic Navigation
 export interface NavItem {
   id: View;
   label: string;
@@ -105,7 +103,6 @@ export interface Article {
   style?: ArticleContentStyle;
 }
 
-// New Interface for Software/Resources
 export interface SoftwareItem {
   id: string;
   name: string;
@@ -115,7 +112,7 @@ export interface SoftwareItem {
   size: string;
   provider: 'r2' | 'aliyun' | 'onedrive' | 'google' | 'other';
   downloadUrl: string;
-  iconUrl?: string; // Optional custom icon
+  iconUrl?: string;
   updateDate: string;
   isOfficial?: boolean;
 }
