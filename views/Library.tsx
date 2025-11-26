@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink, RefreshCcw } from 'lucide-react';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink, RefreshCcw, Play, Pause } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem, NavItem } from '../types';
 import { THEMES, MOODS } from '../constants';
 import { cloudService } from '../services/cloudService';
@@ -71,6 +71,11 @@ export const Library: React.FC<LibraryProps> = ({
   
   const [isScraping, setIsScraping] = useState(false);
 
+  // Audio Preview State
+  const [previewPlaying, setPreviewPlaying] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const audioPreviewRef = useRef<HTMLAudioElement>(null);
+
   const articleContentRef = useRef<HTMLTextAreaElement>(null);
 
   // File Upload Handlers (Hidden Inputs)
@@ -119,6 +124,48 @@ export const Library: React.FC<LibraryProps> = ({
      };
      checkAuth();
   }, []);
+
+  // Listen for audio ended to reset state
+  useEffect(() => {
+    const audio = audioPreviewRef.current;
+    if(!audio) return;
+    const onEnded = () => setPreviewPlaying(false);
+    audio.addEventListener('ended', onEnded);
+    return () => audio.removeEventListener('ended', onEnded);
+  }, []);
+
+  const handlePreview = (item: any) => {
+    let url = item.fileUrl || item.url;
+    
+    // Netease Fallback
+    if (!url && item.neteaseId) {
+        url = `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
+    }
+
+    if (!url) {
+        notify('error', '无法试听: 缺少音频链接');
+        return;
+    }
+
+    if (previewId === item.id) {
+        // Toggle play/pause
+        if (previewPlaying) {
+            audioPreviewRef.current?.pause();
+            setPreviewPlaying(false);
+        } else {
+            audioPreviewRef.current?.play().catch(e => notify('error', '播放失败: ' + e.message));
+            setPreviewPlaying(true);
+        }
+    } else {
+        // Play new track
+        if (audioPreviewRef.current) {
+            audioPreviewRef.current.src = url;
+            audioPreviewRef.current.play().catch(e => notify('error', '播放失败: ' + e.message));
+            setPreviewId(item.id);
+            setPreviewPlaying(true);
+        }
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -541,6 +588,9 @@ export const Library: React.FC<LibraryProps> = ({
 
   return (
     <div className="pb-40 animate-in fade-in duration-500 min-h-screen">
+      {/* Hidden Audio Player for Preview */}
+      <audio ref={audioPreviewRef} className="hidden" crossOrigin="anonymous" />
+      
       <header className="flex justify-between items-end mb-8 border-b border-white/10 pb-6">
           <div>
               <h1 className="text-4xl font-black text-white mb-2">网站管理后台</h1>
@@ -607,9 +657,23 @@ export const Library: React.FC<LibraryProps> = ({
                       <div className="space-y-2">
                           {(mediaSubTab === 'audio' ? songs : mvs).map((item: any) => (
                               <div key={item.id} className="flex items-center gap-4 p-3 bg-white/5 rounded-xl border border-transparent hover:border-white/20 group">
-                                  <div className="w-12 h-12 rounded bg-black overflow-hidden shrink-0"><img src={item.coverUrl} className="w-full h-full object-cover" /></div>
+                                  <div className="w-12 h-12 rounded bg-black overflow-hidden shrink-0 relative group/cover">
+                                      <img src={item.coverUrl} className="w-full h-full object-cover" />
+                                      {/* Play Button Overlay for Audio */}
+                                      {mediaSubTab === 'audio' && (
+                                          <button 
+                                            onClick={(e) => { e.stopPropagation(); handlePreview(item); }}
+                                            className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity"
+                                          >
+                                              {previewId === item.id && previewPlaying ? 
+                                                 <Pause className="w-5 h-5 text-brand-lime fill-current" /> : 
+                                                 <Play className="w-5 h-5 text-white fill-current ml-0.5" />
+                                              }
+                                          </button>
+                                      )}
+                                  </div>
                                   <div className="flex-1 min-w-0">
-                                      <div className="font-bold text-white truncate">{item.title}</div>
+                                      <div className={`font-bold truncate ${previewId === item.id && previewPlaying ? 'text-brand-lime' : 'text-white'}`}>{item.title}</div>
                                       <div className="text-xs text-gray-500 truncate">{item.artist}</div>
                                   </div>
                                   <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -658,17 +722,24 @@ export const Library: React.FC<LibraryProps> = ({
                       <div className="space-y-2">
                           {djSets.map((item) => (
                               <div key={item.id} className="flex items-center gap-4 p-3 bg-white/5 rounded-xl border border-transparent hover:border-white/20 group">
-                                  <div className="w-12 h-12 rounded bg-black overflow-hidden shrink-0 relative">
+                                  <div className="w-12 h-12 rounded bg-black overflow-hidden shrink-0 relative group/cover">
                                      <img src={item.coverUrl} className="w-full h-full object-cover" />
+                                     {/* Play Button Overlay */}
+                                     <button 
+                                        onClick={(e) => { e.stopPropagation(); handlePreview(item); }}
+                                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity"
+                                     >
+                                          {previewId === item.id && previewPlaying ? 
+                                             <Pause className="w-5 h-5 text-brand-lime fill-current" /> : 
+                                             <Play className="w-5 h-5 text-white fill-current ml-0.5" />
+                                          }
+                                     </button>
                                      {item.id.startsWith('ne_') && (
-                                         <div className="absolute top-0 right-0 bg-red-600 text-[8px] font-bold px-1 text-white">163</div>
-                                     )}
-                                     {item.id.startsWith('pixabay') && (
-                                         <div className="absolute bottom-0 right-0 bg-green-600 text-[8px] font-bold px-1 text-white">PIX</div>
+                                         <div className="absolute top-0 right-0 bg-red-600 text-[8px] font-bold px-1 text-white pointer-events-none">163</div>
                                      )}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                      <div className="font-bold text-white truncate">{item.title}</div>
+                                      <div className={`font-bold truncate ${previewId === item.id && previewPlaying ? 'text-brand-lime' : 'text-white'}`}>{item.title}</div>
                                       <div className="text-xs text-gray-500 truncate">{item.djName} | {item.bpm} BPM</div>
                                   </div>
                                   <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
