@@ -1,4 +1,5 @@
 
+
 // This service communicates with the Worker API endpoints defined in worker.js
 
 export interface AppData {
@@ -8,8 +9,16 @@ export interface AppData {
   djSets: any[];
   articles: any[];
   playlists: any[];
+  softwareItems?: any[]; // Added software support
   pageHeaders: any;
   themeId: string;
+}
+
+export interface R2File {
+    key: string;
+    size: number;
+    uploaded: string;
+    url: string;
 }
 
 const API_BASE = '/api';
@@ -40,9 +49,6 @@ export const cloudService = {
           return false;
       } catch (e) {
           console.error("Auth check failed", e);
-          // If network fails (e.g. localhost without dev server), assume true to allow dev, 
-          // but in production it will fail if not reachable.
-          // For security, default to false if we can't verify.
           return false;
       }
   },
@@ -80,13 +86,11 @@ export const cloudService = {
       
       if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          // Throw error text to be caught by UI
           throw new Error(err.error || `Error ${res.status}`);
       }
       return true;
     } catch (error: any) {
       console.error("Cloud Save Error:", error);
-      // Re-throw to let UI handle the specific error message (e.g. Unauthorized)
       throw error;
     }
   },
@@ -119,5 +123,45 @@ export const cloudService = {
       alert(error instanceof Error ? error.message : "Upload Failed");
       return null;
     }
+  },
+
+  // 4. List R2 Files (New) - Protected
+  listStorage: async (): Promise<{ files: R2File[] }> => {
+      try {
+          const headers: Record<string, string> = {};
+          const key = cloudService.getAdminKey();
+          if (key) headers['x-admin-key'] = key;
+
+          const res = await fetch(`${API_BASE}/storage/list`, {
+              method: 'GET',
+              headers: headers
+          });
+
+          if (!res.ok) throw new Error("Failed to list files");
+          return await res.json();
+      } catch (error: any) {
+          console.error("Storage List Error:", error);
+          throw error;
+      }
+  },
+
+  // 5. Delete R2 File (New) - Protected
+  deleteStorage: async (key: string): Promise<boolean> => {
+      try {
+          const headers: Record<string, string> = {};
+          const adminKey = cloudService.getAdminKey();
+          if (adminKey) headers['x-admin-key'] = adminKey;
+
+          const res = await fetch(`${API_BASE}/storage/delete?key=${encodeURIComponent(key)}`, {
+              method: 'DELETE',
+              headers: headers
+          });
+
+          if (!res.ok) throw new Error("Failed to delete file");
+          return true;
+      } catch (error: any) {
+          console.error("Storage Delete Error:", error);
+          throw error;
+      }
   }
 };
