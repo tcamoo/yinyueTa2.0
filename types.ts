@@ -12,6 +12,15 @@ export enum View {
   SOFTWARE = 'SOFTWARE', // New View
 }
 
+// New Interface for Dynamic Navigation
+export interface NavItem {
+  id: View;
+  label: string;
+  subLabel: string;
+  isVisible: boolean;
+  order: number;
+}
+
 export interface Song {
   id: string;
   title: string;
