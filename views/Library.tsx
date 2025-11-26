@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, CloudUpload, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle } from 'lucide-react';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View } from '../types';
 import { THEMES, MOODS } from '../constants';
 
@@ -357,7 +357,7 @@ export const Library: React.FC<LibraryProps> = ({
                     onClick={handleOpenCreateMedia}
                     className="px-6 py-2.5 bg-white text-black rounded-xl font-bold hover:bg-gray-200 transition-colors flex items-center gap-2 shadow-lg w-full md:w-auto justify-center"
                 >
-                    <CloudUpload className="w-4 h-4" /> 上传{mediaType === 'image' ? '图片' : '资源'}
+                    <UploadCloud className="w-4 h-4" /> 上传{mediaType === 'image' ? '图片' : '资源'}
                 </button>
            </div>
            
