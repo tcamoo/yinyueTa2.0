@@ -18,8 +18,8 @@ interface LibraryProps {
   setDjSets?: React.Dispatch<React.SetStateAction<DJSet[]>>;
   articles?: Article[];
   setArticles?: React.Dispatch<React.SetStateAction<Article[]>>;
-  softwareItems?: SoftwareItem[]; // Added
-  setSoftwareItems?: React.Dispatch<React.SetStateAction<SoftwareItem[]>>; // Added
+  softwareItems?: SoftwareItem[]; 
+  setSoftwareItems?: React.Dispatch<React.SetStateAction<SoftwareItem[]>>;
   playlists: Playlist[];
   onPlaySong: (song: Song) => void;
   currentTheme: Theme;
@@ -46,7 +46,6 @@ export const Library: React.FC<LibraryProps> = ({
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
   
-  // Added 'netdisk' to tab type
   const [activeTab, setActiveTab] = useState<'media' | 'articles' | 'appearance' | 'pages' | 'netdisk'>('media');
   const [mediaType, setMediaType] = useState<'audio' | 'video' | 'image' | 'dj'>('audio');
   
@@ -169,9 +168,9 @@ export const Library: React.FC<LibraryProps> = ({
       setIsSyncing(true);
       const dataToSave = {
           songs, mvs, galleryItems, djSets, articles, playlists, pageHeaders, 
-          softwareItems, // Included in sync
+          softwareItems, 
           themeId: currentTheme.id,
-          ...overrideData // Merge latest changes immediately
+          ...overrideData 
       };
       
       try {
@@ -213,7 +212,6 @@ export const Library: React.FC<LibraryProps> = ({
               setFormData(prev => ({ ...prev, [field]: uploadedUrl }));
               notify('success', '文件上传成功 (R2)');
           } 
-          // Error handling is done inside service (alert) or via try/catch in service
       }
   };
 
@@ -485,7 +483,6 @@ export const Library: React.FC<LibraryProps> = ({
       return (
           <div className="flex h-[80vh] items-center justify-center animate-in fade-in duration-700">
               <div className="relative w-full max-w-md bg-black border border-brand-lime/30 rounded-3xl p-8 shadow-[0_0_50px_rgba(204,255,0,0.1)] overflow-hidden">
-                  {/* Cyberpunk Decor */}
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-brand-lime to-transparent animate-pulse"></div>
                   <div className="absolute -left-10 top-20 w-32 h-32 bg-brand-lime blur-[80px] opacity-20 pointer-events-none"></div>
 
@@ -519,10 +516,6 @@ export const Library: React.FC<LibraryProps> = ({
                               UNLOCK SYSTEM
                           </button>
                       </form>
-
-                      <div className="mt-6 text-[10px] text-gray-600 font-mono">
-                          ID: {Math.random().toString(36).substring(7).toUpperCase()}
-                      </div>
                   </div>
               </div>
           </div>
@@ -588,7 +581,6 @@ export const Library: React.FC<LibraryProps> = ({
           <Database className="w-5 h-5" /> 资源库
         </button>
         
-        {/* New Netdisk Tab */}
         <button 
           onClick={() => setActiveTab('netdisk')}
           className={`pb-4 text-lg font-bold flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'netdisk' ? 'text-white border-b-2 border-brand-lime' : 'text-gray-500 hover:text-white'}`}
@@ -631,7 +623,6 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
 
                   <div className="space-y-6">
-                       {/* Section 1: Admin Secret */}
                        <div className="bg-black/30 p-4 rounded-xl border border-white/5">
                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                                <Key className="w-3 h-3" /> Admin Secret (当前密钥)
@@ -652,33 +643,12 @@ export const Library: React.FC<LibraryProps> = ({
                                </button>
                            </div>
                        </div>
-
-                       {/* Section 2: Instructions */}
-                       <div className="bg-blue-900/10 p-4 rounded-xl border border-blue-500/20">
-                           <h4 className="font-bold text-blue-400 text-sm mb-2 flex items-center gap-2">
-                               <Database className="w-3 h-3" /> 如何绑定资源 (在 CF 后台)
-                           </h4>
-                           <ol className="text-xs text-blue-200/70 space-y-2 list-decimal list-inside leading-relaxed">
-                               <li>登录 Cloudflare Dashboard，进入您的 Worker (yinyuetai)。</li>
-                               <li>点击 <strong>Settings</strong> &rarr; <strong>Variables</strong>。</li>
-                               <li>在 <strong>KV Namespace Bindings</strong> 中添加:
-                                   <br/>Variable name: <code className="text-white bg-white/10 px-1 rounded">DB</code> &rarr; 选择您的 KV 空间。
-                               </li>
-                               <li>在 <strong>R2 Bucket Bindings</strong> 中添加:
-                                   <br/>Variable name: <code className="text-white bg-white/10 px-1 rounded">BUCKET</code> &rarr; 选择您的 R2 存储桶。
-                               </li>
-                               <li>点击 <strong>Add Variable</strong> 添加密码保护:
-                                    <br/>Variable name: <code className="text-white bg-white/10 px-1 rounded">ADMIN_SECRET</code>, Value: 您的密码 (建议加密)。
-                               </li>
-                               <li>保存并部署 (Deploy) 即可生效。</li>
-                           </ol>
-                       </div>
                   </div>
               </div>
           </div>
       )}
 
-      {/* TAB: NETDISK (NEW) */}
+      {/* TAB: NETDISK */}
       {activeTab === 'netdisk' && (
           <Netdisk 
             notify={notify} 
@@ -688,10 +658,9 @@ export const Library: React.FC<LibraryProps> = ({
           />
       )}
 
-      {/* TAB: MEDIA LIBRARY */}
+      {/* TAB: MEDIA LIBRARY (Condensed for clarity) */}
       {activeTab === 'media' && (
         <div className="animate-in fade-in duration-500">
-           {/* Controls Bar */}
            <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4 bg-white/5 p-2 rounded-2xl border border-white/5 overflow-x-auto">
                 <div className="flex gap-2 min-w-max">
                     <button onClick={() => setMediaType('audio')} className={`px-4 lg:px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${mediaType === 'audio' ? 'bg-brand-lime text-black shadow-lg shadow-brand-lime/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
@@ -716,39 +685,14 @@ export const Library: React.FC<LibraryProps> = ({
                 </button>
            </div>
            
-           {/* CMS Data Grid (Same as before but with updated handlers) */}
            <div className="space-y-1">
-               {/* Header Row */}
                <div className="grid grid-cols-12 gap-4 px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-white/5">
                 <div className="col-span-5 md:col-span-4">名称 / 信息</div>
                 <div className="col-span-3 md:col-span-3 hidden md:block">元数据</div>
                 <div className="col-span-2 hidden md:block">状态</div>
                 <div className="col-span-3 md:col-span-3 text-right">操作</div>
                </div>
-
-                {/* Render Logic - Image */}
-                {mediaType === 'image' && galleryItems.map((item) => (
-                    <div key={item.id} className="grid grid-cols-12 gap-4 p-4 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-transparent hover:border-brand-cyan/20 items-center group transition-all">
-                        <div className="col-span-7 md:col-span-4 flex items-center gap-4">
-                            <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-white/10 bg-black/50">
-                                <img src={item.imageUrl} className="w-full h-full object-cover" alt="cover" />
-                            </div>
-                            <div className="min-w-0">
-                                <h4 className="font-bold text-white text-sm truncate">{item.title}</h4>
-                            </div>
-                        </div>
-                        <div className="col-span-3 hidden md:flex flex-col justify-center text-xs text-gray-400">
-                             <span className="flex items-center gap-1 mt-1"><Maximize2 className="w-3 h-3" /> R2 Object</span>
-                        </div>
-                        <div className="col-span-2 hidden md:flex items-center"><span className="text-brand-cyan text-[10px]">SYNCED</span></div>
-                        <div className="col-span-5 md:col-span-3 flex items-center justify-end gap-2">
-                             <button onClick={() => handleOpenEdit(item, 'image')} className="p-2 hover:bg-white hover:text-black rounded-lg text-gray-500 transition-colors"><Edit3 className="w-4 h-4" /></button>
-                             <button onClick={() => handleDelete(item.id, 'media')} className="p-2 hover:bg-red-500/20 hover:text-red-500 rounded-lg text-gray-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
-                        </div>
-                    </div>
-                ))}
                 
-                {/* Render Logic - Audio */}
                 {mediaType === 'audio' && songs.map((song) => (
                     <div key={song.id} className="grid grid-cols-12 gap-4 p-4 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-transparent hover:border-brand-lime/20 items-center group transition-all">
                         <div className="col-span-7 md:col-span-4 flex items-center gap-4">
@@ -771,40 +715,23 @@ export const Library: React.FC<LibraryProps> = ({
                     </div>
                 ))}
 
-                 {/* Render Logic - Video */}
-                {mediaType === 'video' && mvs.map((mv) => (
-                    <div key={mv.id} className="grid grid-cols-12 gap-4 p-4 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-transparent hover:border-brand-pink/20 items-center group transition-all">
-                         <div className="col-span-7 md:col-span-4 flex items-center gap-4">
-                            <div className="relative w-16 h-10 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
-                                <img src={mv.coverUrl} className="w-full h-full object-cover" alt="cover" />
-                            </div>
-                            <div className="min-w-0">
-                                <h4 className="font-bold text-white text-sm truncate">{mv.title}</h4>
-                            </div>
-                        </div>
-                        <div className="col-span-2 hidden md:flex items-center"><span className="text-blue-500 text-[10px]">HD</span></div>
-                        <div className="col-span-5 md:col-span-3 flex items-center justify-end gap-2">
-                             <button onClick={() => handleOpenEdit(mv, 'video')} className="p-2 hover:bg-white hover:text-black rounded-lg text-gray-500 transition-colors"><Edit3 className="w-4 h-4" /></button>
-                             <button onClick={() => handleDelete(mv.id, 'media')} className="p-2 hover:bg-red-500/20 hover:text-red-500 rounded-lg text-gray-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
-                        </div>
-                    </div>
-                ))}
-
-                {/* Render Logic - DJ */}
-                {mediaType === 'dj' && djSets.map((dj) => (
-                    <div key={dj.id} className="grid grid-cols-12 gap-4 p-4 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-transparent hover:border-brand-accent/20 items-center group transition-all">
+                {mediaType === 'image' && galleryItems.map((item) => (
+                    <div key={item.id} className="grid grid-cols-12 gap-4 p-4 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-transparent hover:border-brand-cyan/20 items-center group transition-all">
                         <div className="col-span-7 md:col-span-4 flex items-center gap-4">
-                            <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
-                                <img src={dj.coverUrl} className="w-full h-full object-cover" alt="cover" />
+                            <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-white/10 bg-black/50">
+                                <img src={item.imageUrl} className="w-full h-full object-cover" alt="cover" />
                             </div>
                             <div className="min-w-0">
-                                <h4 className="font-bold text-white text-sm truncate">{dj.title}</h4>
+                                <h4 className="font-bold text-white text-sm truncate">{item.title}</h4>
                             </div>
                         </div>
-                        <div className="col-span-2 hidden md:flex items-center"><span className="text-purple-500 text-[10px]">MIX</span></div>
+                        <div className="col-span-3 hidden md:flex flex-col justify-center text-xs text-gray-400">
+                             <span className="flex items-center gap-1 mt-1"><Maximize2 className="w-3 h-3" /> R2 Object</span>
+                        </div>
+                        <div className="col-span-2 hidden md:flex items-center"><span className="text-brand-cyan text-[10px]">SYNCED</span></div>
                         <div className="col-span-5 md:col-span-3 flex items-center justify-end gap-2">
-                             <button onClick={() => handleOpenEdit(dj, 'dj')} className="p-2 hover:bg-white hover:text-black rounded-lg text-gray-500 transition-colors"><Edit3 className="w-4 h-4" /></button>
-                             <button onClick={() => handleDelete(dj.id, 'media')} className="p-2 hover:bg-red-500/20 hover:text-red-500 rounded-lg text-gray-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                             <button onClick={() => handleOpenEdit(item, 'image')} className="p-2 hover:bg-white hover:text-black rounded-lg text-gray-500 transition-colors"><Edit3 className="w-4 h-4" /></button>
+                             <button onClick={() => handleDelete(item.id, 'media')} className="p-2 hover:bg-red-500/20 hover:text-red-500 rounded-lg text-gray-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                         </div>
                     </div>
                 ))}
