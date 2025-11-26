@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { MV, PageHeaderConfig } from '../types';
 import { Play, Pause, Volume2, VolumeX, Maximize2, Clock, Share2, Heart, SkipForward, Minimize } from 'lucide-react';
 
@@ -9,7 +9,12 @@ interface MVViewProps {
 }
 
 export const MVView: React.FC<MVViewProps> = ({ mvs, headerConfig }) => {
-  const [activeMv, setActiveMv] = useState<MV>(mvs[0]);
+  // Initialize with Featured MV if exists, otherwise first one
+  const initialMv = useMemo(() => {
+      return mvs.find(mv => mv.isFeatured) || mvs[0];
+  }, [mvs]);
+
+  const [activeMv, setActiveMv] = useState<MV>(initialMv);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
