@@ -382,7 +382,7 @@ const App: React.FC = () => {
         <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-brand-lime animate-pulse' : 'bg-gray-600'}`} />
       </div>
 
-      {currentView !== View.MV && (
+      {currentView !== View.MV && currentView !== View.LIBRARY && (
         <Player 
           currentSong={currentSong} 
           isPlaying={isPlaying} 
