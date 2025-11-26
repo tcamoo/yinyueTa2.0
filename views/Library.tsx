@@ -212,12 +212,12 @@ export const Library: React.FC<LibraryProps> = ({
           // Inserting Content into Article
           let tag = '';
           if (mediaSelectorType === 'image') {
-              tag = `\n<img src="${item.imageUrl}" class="w-full rounded-xl my-4 shadow-lg" alt="${item.title}" />\n<div class="text-center text-xs text-gray-500 mt-1">${item.title}</div>\n`;
+              tag = `\n<div class="my-6">\n  <img src="${item.imageUrl}" class="w-full rounded-xl shadow-lg" alt="${item.title}" />\n  <div class="text-center text-xs text-gray-500 mt-2 italic">${item.title}</div>\n</div>\n`;
           } else if (mediaSelectorType === 'audio') {
               const url = item.fileUrl || `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
-              tag = `\n<div class="my-4 p-4 bg-white/5 rounded-xl border border-white/10">\n  <div class="font-bold text-brand-lime mb-2">♫ ${item.title} - ${item.artist}</div>\n  <audio controls src="${url}" class="w-full"></audio>\n</div>\n`;
+              tag = `\n<div class="my-6 p-4 bg-white/5 rounded-xl border border-white/10 flex flex-col gap-3">\n  <div class="flex items-center gap-3">\n    <div class="w-10 h-10 rounded bg-black/50 flex items-center justify-center text-brand-lime font-bold">♫</div>\n    <div>\n       <div class="font-bold text-white text-sm">${item.title}</div>\n       <div class="text-xs text-gray-500">${item.artist}</div>\n    </div>\n  </div>\n  <audio controls src="${url}" class="w-full"></audio>\n</div>\n`;
           } else if (mediaSelectorType === 'video') {
-              tag = `\n<div class="my-4">\n  <video controls poster="${item.coverUrl}" src="${item.videoUrl}" class="w-full rounded-xl shadow-lg"></video>\n  <div class="text-xs text-gray-500 mt-1">Video: ${item.title}</div>\n</div>\n`;
+              tag = `\n<div class="my-6">\n  <video controls poster="${item.coverUrl}" src="${item.videoUrl}" class="w-full rounded-xl shadow-lg border border-white/5"></video>\n  <div class="text-xs text-gray-500 mt-2 flex items-center gap-1"><span class="w-1.5 h-1.5 bg-brand-pink rounded-full"></span> ${item.title}</div>\n</div>\n`;
           }
           insertAtCursor(tag);
           notify('success', '媒体已插入文章');
