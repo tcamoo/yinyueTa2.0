@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Player } from './components/Player';
@@ -11,8 +12,9 @@ import { Library } from './views/Library';
 import { MVView } from './views/MV';
 import { DJView } from './views/DJ';
 import { ArticlesView } from './views/Articles';
-import { View, Song, Playlist, Theme, MV, GalleryItem, DJSet, Article, PageHeaders } from './types';
-import { MOCK_SONGS, MOCK_PLAYLISTS, THEMES, MOCK_MVS, GALLERY_ITEMS, MOCK_DJ_SETS, MOCK_ARTICLES, DEFAULT_HEADERS } from './constants';
+import { SoftwareView } from './views/Software'; // Import SoftwareView
+import { View, Song, Playlist, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, SoftwareItem } from './types';
+import { MOCK_SONGS, MOCK_PLAYLISTS, THEMES, MOCK_MVS, GALLERY_ITEMS, MOCK_DJ_SETS, MOCK_ARTICLES, DEFAULT_HEADERS, MOCK_SOFTWARE } from './constants';
 import { cloudService } from './services/cloudService';
 import { Loader2 } from 'lucide-react';
 
@@ -31,6 +33,7 @@ const App: React.FC = () => {
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(GALLERY_ITEMS);
   const [djSets, setDjSets] = useState<DJSet[]>(MOCK_DJ_SETS);
   const [articles, setArticles] = useState<Article[]>(MOCK_ARTICLES);
+  const [softwareItems, setSoftwareItems] = useState<SoftwareItem[]>(MOCK_SOFTWARE); // New State
   const [pageHeaders, setPageHeaders] = useState<PageHeaders>(DEFAULT_HEADERS);
   
   // Navigation State
@@ -69,6 +72,7 @@ const App: React.FC = () => {
         if (cloudData.djSets) setDjSets(cloudData.djSets);
         if (cloudData.articles) setArticles(cloudData.articles);
         if (cloudData.playlists) setPlaylists(cloudData.playlists);
+        if (cloudData.softwareItems) setSoftwareItems(cloudData.softwareItems); // Load software
         if (cloudData.pageHeaders) setPageHeaders(cloudData.pageHeaders);
         if (cloudData.themeId) {
           const t = THEMES.find(t => t.id === cloudData.themeId);
@@ -187,6 +191,8 @@ const App: React.FC = () => {
         );
       case View.GALLERY:
         return <Gallery items={galleryItems} />;
+      case View.SOFTWARE:
+        return <SoftwareView softwareItems={softwareItems} headerConfig={pageHeaders[View.SOFTWARE]} />;
       case View.LIBRARY:
         return (
           <Library 
@@ -200,7 +206,10 @@ const App: React.FC = () => {
             setDjSets={setDjSets}
             articles={articles}
             setArticles={setArticles}
-            playlists={playlists} 
+            playlists={playlists}
+            // Pass Software Props
+            softwareItems={softwareItems}
+            setSoftwareItems={setSoftwareItems}
             onPlaySong={handlePlaySong}
             currentTheme={currentTheme}
             setTheme={setCurrentTheme}
