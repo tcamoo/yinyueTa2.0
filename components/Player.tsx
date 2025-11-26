@@ -10,8 +10,7 @@ interface PlayerProps {
   onToggleLyrics: () => void;
 }
 
-// --- DRAGGABLE SPIRIT COMPONENT ---
-// Enhanced to be more "reactive" even with fake data
+// --- DRAGGABLE SPIRIT COMPONENT (ENHANCED LIQUID SHADER STYLE) ---
 const DraggableSpirit = ({ isPlaying, getVisualData }: { isPlaying: boolean, getVisualData: () => { bass: number, mid: number, high: number } }) => {
     const [pos, setPos] = useState({ x: window.innerWidth / 2 - 40, y: window.innerHeight - 180 });
     const [isDragging, setIsDragging] = useState(false);
@@ -31,7 +30,7 @@ const DraggableSpirit = ({ isPlaying, getVisualData }: { isPlaying: boolean, get
         const handleResize = () => {
             setPos(prev => ({
                 x: Math.min(prev.x, window.innerWidth - 80),
-                y: Math.min(prev.y, window.innerHeight - 160) // Adjusted for mobile bottom bar
+                y: Math.min(prev.y, window.innerHeight - 160)
             }));
         };
         window.addEventListener('resize', handleResize);
@@ -59,7 +58,7 @@ const DraggableSpirit = ({ isPlaying, getVisualData }: { isPlaying: boolean, get
         };
         const handleTouchMove = (e: TouchEvent) => {
              if (isDragging) {
-                 e.preventDefault(); // Prevent scrolling while dragging spirit
+                 e.preventDefault(); 
                  setPos({ x: e.touches[0].clientX - dragOffset.current.x, y: e.touches[0].clientY - dragOffset.current.y });
              }
         };
@@ -79,8 +78,9 @@ const DraggableSpirit = ({ isPlaying, getVisualData }: { isPlaying: boolean, get
         };
     }, [isDragging]);
 
-    // Visualizer Loop
+    // Enhanced Organic Visualizer Loop
     useEffect(() => {
+        let time = 0;
         const render = () => {
             if (!canvasRef.current) return;
             const ctx = canvasRef.current.getContext('2d');
@@ -90,59 +90,88 @@ const DraggableSpirit = ({ isPlaying, getVisualData }: { isPlaying: boolean, get
             const height = canvasRef.current.height;
             const centerX = width / 2;
             const centerY = height / 2;
-            const radius = 30; 
+            // Base radius
+            const radius = 35; 
 
             ctx.clearRect(0, 0, width, height);
 
             // Get Data (Real or Simulated)
             const { bass, mid, high } = isPlaying ? getVisualData() : { bass: 0, mid: 0, high: 0 };
             
-            // Idle Animation
-            const idleBreath = isPlaying ? 0 : Math.sin(Date.now() / 1000) * 5;
+            // Increment time for organic movement
+            time += 0.05 + (mid / 5000); 
 
-            const scale = 1 + (bass / 255) * 0.4; 
-            const glow = (mid / 255); 
-            const jitter = (high / 255) * 8; 
-
-            // Draw Glow
-            const gradient = ctx.createRadialGradient(centerX, centerY, radius * scale * 0.8, centerX, centerY, radius * scale * 3);
-            gradient.addColorStop(0, `rgba(204, 255, 0, ${0.2 + glow * 0.4})`); 
-            gradient.addColorStop(0.5, `rgba(0, 255, 255, ${glow * 0.2})`);   
+            // Dynamic Styling based on intensity
+            const intensity = (bass + mid + high) / (255 * 3);
+            const scale = 1 + (bass / 255) * 0.5; 
+            
+            // Outer Glow (Reacts to Bass)
+            const gradient = ctx.createRadialGradient(centerX, centerY, radius * scale * 0.8, centerX, centerY, radius * scale * 2.5);
+            gradient.addColorStop(0, `rgba(204, 255, 0, ${0.4 + intensity * 0.4})`); 
+            gradient.addColorStop(0.6, `rgba(0, 255, 255, ${intensity * 0.3})`);   
             gradient.addColorStop(1, 'transparent');
             
             ctx.fillStyle = gradient;
             ctx.beginPath();
-            ctx.arc(centerX, centerY, radius * scale * 3.5, 0, Math.PI * 2);
+            ctx.arc(centerX, centerY, radius * scale * 3, 0, Math.PI * 2);
             ctx.fill();
 
-            // Draw Core Spirit
+            // --- DRAW LIQUID ORGANIC SHAPE ---
             ctx.beginPath();
-            for (let i = 0; i <= 360; i += 10) {
-                const angle = (i * Math.PI) / 180;
-                // Complex organic shape deformation
-                // Accelerated time factor for smoother animation
-                const r = (radius * scale) + idleBreath + (Math.sin(i * 0.2 + Date.now()/50) * jitter) + (Math.cos(i * 0.5) * (bass/20));
+            const points = 20; // Number of vertices
+            
+            for (let i = 0; i <= points; i++) {
+                const angle = (i / points) * Math.PI * 2;
+                
+                // Noise function simulation for "liquid" surface
+                // Using superposition of sine waves
+                const noise = Math.sin(angle * 3 + time) * (bass / 15) 
+                            + Math.cos(angle * 5 - time * 2) * (mid / 20) 
+                            + Math.sin(angle * 10 + time * 5) * (high / 30);
+
+                const r = (radius * scale) + noise;
                 const x = centerX + Math.cos(angle) * r;
                 const y = centerY + Math.sin(angle) * r;
+
                 if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
+                else {
+                    // Smooth curve between points
+                    const prevAngle = ((i - 1) / points) * Math.PI * 2;
+                    const prevNoise = Math.sin(prevAngle * 3 + time) * (bass / 15) 
+                                    + Math.cos(prevAngle * 5 - time * 2) * (mid / 20) 
+                                    + Math.sin(prevAngle * 10 + time * 5) * (high / 30);
+                    const prevR = (radius * scale) + prevNoise;
+                    const prevX = centerX + Math.cos(prevAngle) * prevR;
+                    const prevY = centerY + Math.sin(prevAngle) * prevR;
+                    
+                    const cpX = (prevX + x) / 2;
+                    const cpY = (prevY + y) / 2;
+                    ctx.quadraticCurveTo(prevX, prevY, cpX, cpY);
+                }
             }
+            
             ctx.closePath();
-            ctx.fillStyle = '#ffffff';
+            
+            // Core Color (White hot center -> Lime edge)
+            const coreGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius * scale * 1.5);
+            coreGradient.addColorStop(0, '#ffffff');
+            coreGradient.addColorStop(0.7, '#ccff00');
+            coreGradient.addColorStop(1, '#00ffff');
+            
+            ctx.fillStyle = coreGradient;
             ctx.shadowColor = '#ccff00';
-            ctx.shadowBlur = 15 + bass * 0.3;
+            ctx.shadowBlur = 20 + bass * 0.2;
             ctx.fill();
 
-            // Eyes
-            const time = Date.now() / 1000;
-            const eyeOffsetX = Math.sin(time) * 3;
-            const blink = Math.sin(time * 3) > 0.98 ? 0.1 : 1; 
-            
+            // Inner "Eye" or Core detail (reacts to High freq)
+            const eyeSize = 4 + (high / 255) * 6;
             ctx.fillStyle = '#000';
             ctx.shadowBlur = 0;
             ctx.beginPath();
-            ctx.ellipse(centerX - 10 + eyeOffsetX, centerY - 2, 4, 4 * blink, 0, 0, Math.PI * 2);
-            ctx.ellipse(centerX + 10 + eyeOffsetX, centerY - 2, 4, 4 * blink, 0, 0, Math.PI * 2);
+            // Jittery movement
+            const eyeX = Math.cos(time * 0.5) * (bass / 30);
+            const eyeY = Math.sin(time * 0.5) * (bass / 30);
+            ctx.arc(centerX + eyeX, centerY + eyeY, eyeSize, 0, Math.PI * 2);
             ctx.fill();
 
             rafRef.current = requestAnimationFrame(render);
@@ -156,7 +185,7 @@ const DraggableSpirit = ({ isPlaying, getVisualData }: { isPlaying: boolean, get
 
     return (
         <div 
-            className="fixed z-[100] cursor-move transition-transform duration-75 active:scale-110 active:cursor-grabbing touch-none"
+            className="fixed z-[100] cursor-move transition-transform duration-75 active:scale-110 active:cursor-grabbing touch-none mix-blend-screen"
             style={{ 
                 left: pos.x, 
                 top: pos.y,
@@ -165,7 +194,7 @@ const DraggableSpirit = ({ isPlaying, getVisualData }: { isPlaying: boolean, get
             onMouseDown={(e) => handleMouseDown(e.clientX, e.clientY)}
             onTouchStart={handleTouchStart}
         >
-             <canvas ref={canvasRef} width={200} height={200} className="w-[100px] h-[100px] pointer-events-none" />
+             <canvas ref={canvasRef} width={240} height={240} className="w-[120px] h-[120px] pointer-events-none" />
         </div>
     );
 };
@@ -187,7 +216,6 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
 
   // --- ROBUST AUDIO DATA PROVIDER ---
-  // Returns real data if available, or highly convincing fake data if CORS blocked
   const getVisualData = () => {
       let bass = 0, mid = 0, high = 0;
       let rawData: Uint8Array | null = null;
@@ -197,67 +225,62 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
           const bufferLength = analyserRef.current.frequencyBinCount;
           rawData = new Uint8Array(bufferLength);
           
-          // @ts-ignore - TS sometimes complains about array types here
+          // @ts-ignore
           analyserRef.current.getByteFrequencyData(rawData);
           
-          // Check if data is empty (all zeros) which implies CORS silence
           let sum = 0;
           for(let i=0; i<bufferLength; i++) sum += rawData[i];
           
           if (sum > 0) {
-              // We have real data!
-              // Lower buckets usually contain bass
-              const bassSlice = rawData.slice(0, 10);
-              const midSlice = rawData.slice(10, 50);
-              const highSlice = rawData.slice(50, 100);
+              // Extract bands more precisely for visual impact
+              // Bass: 0-10 (~0-350Hz in typical FFT)
+              // Mid: 10-80
+              // High: 80-255
+              const bassSlice = rawData.slice(0, 8); 
+              const midSlice = rawData.slice(10, 60);
+              const highSlice = rawData.slice(80, 200);
               
-              bass = bassSlice.reduce((a, b) => a + b, 0) / bassSlice.length;
+              bass = bassSlice.reduce((a, b) => a + b, 0) / bassSlice.length * 1.2; // Boost bass
               mid = midSlice.reduce((a, b) => a + b, 0) / midSlice.length;
-              high = highSlice.reduce((a, b) => a + b, 0) / highSlice.length;
+              high = highSlice.reduce((a, b) => a + b, 0) / highSlice.length * 1.5; // Boost high
+              
+              // Cap at 255
+              bass = Math.min(255, bass);
+              mid = Math.min(255, mid);
+              high = Math.min(255, high);
+
               return { bass, mid, high, rawData };
           }
       }
 
-      // 2. Fallback: Rhythm Simulation (Faster BPM based)
-      // This runs if analyser is null OR if data is all zeros (CORS)
+      // 2. Fallback: Rhythm Simulation (Improved)
       const now = Date.now();
-      
-      // Simulate Kick Drum (130 BPM = ~461ms per beat)
-      const beatInterval = 461;
+      const beatInterval = 461; // ~130 BPM
       const beatOffset = now % beatInterval;
       const beatProgress = beatOffset / beatInterval;
       
-      // Sharper attack, fast decay for punchier feel
       let kick = 0;
-      if (beatProgress < 0.1) {
-          kick = 255 * (beatProgress * 10); // Attack
+      if (beatProgress < 0.15) {
+          kick = 255 * (beatProgress / 0.15); 
       } else {
-          // Faster decay curve (multiply by 4 instead of 2)
-          kick = 255 * Math.max(0, 1 - (beatProgress - 0.1) * 4); 
+          kick = 255 * Math.max(0, 1 - (beatProgress - 0.15) * 3); 
       }
 
-      // Secondary rhythms (Hi-hats on off-beats)
-      // Every half beat
-      const hat = (now % (beatInterval/2)) < 50 ? 180 : 0;
-      
-      // Add noise/jitter that is time-dependent to look organic
-      const noise = (Math.sin(now / 30) + 1) * 20;
+      const hat = (now % (beatInterval/4)) < 50 ? 200 : 0; // Fast hi-hats
+      const noise = (Math.sin(now / 30) + 1) * 30;
 
-      bass = Math.min(255, kick * 0.9 + noise);
-      mid = Math.min(255, kick * 0.5 + hat + noise);
-      high = Math.min(255, hat + noise + Math.random() * 30);
+      bass = Math.min(255, kick * 0.95 + noise);
+      mid = Math.min(255, kick * 0.4 + hat + noise);
+      high = Math.min(255, hat * 1.2 + noise + Math.random() * 40);
 
-      // Generate fake raw data array for the spectrum visualizer
-      if (!rawData) rawData = new Uint8Array(32).fill(0);
-      for(let i=0; i<32; i++) {
-          // Create a wave that moves faster
-          const val = (Math.sin(i * 0.5 + now/50) + 1) * 100;
-          // Mix beat into the wave
-          let modifier = mid;
-          if (i < 5) modifier = bass;
-          if (i > 20) modifier = high;
-          
-          rawData[i] = Math.min(255, val + modifier * 0.6);
+      // Generate fake raw data array for bar visualizer
+      if (!rawData) rawData = new Uint8Array(40).fill(0);
+      for(let i=0; i<40; i++) {
+          const wave = Math.sin(i * 0.3 + now/100) * 50 + 50;
+          let mod = mid;
+          if (i < 5) mod = bass;
+          if (i > 30) mod = high;
+          rawData[i] = Math.min(255, wave + mod * 0.8);
       }
 
       return { bass, mid, high, rawData };
@@ -273,18 +296,16 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
     const handlePlayback = async () => {
         try {
             if (isPlaying) {
-                // Initialize Audio Context carefully
                 if (!audioContextRef.current) {
                     try {
                         const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
                         const ctx = new AudioContext();
                         audioContextRef.current = ctx;
                         const analyser = ctx.createAnalyser();
-                        analyser.fftSize = 128; // Smaller FFT size for faster reaction
-                        analyser.smoothingTimeConstant = 0.5; // Lower = more responsive/jumpy (Default 0.8)
+                        analyser.fftSize = 256; 
+                        analyser.smoothingTimeConstant = 0.6; 
                         analyserRef.current = analyser;
                         
-                        // Prevent connecting source twice
                         if (!sourceRef.current) {
                            const source = ctx.createMediaElementSource(audio);
                            sourceRef.current = source;
@@ -292,7 +313,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                            analyser.connect(ctx.destination);
                         }
                     } catch (e) {
-                        console.warn("Audio Context Init Failed (CORS or Browser Restriction), falling back to simulation.", e);
+                        console.warn("Audio Context Init Failed, using simulation.", e);
                     }
                 }
                 
@@ -301,9 +322,8 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                 }
 
                 const playPromise = audio.play();
-                if (playPromise !== undefined) {
-                    await playPromise;
-                }
+                if (playPromise !== undefined) await playPromise;
+                
                 startVisualizer();
             } else {
                 audio.pause();
@@ -324,50 +344,67 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
       }
   }, [isMuted]);
 
-  // Bottom Bar Visualizer Loop
+  // Main Loop that drives both Local Bars and Global Background
   const startVisualizer = () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       
       const draw = () => {
-          if (!canvasRef.current) return;
-          const ctx = canvasRef.current.getContext('2d');
-          if (!ctx) return;
-
-          const width = canvasRef.current.width;
-          const height = canvasRef.current.height;
-          ctx.clearRect(0, 0, width, height);
+          // 1. Dispatch Event for Global Background (Optimization: avoid React State)
+          const { bass, mid, high, rawData } = getVisualData();
           
-          const { rawData } = getVisualData();
-          
-          // Downsample data to match bar count (approx 40 bars)
-          const barCount = 40;
-          const barWidth = width / barCount;
-          const gap = 2;
+          // Emit event for App.tsx to pick up
+          const event = new CustomEvent('audio-visual-data', { 
+              detail: { bass, mid, high } 
+          });
+          window.dispatchEvent(event);
 
-          for (let i = 0; i < barCount; i++) {
-              let value = 0;
-              if (rawData && rawData.length > 0) {
-                   // Map i to index in rawData
-                   const index = Math.floor((i / barCount) * (rawData.length / 2)); 
-                   value = rawData[index] || 0;
-              }
-              
-              const percent = value / 255;
-              // Make bars bounce from bottom
-              const barHeight = Math.max(4, percent * height); 
+          // 2. Draw Bottom Bar Visualizer
+          if (canvasRef.current) {
+              const ctx = canvasRef.current.getContext('2d');
+              if (ctx) {
+                  const width = canvasRef.current.width;
+                  const height = canvasRef.current.height;
+                  ctx.clearRect(0, 0, width, height);
+                  
+                  const barCount = 50;
+                  const barWidth = width / barCount;
+                  const gap = 2;
 
-              const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
-              gradient.addColorStop(0, '#ccff00');
-              gradient.addColorStop(1, '#00ffff');
+                  for (let i = 0; i < barCount; i++) {
+                      let value = 0;
+                      if (rawData && rawData.length > 0) {
+                           // Map i to index in rawData loosely
+                           const index = Math.floor((i / barCount) * (rawData.length / 2)); 
+                           value = rawData[index] || 0;
+                      }
+                      
+                      const percent = value / 255;
+                      // Dynamic bar height with minimum
+                      const barHeight = Math.max(3, percent * height); 
 
-              ctx.fillStyle = gradient;
-              // Use roundRect if supported, else rect
-              if (ctx.roundRect) {
-                 ctx.beginPath();
-                 ctx.roundRect(i * barWidth, height - barHeight, barWidth - gap, barHeight, [2, 2, 0, 0]);
-                 ctx.fill();
-              } else {
-                 ctx.fillRect(i * barWidth, height - barHeight, barWidth - gap, barHeight);
+                      const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
+                      gradient.addColorStop(0, '#ccff00'); // Lime
+                      gradient.addColorStop(0.5, '#ffffff');
+                      gradient.addColorStop(1, '#00ffff'); // Cyan
+
+                      ctx.fillStyle = gradient;
+                      // Glow effect
+                      ctx.shadowBlur = 5;
+                      ctx.shadowColor = '#ccff00';
+                      
+                      const x = i * barWidth;
+                      const y = height - barHeight;
+                      
+                      // Rounded bars
+                      if (ctx.roundRect) {
+                         ctx.beginPath();
+                         ctx.roundRect(x, y, barWidth - gap, barHeight, [2, 2, 0, 0]);
+                         ctx.fill();
+                      } else {
+                         ctx.fillRect(x, y, barWidth - gap, barHeight);
+                      }
+                  }
+                  ctx.shadowBlur = 0; // Reset
               }
           }
 
@@ -378,6 +415,8 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
 
   const stopVisualizer = () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      // Reset background when stopped
+      window.dispatchEvent(new CustomEvent('audio-visual-data', { detail: { bass: 0, mid: 0, high: 0 } }));
   };
 
   const handleTimeUpdate = () => {
@@ -422,11 +461,10 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
 
   return (
     <>
-        {/* DRAGGABLE SPIRIT CHARACTER (Passes Data Fetcher) */}
+        {/* DRAGGABLE SPIRIT CHARACTER */}
         <DraggableSpirit isPlaying={isPlaying} getVisualData={getVisualData} />
 
         {/* BOTTOM PLAYER BAR */}
-        {/* Adjusted bottom position for mobile to sit above navigation bar */}
         <div className="fixed bottom-[80px] lg:bottom-6 left-1/2 transform -translate-x-1/2 w-[95%] max-w-6xl glass-high rounded-[2rem] z-50 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between shadow-[0_20px_60px_rgba(0,0,0,0.8)] border-t border-white/20 overflow-hidden transition-all duration-300">
         
             <audio 
@@ -472,7 +510,6 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                     <p className="text-gray-400 text-xs truncate">
                         {currentSong.artist}
                     </p>
-                    {/* Mobile Only Progress Text */}
                     <div className="md:hidden flex items-center gap-1 text-[10px] text-gray-500 font-mono mt-0.5">
                         <span>{formatTime(currentTime)}</span>
                         <span>/</span>
@@ -480,7 +517,6 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                     </div>
                 </div>
 
-                {/* Mobile Play Button (Right Aligned) */}
                 <button 
                     onClick={(e) => { e.stopPropagation(); onPlayPause(); }}
                     className="md:hidden w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-lg active:scale-95 transition-transform"
@@ -489,7 +525,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                 </button>
             </div>
 
-            {/* 2. Controls (Desktop Only mainly) */}
+            {/* 2. Controls */}
             <div className="hidden md:flex flex-col items-center w-1/2 px-4 relative z-10">
                 <div className="flex items-center gap-6 mb-2">
                 <button className="text-gray-400 hover:text-white hover:scale-110 transition-all">
@@ -521,11 +557,12 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                     className="flex-1 h-full relative group cursor-pointer flex items-end"
                     onClick={handleSeek}
                     >
+                    {/* Visualizer Canvas as Progress Background */}
                     <canvas 
                         ref={canvasRef} 
                         width={300} 
                         height={32} 
-                        className={`w-full h-full absolute bottom-0 left-0 transition-opacity duration-500 pointer-events-none ${isPlaying ? 'opacity-100' : 'opacity-0'}`}
+                        className={`w-full h-full absolute bottom-0 left-0 transition-opacity duration-500 pointer-events-none opacity-50 mask-image-bottom`}
                     />
                     <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden absolute bottom-2 left-0 group-hover:h-2 transition-all z-10">
                         <div 
@@ -538,7 +575,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                 </div>
             </div>
 
-            {/* 3. Volume (Desktop Only) */}
+            {/* 3. Volume */}
             <div className="hidden md:flex items-center justify-end w-1/4 gap-4 relative z-10">
                 <button onClick={onToggleLyrics} className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 transition-colors group">
                     <Mic2 className="w-5 h-5 text-gray-400 group-hover:text-brand-lime" />
@@ -551,7 +588,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
                 </div>
             </div>
             
-            {/* Mobile Progress Bar (Absolute Bottom) */}
+            {/* Mobile Progress Bar */}
             <div className="md:hidden absolute bottom-0 left-0 w-full h-1 bg-white/10" onClick={handleSeek}>
                 <div 
                     className="h-full bg-brand-lime shadow-[0_0_10px_var(--brand-primary)]"
