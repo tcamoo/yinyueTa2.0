@@ -1,6 +1,5 @@
 
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Player } from './components/Player';
 import { LyricsOverlay } from './components/LyricsOverlay';
@@ -12,7 +11,7 @@ import { Library } from './views/Library';
 import { MVView } from './views/MV';
 import { DJView } from './views/DJ';
 import { ArticlesView } from './views/Articles';
-import { SoftwareView } from './views/Software'; // Import SoftwareView
+import { SoftwareView } from './views/Software'; 
 import { View, Song, Playlist, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, SoftwareItem, NavItem } from './types';
 import { MOCK_SONGS, MOCK_PLAYLISTS, THEMES, MOCK_MVS, GALLERY_ITEMS, MOCK_DJ_SETS, MOCK_ARTICLES, DEFAULT_HEADERS, MOCK_SOFTWARE, DEFAULT_NAV_ITEMS } from './constants';
 import { cloudService } from './services/cloudService';
@@ -33,23 +32,23 @@ const App: React.FC = () => {
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(GALLERY_ITEMS);
   const [djSets, setDjSets] = useState<DJSet[]>(MOCK_DJ_SETS);
   const [articles, setArticles] = useState<Article[]>(MOCK_ARTICLES);
-  const [softwareItems, setSoftwareItems] = useState<SoftwareItem[]>(MOCK_SOFTWARE); // New State
+  const [softwareItems, setSoftwareItems] = useState<SoftwareItem[]>(MOCK_SOFTWARE);
   const [pageHeaders, setPageHeaders] = useState<PageHeaders>(DEFAULT_HEADERS);
-  const [navItems, setNavItems] = useState<NavItem[]>(DEFAULT_NAV_ITEMS); // New Nav State
+  const [navItems, setNavItems] = useState<NavItem[]>(DEFAULT_NAV_ITEMS);
   
-  // Navigation State
   const [currentArticle, setCurrentArticle] = useState<Article | null>(null);
-  
-  // Theme State
   const [currentTheme, setCurrentTheme] = useState<Theme>(THEMES[0]);
 
-  // Notifications
+  // Visualizer Refs (Direct DOM manipulation for performance)
+  const blob1Ref = useRef<HTMLDivElement>(null);
+  const blob2Ref = useRef<HTMLDivElement>(null);
+  const blob3Ref = useRef<HTMLDivElement>(null);
+
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   const addNotification = (type: NotificationType, message: string) => {
      const id = Date.now().toString() + Math.random();
      setNotifications(prev => [...prev, { id, type, message }]);
-     // Auto dismiss
      setTimeout(() => {
         setNotifications(prev => prev.filter(n => n.id !== id));
      }, 4000);
@@ -59,14 +58,12 @@ const App: React.FC = () => {
      setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  // --- INITIAL DATA LOAD ---
   useEffect(() => {
     const initData = async () => {
       setIsLoading(true);
       const cloudData = await cloudService.loadData();
       
       if (cloudData) {
-        console.log("Loaded data from Cloudflare KV");
         if (cloudData.songs) setUserSongs(cloudData.songs);
         if (cloudData.mvs) setMvs(cloudData.mvs);
         if (cloudData.galleryItems) setGalleryItems(cloudData.galleryItems);
@@ -75,7 +72,7 @@ const App: React.FC = () => {
         if (cloudData.playlists) setPlaylists(cloudData.playlists);
         if (cloudData.softwareItems) setSoftwareItems(cloudData.softwareItems);
         if (cloudData.pageHeaders) setPageHeaders(cloudData.pageHeaders);
-        if (cloudData.navItems) setNavItems(cloudData.navItems); // Load Nav config
+        if (cloudData.navItems) setNavItems(cloudData.navItems);
         if (cloudData.themeId) {
           const t = THEMES.find(t => t.id === cloudData.themeId);
           if(t) setCurrentTheme(t);
@@ -87,7 +84,6 @@ const App: React.FC = () => {
     initData();
   }, []);
 
-  // Listen for playback time updates
   useEffect(() => {
       const handleTimeUpdate = (e: CustomEvent<number>) => {
           setPlaybackTime(e.detail);
@@ -96,7 +92,37 @@ const App: React.FC = () => {
       return () => window.removeEventListener('music-time-update' as any, handleTimeUpdate);
   }, []);
 
-  // Pause music if entering MV mode
+  // --- GLOBAL AUDIO VISUALIZER LISTENER ---
+  // Listens for 'audio-visual-data' from Player.tsx and updates background blobs directly
+  useEffect(() => {
+      const handleAudioData = (e: CustomEvent<{ bass: number, mid: number, high: number }>) => {
+          const { bass, mid, high } = e.detail;
+          
+          // Apply transforms directly to refs to avoid React re-renders (60fps)
+          if (blob1Ref.current) {
+              // Bass heavy blob (Secondary color)
+              const scale = 1 + (bass / 255) * 0.4;
+              blob1Ref.current.style.transform = `scale(${scale}) translate(-50px, 50px)`;
+              blob1Ref.current.style.opacity = `${0.1 + (bass / 255) * 0.3}`;
+          }
+          if (blob2Ref.current) {
+              // Mid heavy blob (Primary color)
+              const scale = 1 + (mid / 255) * 0.3;
+              blob2Ref.current.style.transform = `scale(${scale}) translate(40px, -40px)`;
+              blob2Ref.current.style.opacity = `${0.1 + (mid / 255) * 0.3}`;
+          }
+          if (blob3Ref.current) {
+               // Center accent (High freq)
+              const scale = 0.9 + (high / 255) * 0.5;
+              blob3Ref.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
+              blob3Ref.current.style.opacity = `${0.05 + (high / 255) * 0.4}`;
+          }
+      };
+
+      window.addEventListener('audio-visual-data' as any, handleAudioData);
+      return () => window.removeEventListener('audio-visual-data' as any, handleAudioData);
+  }, []);
+
   useEffect(() => {
     if (currentView === View.MV) {
       setIsPlaying(false);
@@ -208,7 +234,6 @@ const App: React.FC = () => {
             articles={articles}
             setArticles={setArticles}
             playlists={playlists}
-            // Pass Software Props
             softwareItems={softwareItems}
             setSoftwareItems={setSoftwareItems}
             onPlaySong={handlePlaySong}
@@ -217,8 +242,8 @@ const App: React.FC = () => {
             pageHeaders={pageHeaders}
             setPageHeaders={setPageHeaders}
             notify={addNotification}
-            navItems={navItems} // Pass Nav
-            setNavItems={setNavItems} // Pass SetNav
+            navItems={navItems} 
+            setNavItems={setNavItems} 
           />
         );
       default:
@@ -264,32 +289,37 @@ const App: React.FC = () => {
     >
       <NotificationContainer notifications={notifications} onDismiss={removeNotification} />
 
+      {/* DYNAMIC BACKGROUND */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
          <div className="absolute inset-0 bg-noise opacity-[0.05]"></div>
+         
+         {/* Blob 1: Secondary (Bass React) */}
          <div 
-           className={`absolute top-[-20%] right-[-10%] w-[80vw] h-[80vw] rounded-full blur-[100px] mix-blend-screen transition-all duration-[2000ms] cubic-bezier(0.4, 0, 0.2, 1)`}
+           ref={blob1Ref}
+           className="absolute top-[-20%] right-[-10%] w-[80vw] h-[80vw] rounded-full blur-[100px] mix-blend-screen transition-transform duration-100 ease-out will-change-transform"
            style={{ 
              background: `radial-gradient(circle, ${currentTheme.colors.secondary} 0%, transparent 60%)`,
-             transform: isPlaying ? 'scale(1.2) translate(-50px, 50px)' : 'scale(1)',
-             opacity: isPlaying ? 0.35 : 0.1,
-             animation: isPlaying ? 'blob-slow 5s infinite alternate' : 'blob-slow 20s infinite alternate'
+             opacity: 0.1,
            }} 
          />
+         
+         {/* Blob 2: Primary (Mid React) */}
          <div 
-           className={`absolute bottom-[-20%] left-[-10%] w-[80vw] h-[80vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-[2000ms] cubic-bezier(0.4, 0, 0.2, 1)`}
+           ref={blob2Ref}
+           className="absolute bottom-[-20%] left-[-10%] w-[80vw] h-[80vw] rounded-full blur-[120px] mix-blend-screen transition-transform duration-100 ease-out will-change-transform"
            style={{ 
              background: `radial-gradient(circle, ${currentTheme.colors.primary} 0%, transparent 60%)`,
-             transform: isPlaying ? 'scale(1.4) translate(40px, -40px)' : 'scale(1)',
-             opacity: isPlaying ? 0.35 : 0.1,
-             animation: isPlaying ? 'blob-slow 7s infinite alternate-reverse' : 'blob-slow 25s infinite alternate-reverse'
+             opacity: 0.1,
            }} 
          />
+         
+         {/* Blob 3: Accent (High React) */}
          <div 
-           className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] h-[60vw] rounded-full blur-[80px] transition-all duration-[800ms] ease-out mix-blend-overlay`}
+           ref={blob3Ref}
+           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] h-[60vw] rounded-full blur-[80px] mix-blend-overlay transition-transform duration-75 ease-out will-change-transform"
            style={{
              background: `radial-gradient(circle, ${currentTheme.colors.accent} 0%, transparent 60%)`,
-             opacity: isPlaying ? 0.4 : 0.05,
-             transform: isPlaying ? 'translate(-50%, -50%) scale(1.15)' : 'translate(-50%, -50%) scale(0.9)',
+             opacity: 0.05,
            }}
          />
       </div>
