@@ -124,15 +124,6 @@ export interface Theme {
   previewColor: string;
 }
 
-export interface StorageConfig {
-  provider: 'R2' | 'S3' | 'MinIO';
-  endpoint: string;
-  bucket: string;
-  accessKey: string;
-  secretKey: string;
-  publicUrlBase: string;
-}
-
 export interface PageHeaderConfig {
   title: string;
   subtitle: string;
