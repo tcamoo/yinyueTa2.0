@@ -195,6 +195,7 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
       if (analyserRef.current) {
           const bufferLength = analyserRef.current.frequencyBinCount;
           rawData = new Uint8Array(bufferLength);
+          // @ts-ignore
           analyserRef.current.getByteFrequencyData(rawData);
           
           // Calculate bands
