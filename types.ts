@@ -9,6 +9,7 @@ export enum View {
   PLAYLISTS = 'PLAYLISTS',
   DJ = 'DJ',
   ARTICLES = 'ARTICLES',
+  SOFTWARE = 'SOFTWARE', // New View
 }
 
 export interface Song {
@@ -50,7 +51,7 @@ export interface MV {
   views: number;
   tags: string[];
   category?: string;
-  isFeatured?: boolean; // New field for homepage customization
+  isFeatured?: boolean; 
 }
 
 export interface Playlist {
@@ -89,10 +90,25 @@ export interface Article {
   author: string;
   coverUrl: string;
   date: string;
-  mood: string; // Hex color
+  mood: string; 
   linkedSongId?: string;
   tags: string[];
   style?: ArticleContentStyle;
+}
+
+// New Interface for Software/Resources
+export interface SoftwareItem {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  platform: 'win' | 'mac' | 'linux' | 'mobile' | 'cloud';
+  size: string;
+  provider: 'r2' | 'aliyun' | 'onedrive' | 'google' | 'other';
+  downloadUrl: string;
+  iconUrl?: string; // Optional custom icon
+  updateDate: string;
+  isOfficial?: boolean;
 }
 
 export interface Theme {
@@ -121,7 +137,7 @@ export interface PageHeaderConfig {
   title: string;
   subtitle: string;
   description: string;
-  featuredItemId?: string; // For setting a hero song/set on Charts/DJ pages
+  featuredItemId?: string; 
 }
 
 export type PageHeaders = Record<string, PageHeaderConfig>;
