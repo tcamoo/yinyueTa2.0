@@ -1,5 +1,4 @@
 
-
 // This service communicates with the Worker API endpoints defined in worker.js
 
 export interface AppData {
