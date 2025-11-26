@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem, NavItem } from '../types';
@@ -28,8 +27,8 @@ interface LibraryProps {
   pageHeaders: PageHeaders;
   setPageHeaders: React.Dispatch<React.SetStateAction<PageHeaders>>;
   notify: (type: NotificationType, message: string) => void;
-  navItems: NavItem[]; // New prop
-  setNavItems: React.Dispatch<React.SetStateAction<NavItem[]>>; // New prop
+  navItems: NavItem[]; 
+  setNavItems: React.Dispatch<React.SetStateAction<NavItem[]>>; 
 }
 
 export const Library: React.FC<LibraryProps> = ({ 
@@ -50,28 +49,22 @@ export const Library: React.FC<LibraryProps> = ({
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
   
-  // Tabs
   const [activeTab, setActiveTab] = useState<'media' | 'dj' | 'gallery' | 'articles' | 'decoration' | 'theme' | 'netdisk' | 'nav'>('media');
   const [mediaSubTab, setMediaSubTab] = useState<'audio' | 'video'>('audio');
   
-  // Modals & Forms
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Editing State
   const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingType, setEditingType] = useState<'audio' | 'video' | 'dj' | 'gallery' | 'article'>('audio');
   
-  // Cloud State
   const [isSyncing, setIsSyncing] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'missing_config' | 'auth_error' | 'offline'>('connected');
   const [adminKey, setAdminKey] = useState('');
 
-  // Article Editor Refs
   const articleContentRef = useRef<HTMLTextAreaElement>(null);
 
-  // Form Data
   const [formData, setFormData] = useState({
       title: '',
       artist: '', 
@@ -90,7 +83,6 @@ export const Library: React.FC<LibraryProps> = ({
       videoUrl: ''
   });
 
-  // Page Header Editing
   const [selectedDecorPage, setSelectedDecorPage] = useState<View>(View.HOME);
   const [decorForm, setDecorForm] = useState({
       title: '',
@@ -98,7 +90,6 @@ export const Library: React.FC<LibraryProps> = ({
       description: ''
   });
 
-  // --- AUTH CHECK ---
   useEffect(() => {
      const checkAuth = async () => {
          const savedKey = cloudService.getAdminKey();
@@ -166,7 +157,6 @@ export const Library: React.FC<LibraryProps> = ({
       setTimeout(() => setIsSyncing(false), 800);
   };
 
-  // --- EDITOR HELPERS (Rich Text Lite) ---
   const insertAtCursor = (text: string) => {
       if (articleContentRef.current) {
           const start = articleContentRef.current.selectionStart;
@@ -175,7 +165,6 @@ export const Library: React.FC<LibraryProps> = ({
           const newVal = currentVal.substring(0, start) + text + currentVal.substring(end);
           setFormData({...formData, content: newVal});
           
-          // Reset cursor
           setTimeout(() => {
               if (articleContentRef.current) {
                   articleContentRef.current.selectionStart = articleContentRef.current.selectionEnd = start + text.length;
@@ -197,7 +186,6 @@ export const Library: React.FC<LibraryProps> = ({
               notify('info', '正在上传图片...');
               const url = await cloudService.uploadFile(file);
               if (url) {
-                  // Insert HTML image tag for better control
                   insertAtCursor(`\n<img src="${url}" class="w-full rounded-xl my-4 shadow-lg" alt="image" />\n`);
                   notify('success', '图片已插入');
               } else {
@@ -219,7 +207,6 @@ export const Library: React.FC<LibraryProps> = ({
       }
   };
 
-  // --- NAV MANAGEMENT LOGIC ---
   const handleNavChange = (id: View, field: 'label' | 'subLabel', value: string) => {
       setNavItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
@@ -236,7 +223,6 @@ export const Library: React.FC<LibraryProps> = ({
           return;
       }
       
-      // Reassign order
       const finalItems = newItems.map((item, idx) => ({ ...item, order: idx }));
       setNavItems(finalItems);
   };
@@ -246,7 +232,6 @@ export const Library: React.FC<LibraryProps> = ({
       notify('success', '导航菜单已更新');
   };
 
-  // --- CRUD OPERATIONS ---
   const resetForm = () => {
       setFormData({ 
           title: '', artist: '', url: '', cover: '', desc: '', tag: '', duration: '', bpm: '128', 
@@ -274,7 +259,7 @@ export const Library: React.FC<LibraryProps> = ({
       
       const form = { ...formData };
       form.title = item.title || '';
-      form.cover = item.coverUrl || item.imageUrl || ''; // Gallery uses imageUrl
+      form.cover = item.coverUrl || item.imageUrl || ''; 
       
       if (type === 'article') {
           form.artist = item.author;
@@ -300,7 +285,6 @@ export const Library: React.FC<LibraryProps> = ({
           form.duration = item.duration;
       } else if (type === 'gallery') {
           form.artist = item.photographer;
-          // cover is already mapped
       }
       setFormData(form);
       setIsModalOpen(true);
@@ -384,7 +368,7 @@ export const Library: React.FC<LibraryProps> = ({
               title: formData.title,
               photographer: formData.artist,
               imageUrl: formData.cover,
-              spanClass: 'col-span-1 row-span-1' // Default span
+              spanClass: 'col-span-1 row-span-1'
           };
           const next = editMode ? galleryItems.map(g => g.id === editingId ? newItem : g) : [newItem, ...galleryItems];
           setGalleryItems(next);
@@ -424,7 +408,6 @@ export const Library: React.FC<LibraryProps> = ({
       syncToCloud(updatedData);
   };
 
-  // --- DECORATION LOGIC ---
   useEffect(() => {
       if (pageHeaders[selectedDecorPage]) {
           setDecorForm({
@@ -442,7 +425,6 @@ export const Library: React.FC<LibraryProps> = ({
       syncToCloud({ pageHeaders: next });
   };
 
-  // --- LOGIN SCREEN ---
   if (!isAuthenticated) return (
       <div className="h-screen flex items-center justify-center">
           <form onSubmit={handleLogin} className="w-80 space-y-4 text-center">
@@ -456,8 +438,6 @@ export const Library: React.FC<LibraryProps> = ({
 
   return (
     <div className="pb-40 animate-in fade-in duration-500 min-h-screen">
-      
-      {/* HEADER */}
       <header className="flex justify-between items-end mb-8 border-b border-white/10 pb-6">
           <div>
               <h1 className="text-4xl font-black text-white mb-2">网站管理后台</h1>
@@ -478,8 +458,6 @@ export const Library: React.FC<LibraryProps> = ({
       </header>
 
       <div className="flex flex-col lg:flex-row gap-8">
-          
-          {/* SIDEBAR NAVIGATION */}
           <nav className="w-full lg:w-64 flex flex-col gap-2">
               <button onClick={() => setActiveTab('media')} className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 transition-colors ${activeTab === 'media' ? 'bg-brand-lime text-black' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}>
                   <Database className="w-5 h-5" /> 媒体库管理
@@ -507,10 +485,7 @@ export const Library: React.FC<LibraryProps> = ({
               </button>
           </nav>
 
-          {/* CONTENT AREA */}
           <main className="flex-1 bg-white/[0.02] border border-white/5 rounded-3xl p-6 min-h-[600px]">
-              
-              {/* --- MEDIA TAB --- */}
               {activeTab === 'media' && (
                   <div>
                       <div className="flex gap-2 mb-6 border-b border-white/5 pb-4 overflow-x-auto">
@@ -543,7 +518,6 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
-              {/* --- DJ TAB --- */}
               {activeTab === 'dj' && (
                   <div>
                       <div className="flex justify-between mb-4">
@@ -570,7 +544,6 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
-              {/* --- GALLERY TAB --- */}
               {activeTab === 'gallery' && (
                   <div>
                       <div className="flex justify-between mb-4">
@@ -596,7 +569,6 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
-              {/* --- ARTICLES TAB --- */}
               {activeTab === 'articles' && (
                   <div>
                       <div className="flex justify-between mb-6">
@@ -623,7 +595,6 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
-              {/* --- DECORATION TAB --- */}
               {activeTab === 'decoration' && (
                   <div>
                       <h3 className="text-xl font-bold text-white mb-6">页面装修</h3>
@@ -660,7 +631,6 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
-               {/* --- NAV TAB --- */}
                {activeTab === 'nav' && (
                   <div>
                       <div className="flex justify-between items-center mb-6">
@@ -683,7 +653,7 @@ export const Library: React.FC<LibraryProps> = ({
                                       </button>
                                       <button 
                                         onClick={() => moveNavItem(index, 'down')}
-                                        disabled={index === navItems.length - 2} // -2 because Library is hidden from reorder
+                                        disabled={index === navItems.length - 2}
                                         className="p-1 hover:bg-white/10 rounded text-gray-500 hover:text-white disabled:opacity-30"
                                       >
                                           <ArrowDown className="w-4 h-4" />
@@ -721,12 +691,11 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
-              {/* --- THEME TAB --- */}
               {activeTab === 'theme' && (
                   <div>
                       <h3 className="text-xl font-bold text-white mb-6">全局主题风格</h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {THEMES.map(theme => (
+                          {THEMES.map((theme: Theme) => (
                               <button 
                                 key={theme.id}
                                 onClick={() => { setTheme(theme); syncToCloud({themeId: theme.id}); }}
@@ -740,7 +709,6 @@ export const Library: React.FC<LibraryProps> = ({
                   </div>
               )}
 
-              {/* --- NETDISK TAB --- */}
               {activeTab === 'netdisk' && (
                   <Netdisk 
                     notify={notify} 
@@ -752,12 +720,10 @@ export const Library: React.FC<LibraryProps> = ({
           </main>
       </div>
 
-      {/* --- UNIVERSAL EDIT MODAL --- */}
       {isModalOpen && (
           <div className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
               <div className={`bg-[#111] w-full ${editingType === 'article' ? 'max-w-5xl h-[90vh]' : 'max-w-2xl max-h-[90vh]'} flex flex-col rounded-2xl border border-white/10 shadow-2xl overflow-hidden`}>
                   
-                  {/* Modal Header */}
                   <div className="flex justify-between items-center p-6 border-b border-white/5 bg-[#161616]">
                       <h3 className="text-xl font-bold text-white">
                           {editMode ? '编辑' : '新增'} {
@@ -771,11 +737,9 @@ export const Library: React.FC<LibraryProps> = ({
                       <button onClick={() => setIsModalOpen(false)}><X className="w-6 h-6 text-gray-500 hover:text-white" /></button>
                   </div>
                   
-                  {/* Modal Body */}
                   <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                     <div className="space-y-4">
                       
-                      {/* Common Fields */}
                       <div className="grid grid-cols-2 gap-4">
                           <div>
                               <label className="text-xs text-gray-500 mb-1 block">标题</label>
@@ -787,13 +751,11 @@ export const Library: React.FC<LibraryProps> = ({
                           </div>
                       </div>
 
-                      {/* Cover Image */}
                       <div>
                           <label className="text-xs text-gray-500 mb-1 block">封面/图片 URL</label>
                           <input type="text" value={formData.cover} onChange={e => setFormData({...formData, cover: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white focus:border-brand-lime outline-none" placeholder="https://..." />
                       </div>
 
-                      {/* Type Specific Fields */}
                       {editingType === 'audio' && (
                           <>
                             <div>
@@ -850,7 +812,6 @@ export const Library: React.FC<LibraryProps> = ({
                               </div>
                               
                               <div className="bg-[#050505] rounded-xl border border-white/10 overflow-hidden">
-                                  {/* Editor Toolbar */}
                                   <div className="bg-[#1a1a1a] p-2 flex items-center gap-2 border-b border-white/5 overflow-x-auto">
                                       <button onClick={handleImageUploadForArticle} className="p-2 hover:bg-white/10 rounded text-gray-300 hover:text-brand-lime flex items-center gap-2 text-xs font-bold" title="插入图片">
                                           <ImagePlus className="w-4 h-4" /> 插入图片
@@ -881,7 +842,7 @@ export const Library: React.FC<LibraryProps> = ({
                                   <div>
                                       <label className="text-xs text-gray-500 mb-1 block">心情色调</label>
                                       <select value={formData.mood} onChange={e => setFormData({...formData, mood: e.target.value})} className="w-full bg-black border border-white/10 p-3 rounded-lg text-white">
-                                          {MOODS.map(m => <option key={m.label} value={m.color}>{m.label}</option>)}
+                                          {MOODS.map((m: {label: string, color: string}) => <option key={m.label} value={m.color}>{m.label}</option>)}
                                       </select>
                                   </div>
                               </div>
@@ -890,7 +851,6 @@ export const Library: React.FC<LibraryProps> = ({
                     </div>
                   </div>
 
-                  {/* Modal Footer */}
                   <div className="p-6 border-t border-white/5 bg-[#161616]">
                       <button onClick={handleSubmit} className="w-full py-4 bg-brand-lime text-black font-bold rounded-xl hover:bg-white transition-colors">
                           {editMode ? '保存修改' : '确认创建'}
@@ -900,7 +860,6 @@ export const Library: React.FC<LibraryProps> = ({
           </div>
       )}
 
-      {/* --- SETTINGS MODAL --- */}
       {isSettingsOpen && (
           <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur">
               <div className="bg-[#111] w-full max-w-md rounded-2xl p-8 border border-white/10">
