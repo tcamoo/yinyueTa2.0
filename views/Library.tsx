@@ -286,7 +286,7 @@ export const Library: React.FC<LibraryProps> = ({
             </div>
         </div>
         
-        <audio id="audio_${uniqueId}" src="${url}" preload="none" onended="this.parentElement.querySelector('button').click()"></audio>
+        <audio id="audio_${uniqueId}" src="${url}" preload="none" onended="this.parentElement.querySelector('button').click()" style="display:none"></audio>
     </div>
 </div>`.replace(/\n/g, ''); 
           } else if (mediaSelectorType === 'video') {
