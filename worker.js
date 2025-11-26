@@ -4,7 +4,7 @@ async function scrapePixabay(env) {
   if (!env.DB) return { success: false, message: "KV DB not bound" };
 
   const CATEGORY = "dj";
-  const PAGES_TO_SCRAPE = 10; // Increased to 10 pages to capture ~200 items (approx 20-30 per page)
+  const PAGES_TO_SCRAPE = 10; 
   let newSets = [];
   let processedIds = new Set();
 
@@ -30,7 +30,6 @@ async function scrapePixabay(env) {
       const html = await response.text();
 
       // REGEX EXTRACTION STRATEGY
-      // Matches CDN MP3 links.
       const mp3Regex = /https:\/\/cdn\.pixabay\.com\/audio\/[0-9]{4}\/[0-9]{2}\/[0-9]{2}\/audio_([a-zA-Z0-9-]+)\.mp3/g;
       let match;
       let pageCount = 0;
@@ -224,26 +223,80 @@ export default {
         } catch(e) { return new Response(`Stream Error: ${e.message}`, { status: 500, headers: corsHeaders }); }
     }
 
+    // --- DJUU PROXY: ROBUST IMPLEMENTATION ---
     if (url.pathname === '/api/djuu/stream' && request.method === 'GET') {
         const djuuId = url.searchParams.get('id');
         if (!djuuId) return new Response("Missing DJUU ID", { status: 400 });
+        
         try {
             const pageUrl = `https://www.djuu.com/play/${djuuId}.html`;
-            const pageResponse = await fetch(pageUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124 Safari/537.36', 'Referer': 'https://www.djuu.com/' } });
-            if (!pageResponse.ok) return new Response("Failed to fetch DJUU page", { status: 502 });
+            
+            // 1. Fetch the Play Page to find the MP3 Link
+            const pageResponse = await fetch(pageUrl, { 
+                headers: { 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 
+                    'Referer': 'https://www.djuu.com/' 
+                } 
+            });
+            
+            if (!pageResponse.ok) return new Response(`DJUU Page Error: ${pageResponse.status}`, { status: 502 });
             const html = await pageResponse.text();
-            const mp3Regex = /(https?:\/\/[^"']+\.(?:mp3|m4a))/i;
-            const match = html.match(mp3Regex);
-            if (!match || !match[1]) return new Response("Could not extract audio URL", { status: 404 });
-            const audioUrl = match[1];
+
+            // 2. Aggressive Regex to find MP3 link inside JS variables
+            // Pattern 1: mp3:"http://..." or file:"http://..." (Common in their players)
+            // Pattern 2: Any string ending in .mp3 or .m4a that starts with http
+            let audioUrl = null;
+
+            // Strategy A: Look for JS variable assignment
+            const varMatch = html.match(/(?:mp3|file|url)\s*[:=]\s*["']([^"']+\.(?:mp3|m4a))["']/i);
+            if (varMatch) {
+                audioUrl = varMatch[1];
+            }
+
+            // Strategy B: Look for any http link ending in media extension
+            if (!audioUrl) {
+                 const fallbackMatch = html.match(/https?:\/\/[^"'\s]+\.(?:mp3|m4a)/i);
+                 if (fallbackMatch) audioUrl = fallbackMatch[0];
+            }
+
+            if (!audioUrl) {
+                 return new Response("Could not extract audio URL from DJUU source", { status: 404 });
+            }
+
+            // Clean URL (remove JSON escaped slashes if any)
+            audioUrl = audioUrl.replace(/\\/g, '');
+
+            // 3. Proxy the Audio Stream
             const rangeHeader = request.headers.get('Range');
-            const audioHeaders = { 'Referer': 'https://www.djuu.com/', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124 Safari/537.36' };
+            const audioHeaders = { 
+                'Referer': pageUrl, // Crucial: Referer must be the play page URL
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': '*/*'
+            };
+            
             if (rangeHeader) audioHeaders['Range'] = rangeHeader;
+
             const audioResponse = await fetch(audioUrl, { headers: audioHeaders });
+            
+            // 4. Forward response with CORS headers
             const responseHeaders = new Headers(audioResponse.headers);
+            
+            // Override CORS to allow our frontend
             Object.keys(corsHeaders).forEach(k => responseHeaders.set(k, corsHeaders[k]));
-            return new Response(audioResponse.body, { status: audioResponse.status, headers: responseHeaders });
-        } catch (e) { return new Response(`Proxy Error: ${e.message}`, { status: 500 }); }
+            
+            // Ensure Content-Type is correct (sometimes proxies mess this up)
+            if (!responseHeaders.get('Content-Type')) {
+                responseHeaders.set('Content-Type', 'audio/mpeg');
+            }
+
+            return new Response(audioResponse.body, { 
+                status: audioResponse.status, 
+                headers: responseHeaders 
+            });
+
+        } catch (e) { 
+            return new Response(`DJUU Proxy Error: ${e.message}`, { status: 500 }); 
+        }
     }
 
     // SPA Fallback
