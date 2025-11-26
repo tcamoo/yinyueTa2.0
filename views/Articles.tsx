@@ -63,7 +63,8 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
 
       const artistName = linkedMedia ? ('artist' in linkedMedia ? linkedMedia.artist : linkedMedia.djName) : '';
 
-      const handlePlayLinkedMedia = () => {
+      const handlePlayLinkedMedia = (e: React.MouseEvent) => {
+          e.stopPropagation();
           if (!linkedMedia) return;
           if ('djName' in linkedMedia) {
                // Adapt DJSet to Song
@@ -95,88 +96,63 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
               </button>
 
               {/* ARTICLE HERO HEADER */}
-              <div className="relative h-[400px] lg:h-[500px] rounded-[3rem] overflow-hidden mb-8 shadow-2xl mx-4 lg:mx-0 group">
+              <div className="relative h-[500px] lg:h-[600px] rounded-[3rem] overflow-hidden mb-12 shadow-2xl mx-4 lg:mx-0 group">
                   <img src={selectedArticle.coverUrl} className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-105" alt="cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-dark-950 via-dark-950/50 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-dark-950 via-dark-950/40 to-transparent"></div>
                   
-                  <div className="absolute bottom-0 left-0 w-full p-8 lg:p-16">
-                      <div className="flex flex-wrap items-center gap-4 mb-6">
-                           <span className="px-3 py-1 rounded bg-brand-lime text-black font-black uppercase text-xs tracking-widest shadow-[0_0_15px_rgba(204,255,0,0.4)]">
-                               {selectedArticle.tags[0]}
-                           </span>
-                           <span className="flex items-center gap-2 text-gray-300 font-mono text-sm backdrop-blur-md bg-black/20 px-3 py-1 rounded-full border border-white/10">
-                               <Calendar className="w-3 h-3" /> {selectedArticle.date}
-                           </span>
-                           <span className="flex items-center gap-2 text-gray-300 font-mono text-sm backdrop-blur-md bg-black/20 px-3 py-1 rounded-full border border-white/10">
-                               <User className="w-3 h-3" /> {selectedArticle.author}
-                           </span>
+                  <div className="absolute bottom-0 left-0 w-full p-8 lg:p-16 flex flex-col justify-end h-full pointer-events-none">
+                      <div className="relative z-10 pointer-events-auto">
+                          <div className="flex flex-wrap items-center gap-4 mb-6">
+                              <span className="px-3 py-1 rounded bg-brand-lime text-black font-black uppercase text-xs tracking-widest shadow-[0_0_15px_rgba(204,255,0,0.4)]">
+                                  {selectedArticle.tags[0]}
+                              </span>
+                              <span className="flex items-center gap-2 text-gray-300 font-mono text-sm backdrop-blur-md bg-black/20 px-3 py-1 rounded-full border border-white/10">
+                                  <Calendar className="w-3 h-3" /> {selectedArticle.date}
+                              </span>
+                              <span className="flex items-center gap-2 text-gray-300 font-mono text-sm backdrop-blur-md bg-black/20 px-3 py-1 rounded-full border border-white/10">
+                                  <User className="w-3 h-3" /> {selectedArticle.author}
+                              </span>
+                          </div>
+                          <h1 className="text-4xl lg:text-7xl font-display font-black text-white leading-[1.1] drop-shadow-2xl max-w-4xl tracking-tight mb-8">
+                              {selectedArticle.title}
+                          </h1>
                       </div>
-                      <h1 className="text-4xl lg:text-7xl font-display font-black text-white leading-[1.1] drop-shadow-2xl max-w-5xl tracking-tight">
-                          {selectedArticle.title}
-                      </h1>
                   </div>
-              </div>
 
-              {/* FEATURED TRACK PLAYER (FIGURE 2 STYLE) - PLACED BELOW TITLE */}
-              {linkedMedia && (
-                  <div className="max-w-4xl mx-auto px-4 relative z-20 -mt-12 mb-16">
-                      <div className="bg-[#121212] border border-white/10 rounded-[2.5rem] p-4 lg:p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col md:flex-row items-center gap-6 md:gap-8 backdrop-blur-xl relative overflow-hidden group hover:border-white/20 transition-all">
-                          
-                          {/* Background Glow */}
-                          <div className="absolute top-0 right-0 w-64 h-64 bg-brand-lime/5 rounded-full blur-[80px] pointer-events-none group-hover:bg-brand-lime/10 transition-colors"></div>
-
-                          {/* Left: Album Art (Spinning) */}
-                          <div className="relative shrink-0">
-                              <div className={`w-32 h-32 md:w-40 md:h-40 rounded-full border-[4px] border-[#1a1a1a] shadow-2xl overflow-hidden ${isMediaPlaying ? 'animate-[spin_10s_linear_infinite]' : ''}`}>
-                                  <img src={linkedMedia.coverUrl} className="w-full h-full object-cover" alt="Album Art" />
-                              </div>
-                              {/* Center Spindle */}
-                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                  <div className="w-8 h-8 bg-[#121212] rounded-full border border-white/10 flex items-center justify-center">
-                                      <div className="w-2 h-2 bg-gray-700 rounded-full"></div>
+                  {/* EMBEDDED PLAYER CARD (Bottom Right inside Hero) */}
+                  {linkedMedia && (
+                      <div className="absolute bottom-8 right-8 z-20 pointer-events-auto animate-in slide-in-from-bottom-10 fade-in duration-700 delay-300">
+                          <div 
+                              onClick={handlePlayLinkedMedia}
+                              className="w-full max-w-[320px] bg-black/40 backdrop-blur-xl border border-white/10 p-4 rounded-2xl flex items-center gap-4 cursor-pointer hover:bg-black/60 hover:border-white/20 transition-all group/card shadow-2xl"
+                          >
+                              <div className="relative w-16 h-16 shrink-0">
+                                  <img 
+                                      src={linkedMedia.coverUrl} 
+                                      className={`w-full h-full rounded-full object-cover border-2 border-white/10 shadow-lg ${isMediaPlaying ? 'animate-spin-slow' : ''}`} 
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                      <div className="w-2 h-2 bg-black rounded-full"></div>
                                   </div>
                               </div>
-                              {/* Play Button Overlay */}
-                              <button 
-                                  onClick={handlePlayLinkedMedia}
-                                  className="absolute bottom-0 right-0 w-12 h-12 bg-white text-black rounded-full flex items-center justify-center shadow-lg hover:scale-110 hover:bg-brand-lime transition-all z-20"
-                              >
-                                  {isMediaPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
+                              
+                              <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-[10px] font-bold text-brand-lime uppercase tracking-wider bg-brand-lime/10 px-1.5 rounded">
+                                          Recommended
+                                      </span>
+                                  </div>
+                                  <h4 className="text-white font-bold truncate group-hover/card:text-brand-lime transition-colors">{linkedMedia.title}</h4>
+                                  <p className="text-xs text-gray-400 truncate">{artistName}</p>
+                              </div>
+
+                              <button className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all ${isMediaPlaying ? 'bg-brand-lime text-black' : 'bg-white text-black hover:bg-brand-lime'}`}>
+                                  {isMediaPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
                               </button>
                           </div>
-
-                          {/* Right: Info & Visualizer */}
-                          <div className="flex-1 w-full text-center md:text-left min-w-0">
-                              <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
-                                  <span className="px-2 py-0.5 bg-brand-lime text-black text-[10px] font-black uppercase tracking-widest rounded shadow-[0_0_10px_rgba(204,255,0,0.3)]">Now Playing</span>
-                                  <span className="text-xs font-mono text-gray-500">{linkedMedia.duration}</span>
-                              </div>
-                              
-                              <h3 className="text-3xl md:text-4xl font-display font-black text-white truncate mb-1">{linkedMedia.title}</h3>
-                              <p className="text-sm md:text-base text-gray-400 font-medium tracking-wide uppercase mb-6 flex items-center justify-center md:justify-start gap-2">
-                                  <span className="w-4 h-[1px] bg-gray-600"></span>
-                                  {artistName}
-                              </p>
-
-                              {/* Fake Progress / Visualizer Bar */}
-                              <div className="w-full bg-white/5 h-12 rounded-xl flex items-end gap-1 px-4 py-2 border border-white/5 relative overflow-hidden">
-                                  {/* Just a visual representation */}
-                                  {Array.from({ length: 40 }).map((_, i) => (
-                                      <div 
-                                          key={i} 
-                                          className={`flex-1 rounded-t-sm transition-all duration-300 ${isMediaPlaying ? 'bg-brand-lime' : 'bg-gray-700'}`}
-                                          style={{ 
-                                              height: isMediaPlaying ? `${20 + Math.random() * 80}%` : '20%',
-                                              opacity: isMediaPlaying ? 1 : 0.3,
-                                              animation: isMediaPlaying ? `bounceVisualizer 0.5s infinite alternate ${i * 0.05}s` : 'none'
-                                          }}
-                                      ></div>
-                                  ))}
-                              </div>
-                          </div>
                       </div>
-                  </div>
-              )}
+                  )}
+              </div>
 
               {/* ARTICLE CONTENT */}
               <div className="max-w-3xl mx-auto px-4 lg:px-0 relative z-10">
@@ -184,7 +160,6 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                       {selectedArticle.excerpt}
                   </p>
                   
-                  {/* 使用 dangerouslySetInnerHTML 渲染 HTML 内容 */}
                   <div 
                     className={`prose prose-invert ${contentSize} max-w-none prose-headings:font-display prose-headings:font-bold prose-headings:text-white prose-a:text-brand-lime hover:prose-a:text-white ${contentFont} prose-img:rounded-3xl prose-img:shadow-2xl prose-img:border prose-img:border-white/10 prose-video:rounded-3xl prose-p:text-gray-300 prose-p:leading-8 prose-p:font-light prose-p:tracking-wide [&_.not-prose]:my-16 [&_.not-prose]:mx-auto`}
                     dangerouslySetInnerHTML={{ __html: formatContent(selectedArticle.content) }}
