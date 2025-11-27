@@ -12,38 +12,62 @@ interface DJViewProps {
 }
 
 export const DJView: React.FC<DJViewProps> = ({ djSets = [], onPlaySet, currentSongId, isPlaying, headerConfig }) => {
+  // SAFETY: Filter out any potential undefined/null entries from upstream deletions
+  const safeSets = useMemo(() => {
+      return Array.isArray(djSets) ? djSets.filter(s => !!s) : [];
+  }, [djSets]);
+
   const [activeSet, setActiveSet] = useState<DJSet | null>(null);
   const [activeCategory, setActiveCategory] = useState('All');
 
-  // Logic for subsets - Safe sorting and slicing
-  const topCharts = useMemo(() => {
-     return [...(djSets || [])].sort((a, b) => (b.plays || 0) - (a.plays || 0)).slice(0, 10);
-  }, [djSets]);
-
-  const newDrops = useMemo(() => {
-     return (djSets || []).slice(0, 12); 
-  }, [djSets]);
-
-  const filteredSets = useMemo(() => {
-     if (!djSets) return [];
-     if (activeCategory === 'All') return djSets;
-     // Add optional chaining to tags to prevent crash if undefined
-     return djSets.filter(s => s.tags?.some(t => t.includes(activeCategory)));
-  }, [djSets, activeCategory]);
-
+  // Initialize active set safely
   useEffect(() => {
-      if (currentSongId && djSets) {
-          const found = djSets.find(s => s.id === currentSongId);
+      if (safeSets.length > 0 && !activeSet) {
+           // Try to find featured first, else first item
+           const featured = headerConfig?.featuredItemId ? safeSets.find(s => s.id === headerConfig.featuredItemId) : null;
+           setActiveSet(featured || safeSets[0]);
+      }
+  }, [safeSets, headerConfig]);
+
+  // Sync with global player
+  useEffect(() => {
+      if (currentSongId && safeSets.length > 0) {
+          const found = safeSets.find(s => s.id === currentSongId);
           if (found) setActiveSet(found);
       }
-  }, [currentSongId, djSets]);
+  }, [currentSongId, safeSets]);
+
+  // Derived Lists with Safety Checks
+  const topCharts = useMemo(() => {
+     return [...safeSets].sort((a, b) => (b.plays || 0) - (a.plays || 0)).slice(0, 10);
+  }, [safeSets]);
+
+  const newDrops = useMemo(() => {
+     return safeSets.slice(0, 12); 
+  }, [safeSets]);
+
+  const filteredSets = useMemo(() => {
+     if (activeCategory === 'All') return safeSets;
+     return safeSets.filter(s => s.tags && Array.isArray(s.tags) && s.tags.some(t => t.includes(activeCategory)));
+  }, [safeSets, activeCategory]);
 
   const featuredSet = useMemo(() => {
-      if (headerConfig?.featuredItemId && djSets) {
-          return djSets.find(s => s.id === headerConfig.featuredItemId);
+      if (headerConfig?.featuredItemId) {
+          return safeSets.find(s => s.id === headerConfig.featuredItemId);
       }
       return null;
-  }, [djSets, headerConfig]);
+  }, [safeSets, headerConfig]);
+
+  // Render safe check
+  if (safeSets.length === 0) {
+      return (
+          <div className="min-h-[50vh] flex flex-col items-center justify-center text-gray-500 animate-in fade-in">
+              <DiscIcon className="w-16 h-16 mb-4 opacity-20" />
+              <h2 className="text-xl font-bold">No DJ Sets Available</h2>
+              <p>Please add content in the Library.</p>
+          </div>
+      );
+  }
 
   return (
     <div className="pb-40 animate-in fade-in duration-700">
@@ -124,7 +148,7 @@ export const DJView: React.FC<DJViewProps> = ({ djSets = [], onPlaySet, currentS
                <div className="absolute inset-0 bg-noise opacity-[0.08] mix-blend-overlay"></div>
           </div>
 
-          {featuredSet ? (
+          {featuredSet && activeSet ? (
              <>
                  {/* Hero Content Overlay */}
                  <div className="relative z-10 text-center max-w-4xl px-8 mt-12">
@@ -140,16 +164,16 @@ export const DJView: React.FC<DJViewProps> = ({ djSets = [], onPlaySet, currentS
                       <div className="flex flex-col md:flex-row items-center justify-center gap-6 text-gray-300 mb-10 font-mono bg-black/40 backdrop-blur-sm py-2 px-6 rounded-full border border-white/5 inline-flex mx-auto">
                           <span className="flex items-center gap-2 text-white font-bold text-xl"><Headphones className="w-5 h-5" /> {featuredSet.djName}</span>
                           <span className="hidden md:inline text-white/20">|</span>
-                          <span className="flex items-center gap-2"><Activity className="w-4 h-4 text-brand-pink" /> {featuredSet.bpm} BPM</span>
+                          <span className="flex items-center gap-2"><Activity className="w-4 h-4 text-brand-pink" /> {featuredSet.bpm || 128} BPM</span>
                       </div>
     
                       <div className="flex justify-center">
                           <button 
                             onClick={() => onPlaySet(featuredSet)}
-                            className={`px-12 py-5 rounded-full font-black text-xl flex items-center gap-3 transition-all hover:scale-105 shadow-[0_0_40px_rgba(255,0,153,0.4)] ${isPlaying && featuredSet.id === currentSongId ? 'bg-brand-pink text-white' : 'bg-white text-black hover:bg-brand-pink hover:text-white'}`}
+                            className={`px-12 py-5 rounded-full font-black text-xl flex items-center gap-3 transition-all hover:scale-105 shadow-[0_0_40px_rgba(255,0,153,0.4)] ${isPlaying && activeSet?.id === featuredSet.id ? 'bg-brand-pink text-white' : 'bg-white text-black hover:bg-brand-pink hover:text-white'}`}
                           >
-                            {isPlaying && featuredSet.id === currentSongId ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current" />}
-                            {isPlaying && featuredSet.id === currentSongId ? "PAUSE MIX" : "PLAY MIX"}
+                            {isPlaying && activeSet?.id === featuredSet.id ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current" />}
+                            {isPlaying && activeSet?.id === featuredSet.id ? "PAUSE MIX" : "PLAY MIX"}
                           </button>
                       </div>
                  </div>
@@ -228,7 +252,7 @@ export const DJView: React.FC<DJViewProps> = ({ djSets = [], onPlaySet, currentS
                               <h4 className={`font-bold text-sm truncate ${activeSet?.id === set.id ? 'text-brand-pink' : 'text-white'}`}>{set.title}</h4>
                               <p className="text-xs text-gray-500 truncate">{set.djName}</p>
                           </div>
-                          <span className="text-xs font-mono text-gray-600">{set.bpm} BPM</span>
+                          <span className="text-xs font-mono text-gray-600">{set.bpm || 128} BPM</span>
                       </div>
                   ))}
               </div>
