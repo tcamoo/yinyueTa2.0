@@ -204,12 +204,14 @@ export default {
         try {
             let referer = 'https://google.com';
             let userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
-            
+            let cookie = '';
+
             // STRICT HEADER ENFORCEMENT FOR NETEASE
             if (strategy === 'netease' || targetUrl.includes('163.com') || targetUrl.includes('126.net')) {
                 referer = 'https://music.163.com/';
-                // Use a standard macOS User-Agent to prevent 403 Forbidden on direct link resolution
-                userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
+                // IMPORTANT: Use Netease specific UA and cookies to ensure redirection works for scraped links
+                userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+                cookie = 'os=pc; osver=Microsoft-Windows-10-Professional-build-10586-64bit; appver=2.0.3.131777; channel=netease;';
             } else if (strategy === 'pixabay') {
                 referer = 'https://pixabay.com/';
             } else if (strategy === 'djuu') {
@@ -219,6 +221,7 @@ export default {
             const proxyHeaders = new Headers();
             proxyHeaders.set('User-Agent', userAgent);
             proxyHeaders.set('Referer', referer);
+            if (cookie) proxyHeaders.set('Cookie', cookie);
             
             // Pass range header for seeking
             const range = request.headers.get('Range');
@@ -235,7 +238,9 @@ export default {
             Object.keys(corsHeaders).forEach(k => newHeaders.set(k, corsHeaders[k]));
             
             // Force content type if missing for MP3 or if Netease returns text/html on error
-            if ((targetUrl.endsWith('.mp3') || targetUrl.includes('.mp3')) && !newHeaders.has('Content-Type')) {
+            // Sometimes Netease returns 403 HTML page if blocked, we should probably check content-type
+            const contentType = newHeaders.get('Content-Type');
+            if ((targetUrl.endsWith('.mp3') || targetUrl.includes('.mp3')) && (!contentType || contentType === 'text/plain')) {
                 newHeaders.set('Content-Type', 'audio/mpeg');
             }
 
