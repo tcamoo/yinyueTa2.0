@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link as LinkIcon, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink, RefreshCcw, Play, Pause, AlertOctagon, Music2, Search, Check, Images } from 'lucide-react';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link as LinkIcon, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink, RefreshCcw, Play, Pause, AlertOctagon, Music2, Search, Check, Images, Radio } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem, NavItem } from '../types';
 import { THEMES, MOODS } from '../constants';
 import { cloudService } from '../services/cloudService';
@@ -290,22 +290,25 @@ export const Library: React.FC<LibraryProps> = ({
           if (previewAudioRef.current) {
                let url = item.fileUrl || '';
                
-               // Priority Check: If Netease ID exists, always construct a fresh proxy URL.
-               // This ensures we don't rely on potentially stale or relative URLs from the scraper.
+               // PRIORITY: If Netease ID exists, use proxy.
                if (item.neteaseId) {
                    const targetUrl = `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
                    url = `/api/proxy?strategy=netease&url=${encodeURIComponent(targetUrl)}`;
-               } 
-               // Fallback: Use generic proxy for external HTTP/HTTPS links to avoid CORS/Mixed Content in Admin
-               else if (url.startsWith('http://') || url.startsWith('https://')) {
+               } else if (!url) {
+                   // No file, No ID
+                   notify('error', '无有效播放源 (No URL or Netease ID)');
+                   setPreviewPlaying(false);
+                   return;
+               }
+
+               // Fallback proxy for direct links to avoid mixed content in admin
+               if (url.startsWith('http://') || url.startsWith('https://')) {
                    if (!url.includes('/api/proxy')) {
-                        // For generic URLs like archive.org, we use the proxy but rely on worker.js to handle headers correctly (no referer)
                         url = `/api/proxy?url=${encodeURIComponent(url)}`;
                    }
                }
                
-               // Note: If url starts with /api/proxy (relative), it's used as is.
-
+               console.log("Previewing:", url);
                previewAudioRef.current.src = url;
                previewAudioRef.current.play().catch(e => {
                    console.error("Preview Play Error:", e);
@@ -331,8 +334,10 @@ export const Library: React.FC<LibraryProps> = ({
       for(let i=0; i<total; i++) {
           const item = items[i];
           const url = 'videoUrl' in item ? item.videoUrl : item.fileUrl;
-          
-          if(url) {
+          // Skip check if using Netease ID
+          if ('neteaseId' in item && item.neteaseId) {
+             // Consider valid for now
+          } else if(url) {
               const isValid = await cloudService.validateUrl(url);
               if(!isValid) invalidIds.push(item.id);
           } else {
@@ -396,9 +401,9 @@ export const Library: React.FC<LibraryProps> = ({
       setEditMode(false);
       setEditingId(null);
       setEditingType(type);
-      if (type === 'audio') setSongForm({ title: '', artist: '', coverUrl: '', fileUrl: '', duration: '0:00' });
+      if (type === 'audio') setSongForm({ title: '', artist: '', coverUrl: '', fileUrl: '', duration: '0:00', neteaseId: '' });
       if (type === 'video') setMvForm({ title: '', artist: '', coverUrl: '', videoUrl: '', duration: '0:00', tags: [] });
-      if (type === 'dj') setDjForm({ title: '', djName: '', coverUrl: '', fileUrl: '', duration: '0:00', bpm: 128, tags: [] });
+      if (type === 'dj') setDjForm({ title: '', djName: '', coverUrl: '', fileUrl: '', duration: '0:00', bpm: 128, tags: [], neteaseId: '' });
       if (type === 'gallery') setGalleryForm({ title: '', photographer: '', imageUrl: '', spanClass: 'col-span-1 row-span-1' });
       if (type === 'article') setArticleForm({ title: '', author: '', coverUrl: '', excerpt: '', content: '', date: new Date().toISOString().split('T')[0], tags: [], mood: '#ffffff' });
       setIsModalOpen(true);
@@ -420,7 +425,13 @@ export const Library: React.FC<LibraryProps> = ({
       if (editingType === 'dj') {
            const id = editMode ? editingId! : `dj_${Date.now()}`;
            const finalCover = djForm.coverUrl?.trim() ? djForm.coverUrl : getRandomCover(id);
-           const newItem = { ...djForm, id, coverUrl: finalCover } as DJSet;
+           const newItem = { 
+               ...djForm, 
+               id, 
+               coverUrl: finalCover,
+               // Ensure tags is array
+               tags: djForm.tags || ['Club']
+           } as DJSet;
            setDjSets(prev => editMode ? prev.map(i => i.id === editingId ? newItem : i) : [newItem, ...prev]);
       }
       if (editingType === 'gallery') {
@@ -443,7 +454,6 @@ export const Library: React.FC<LibraryProps> = ({
       setIsUploading(true);
       let successCount = 0;
       
-      // Convert FileList to array for easier iteration
       const fileArray = Array.from(files);
 
       for (let i = 0; i < fileArray.length; i++) {
@@ -468,7 +478,6 @@ export const Library: React.FC<LibraryProps> = ({
 
       setIsUploading(false);
       notify('success', `批量上传完成: 成功 ${successCount}/${fileArray.length} 张`);
-      // Reset input value to allow re-uploading same files if needed
       if (e.target) e.target.value = '';
   };
 
@@ -488,7 +497,6 @@ export const Library: React.FC<LibraryProps> = ({
       }
   };
 
-  // --- EDITOR INSERTION LOGIC ---
   const insertTextAtCursor = (text: string) => {
       if (!textAreaRef.current) return;
       const start = textAreaRef.current.selectionStart;
@@ -519,7 +527,6 @@ export const Library: React.FC<LibraryProps> = ({
           const html = `<img src="${item.imageUrl}" alt="${item.title}" class="rounded-2xl w-full my-6 shadow-xl border border-white/10" />`;
           insertTextAtCursor(html);
       } else if (pickerContext === 'editor_audio') {
-          // Just set the linked song ID for the main player
           setArticleForm({ ...articleForm, linkedSongId: item.id });
           notify('success', `已关联音乐: ${item.title}`);
       } else if (pickerContext === 'editor_video') {
@@ -528,7 +535,6 @@ export const Library: React.FC<LibraryProps> = ({
       }
   };
 
-  // --- LOGIN SCREEN ---
   if (!isAuthenticated && !authLoading) {
       return (
           <div className="min-h-screen flex items-center justify-center bg-black/50 backdrop-blur-xl">
@@ -555,19 +561,15 @@ export const Library: React.FC<LibraryProps> = ({
       );
   }
   
-  // Helper to find title for editor display (Improved to check both libraries)
   const getLinkedSongTitle = (id?: string) => {
       if(!id) return null;
-      // Check Songs
       const song = songs.find(s => s.id === id);
       if(song) return `(Song) ${song.title}`;
-      // Check DJ Sets
       const dj = djSets.find(d => d.id === id);
       if(dj) return `(DJ) ${dj.title}`;
       return 'Unknown ID';
   };
 
-  // --- MAIN LAYOUT ---
   return (
     <div className="pb-40 animate-in fade-in duration-500 min-h-screen">
       
@@ -644,7 +646,6 @@ export const Library: React.FC<LibraryProps> = ({
                                </button>
                            )}
 
-                           {/* Health Check Button */}
                            <button 
                                onClick={() => {
                                    if(mediaSubTab === 'audio') handleHealthCheck(songs, '歌曲');
@@ -655,7 +656,7 @@ export const Library: React.FC<LibraryProps> = ({
                                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-red-400 rounded-lg flex items-center gap-2 font-bold transition-colors text-xs"
                            >
                                {isCheckingLinks ? <Loader2 className="w-3 h-3 animate-spin" /> : <LinkIcon className="w-3 h-3" />}
-                               检测失效链接
+                               检测失效
                            </button>
 
                            {brokenLinks.length > 0 && (
@@ -667,7 +668,7 @@ export const Library: React.FC<LibraryProps> = ({
                                   }}
                                   className="px-4 py-2 bg-red-500 hover:bg-red-400 text-white rounded-lg flex items-center gap-2 font-bold transition-colors text-xs animate-pulse shadow-lg shadow-red-500/20"
                                >
-                                  <Trash2 className="w-3 h-3" /> 一键清理失效 ({brokenLinks.length})
+                                  <Trash2 className="w-3 h-3" /> 一键清理 ({brokenLinks.length})
                                </button>
                            )}
 
@@ -699,7 +700,10 @@ export const Library: React.FC<LibraryProps> = ({
                                   </div>
                                   <div className="min-w-0">
                                       <div className={`font-bold text-sm truncate ${brokenLinks.includes(item.id) ? 'text-red-400 line-through' : 'text-white'}`}>{item.title}</div>
-                                      <div className="text-xs text-gray-500">{item.artist}</div>
+                                      <div className="text-xs text-gray-500 flex gap-2">
+                                          <span>{item.artist}</span>
+                                          {('neteaseId' in item && item.neteaseId) && <span className="text-[9px] bg-red-900/50 text-red-400 px-1 rounded flex items-center">NETEASE</span>}
+                                      </div>
                                   </div>
                               </div>
                               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -735,7 +739,7 @@ export const Library: React.FC<LibraryProps> = ({
                                           {set.neteaseId && (
                                               <div className="mt-1 flex items-center gap-1">
                                                    <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                                                   <span className="text-[9px] text-gray-500 uppercase">Netease</span>
+                                                   <span className="text-[9px] text-gray-500 uppercase">Netease ID: {set.neteaseId}</span>
                                               </div>
                                           )}
                                       </div>
@@ -747,7 +751,7 @@ export const Library: React.FC<LibraryProps> = ({
               </div>
           )}
 
-          {/* --- TAB: GALLERY --- */}
+          {/* ... GALLERY, ARTICLES, ETC. (Keep existing) ... */}
           {activeTab === 'gallery' && (
              <div className="animate-in slide-in-from-right-4 duration-300">
                  <div className="flex justify-between mb-6">
@@ -786,7 +790,6 @@ export const Library: React.FC<LibraryProps> = ({
              </div>
           )}
 
-          {/* ... ARTICLES, NETDISK, DECORATION, THEME, NAV tabs ... */}
           {activeTab === 'netdisk' && (
               <Netdisk notify={notify} softwareItems={softwareItems} setSoftwareItems={setSoftwareItems} onSync={handleSync} />
           )}
@@ -862,7 +865,7 @@ export const Library: React.FC<LibraryProps> = ({
                                           >
                                               <option value="">-- 自动 / 默认 --</option>
                                               {key === View.DJ ? (
-                                                  djSets.map(d => <option key={d.id} value={d.id}>DJ: {d.title}</option>)
+                                                  (djSets || []).map(d => <option key={d.id} value={d.id}>DJ: {d.title}</option>)
                                               ) : (
                                                   songs.map(s => <option key={s.id} value={s.id}>Song: {s.title}</option>)
                                               )}
@@ -1011,34 +1014,57 @@ export const Library: React.FC<LibraryProps> = ({
                           </div>
                       )}
 
-                      {/* File Inputs */}
+                      {/* File Inputs (Audio/DJ) - INCLUDING NETEASE ID */}
                       {(editingType === 'audio' || editingType === 'dj') && (
-                          <div>
-                              <label className="text-xs font-bold text-gray-500 uppercase">音频文件链接 (Audio URL)</label>
-                              <div className="flex gap-2">
+                          <div className="space-y-4">
+                              {/* Option A: Netease ID (Prioritized) */}
+                              <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                                  <div className="flex items-center gap-2 mb-2">
+                                      <Disc className="w-4 h-4 text-red-500" />
+                                      <label className="text-xs font-bold text-white uppercase">网易云音乐 (推荐)</label>
+                                  </div>
                                   <input 
-                                      value={editingType === 'audio' ? songForm.fileUrl : djForm.fileUrl} 
+                                      value={editingType === 'audio' ? songForm.neteaseId || '' : djForm.neteaseId || ''} 
                                       onChange={e => {
                                           const val = e.target.value;
-                                          if(editingType === 'audio') setSongForm({...songForm, fileUrl: val});
-                                          if(editingType === 'dj') setDjForm({...djForm, fileUrl: val});
+                                          if(editingType === 'audio') setSongForm({...songForm, neteaseId: val});
+                                          if(editingType === 'dj') setDjForm({...djForm, neteaseId: val});
                                       }}
-                                      className="flex-1 bg-black border border-white/10 rounded-lg p-2 text-white font-mono text-xs focus:border-brand-lime outline-none" 
-                                      placeholder="https://..."
+                                      className="w-full bg-black border border-white/10 rounded-lg p-2 text-white font-mono text-sm focus:border-red-500 outline-none" 
+                                      placeholder="输入 ID (例如: 186016)"
                                   />
-                                  <div className="relative group">
-                                      <button className="h-full px-4 bg-brand-pink text-white rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-white hover:text-black transition-colors shadow-lg">
-                                          <UploadCloud className="w-4 h-4" /> 上传/R2
-                                          <input 
-                                              type="file" 
-                                              className="absolute inset-0 opacity-0 cursor-pointer" 
-                                              accept="audio/*"
-                                              onChange={(e) => handleFileUpload(e, 'fileUrl', editingType as any)} 
-                                          />
-                                      </button>
+                                  <p className="text-[10px] text-gray-500 mt-1">
+                                      如果填写了ID，将忽略下方的音频链接，自动通过代理播放。
+                                  </p>
+                              </div>
+
+                              {/* Option B: Direct URL */}
+                              <div>
+                                  <label className="text-xs font-bold text-gray-500 uppercase">或：音频文件链接 (Direct URL)</label>
+                                  <div className="flex gap-2">
+                                      <input 
+                                          value={editingType === 'audio' ? songForm.fileUrl : djForm.fileUrl} 
+                                          onChange={e => {
+                                              const val = e.target.value;
+                                              if(editingType === 'audio') setSongForm({...songForm, fileUrl: val});
+                                              if(editingType === 'dj') setDjForm({...djForm, fileUrl: val});
+                                          }}
+                                          className="flex-1 bg-black border border-white/10 rounded-lg p-2 text-white font-mono text-xs focus:border-brand-lime outline-none" 
+                                          placeholder="https://..."
+                                      />
+                                      <div className="relative group">
+                                          <button className="h-full px-4 bg-brand-pink text-white rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-white hover:text-black transition-colors shadow-lg">
+                                              <UploadCloud className="w-4 h-4" /> 上传
+                                              <input 
+                                                  type="file" 
+                                                  className="absolute inset-0 opacity-0 cursor-pointer" 
+                                                  accept="audio/*"
+                                                  onChange={(e) => handleFileUpload(e, 'fileUrl', editingType as any)} 
+                                              />
+                                          </button>
+                                      </div>
                                   </div>
                               </div>
-                              <p className="text-[10px] text-gray-500 mt-1">支持：上传本地文件 (R2) / 外部直链 / 网易云链接。</p>
                           </div>
                       )}
 
@@ -1054,7 +1080,7 @@ export const Library: React.FC<LibraryProps> = ({
                           </div>
                       )}
                       
-                      {/* Gallery Fields - UPDATED */}
+                      {/* Gallery Fields */}
                       {editingType === 'gallery' && (
                           <div className="space-y-4">
                               <div className="relative aspect-video bg-black/50 border border-white/10 rounded-xl overflow-hidden group">
@@ -1079,7 +1105,6 @@ export const Library: React.FC<LibraryProps> = ({
                                         className="flex-1 bg-black border border-white/10 rounded-lg p-2 text-white text-xs font-mono focus:border-brand-cyan outline-none" 
                                       />
                                   </div>
-                                  <p className="text-[10px] text-gray-500 mt-1">可直接粘贴外部图片链接，或点击上方图片区域上传。</p>
                               </div>
 
                               <input value={galleryForm.title} onChange={e => setGalleryForm({...galleryForm, title: e.target.value})} placeholder="图片标题" className="w-full bg-black border border-white/10 rounded-lg p-2 text-white" />
