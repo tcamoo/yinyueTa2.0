@@ -14,14 +14,15 @@ interface PlayerProps {
 const getPlayableUrl = (song: Song | null) => {
     if (!song) return '';
     
-    // PRIORITY 1: Existing Proxy Link
-    if (song.fileUrl?.startsWith('/api/proxy')) return song.fileUrl;
-
-    // PRIORITY 2: Netease ID (Scraped Content)
+    // PRIORITY 1: Netease ID (Highest Priority for manual entries)
+    // If ID exists, we force proxy generation, effectively ignoring fileUrl if it's broken or empty
     if (song.neteaseId) {
         const targetUrl = `https://music.163.com/song/media/outer/url?id=${song.neteaseId}.mp3`;
         return `/api/proxy?strategy=netease&url=${encodeURIComponent(targetUrl)}`;
     }
+
+    // PRIORITY 2: Existing Proxy Link (from scraper)
+    if (song.fileUrl?.startsWith('/api/proxy')) return song.fileUrl;
 
     // PRIORITY 3: External URL (Archive.org, R2 public links, direct MP3s)
     // We force proxy to bypass CORS issues which break the AudioContext (Visualizer)
