@@ -49,15 +49,15 @@ const FALLBACK_LIBRARY = [
     }
 ];
 
-// Reliable Netease Playlist IDs (Electronic/Club/Dance)
+// Reliable Netease Playlist IDs (Electronic/Club/Dance/DJ)
 const HOT_PLAYLIST_IDS = [
-    "924376402",  // Electronic Hot
-    "2075677249", // Club Life
-    "444267215",  // Deep House
-    "3778678",    // Hot List
-    "2829883282", // Driving
-    "3136952023", // Private Club
-    "5212696770"  // Rooftop Bar
+    "3001923057", // 蹦迪 (Clubbing)
+    "452968369",  // 驾车 (Driving/Electronic)
+    "2122849503", // 百大DJ (Top 100 DJs)
+    "6816550064", // Hardstyle/Techno
+    "2829883282", // Driving Electronic
+    "5212696770", // Rooftop Bar
+    "7382662828"  // Deep House 
 ];
 
 // --- HELPER: PROXY URL GENERATOR ---
