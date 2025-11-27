@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link as LinkIcon, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink, RefreshCcw, Play, Pause, AlertOctagon, Music2, Search, Check } from 'lucide-react';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link as LinkIcon, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink, RefreshCcw, Play, Pause, AlertOctagon, Music2, Search, Check, Images } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem, NavItem } from '../types';
 import { THEMES, MOODS } from '../constants';
 import { cloudService } from '../services/cloudService';
@@ -163,6 +164,9 @@ export const Library: React.FC<LibraryProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
+  // Batch Upload Ref
+  const batchInputRef = useRef<HTMLInputElement>(null);
+
   // Picker State
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerType, setPickerType] = useState<'image' | 'audio' | 'video'>('image');
@@ -295,6 +299,7 @@ export const Library: React.FC<LibraryProps> = ({
                // Fallback: Use generic proxy for external HTTP/HTTPS links to avoid CORS/Mixed Content in Admin
                else if (url.startsWith('http://') || url.startsWith('https://')) {
                    if (!url.includes('/api/proxy')) {
+                        // For generic URLs like archive.org, we use the proxy but rely on worker.js to handle headers correctly (no referer)
                         url = `/api/proxy?url=${encodeURIComponent(url)}`;
                    }
                }
@@ -430,6 +435,43 @@ export const Library: React.FC<LibraryProps> = ({
       notify('success', '已保存到本地，请记得点击“保存更改”同步到云端。');
   };
 
+  // --- BATCH UPLOAD FOR GALLERY ---
+  const handleBatchUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+
+      setIsUploading(true);
+      let successCount = 0;
+      
+      // Convert FileList to array for easier iteration
+      const fileArray = Array.from(files);
+
+      for (let i = 0; i < fileArray.length; i++) {
+          const file = fileArray[i];
+          try {
+              const url = await cloudService.uploadFile(file);
+              if (url) {
+                  const newItem: GalleryItem = {
+                      id: `gal_${Date.now()}_${i}`,
+                      imageUrl: url,
+                      title: file.name.split('.')[0] || 'Untitled',
+                      photographer: 'Upload',
+                      spanClass: 'col-span-1 row-span-1'
+                  };
+                  setGalleryItems(prev => [newItem, ...prev]);
+                  successCount++;
+              }
+          } catch (error) {
+              console.error(`Upload failed for file ${file.name}`, error);
+          }
+      }
+
+      setIsUploading(false);
+      notify('success', `批量上传完成: 成功 ${successCount}/${fileArray.length} 张`);
+      // Reset input value to allow re-uploading same files if needed
+      if (e.target) e.target.value = '';
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string, context: 'audio' | 'video' | 'dj' | 'gallery' | 'article') => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -513,11 +555,13 @@ export const Library: React.FC<LibraryProps> = ({
       );
   }
   
-  // Helper to find title for editor display
+  // Helper to find title for editor display (Improved to check both libraries)
   const getLinkedSongTitle = (id?: string) => {
       if(!id) return null;
+      // Check Songs
       const song = songs.find(s => s.id === id);
       if(song) return `(Song) ${song.title}`;
+      // Check DJ Sets
       const dj = djSets.find(d => d.id === id);
       if(dj) return `(DJ) ${dj.title}`;
       return 'Unknown ID';
@@ -703,17 +747,35 @@ export const Library: React.FC<LibraryProps> = ({
               </div>
           )}
 
-          {/* ... (REMAINING TABS LIKE GALLERY, ARTICLES, DECORATION, THEME, NETDISK KEEP AS IS) ... */}
+          {/* --- TAB: GALLERY --- */}
           {activeTab === 'gallery' && (
              <div className="animate-in slide-in-from-right-4 duration-300">
                  <div className="flex justify-between mb-6">
                     <h2 className="text-2xl font-bold text-white">画廊管理</h2>
-                    <button onClick={() => handleCreate('gallery')} className="px-4 py-2 bg-brand-cyan text-black rounded-lg font-bold hover:bg-white transition-colors text-sm flex items-center gap-2"><Plus className="w-4 h-4"/> 添加图片</button>
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={() => batchInputRef.current?.click()} 
+                            disabled={isUploading}
+                            className="px-4 py-2 bg-white/10 text-white border border-white/10 rounded-lg font-bold hover:bg-white hover:text-black transition-colors text-sm flex items-center gap-2"
+                        >
+                            {isUploading ? <Loader2 className="w-4 h-4 animate-spin"/> : <Images className="w-4 h-4"/>} 
+                            批量上传
+                        </button>
+                        <input 
+                            type="file" 
+                            multiple 
+                            className="hidden" 
+                            ref={batchInputRef} 
+                            onChange={handleBatchUpload} 
+                            accept="image/*"
+                        />
+                        <button onClick={() => handleCreate('gallery')} className="px-4 py-2 bg-brand-cyan text-black rounded-lg font-bold hover:bg-white transition-colors text-sm flex items-center gap-2"><Plus className="w-4 h-4"/> 添加图片</button>
+                    </div>
                  </div>
                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                      {galleryItems.map(item => (
                          <div key={item.id} className="relative aspect-square group rounded-xl overflow-hidden cursor-pointer" onClick={() => handleEdit(item, 'gallery')}>
-                             <img src={item.imageUrl} className="w-full h-full object-cover" />
+                             <img src={item.imageUrl} className="w-full h-full object-cover" loading="lazy" />
                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
                                  <p className="text-xs font-bold text-white px-2 text-center">{item.title}</p>
                                  <button onClick={(e) => {e.stopPropagation(); handleDelete(item.id, 'gallery')}} className="p-2 bg-red-500 rounded-full text-white hover:scale-110 transition-transform"><Trash2 className="w-4 h-4" /></button>
