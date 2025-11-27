@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { Article, Song, DJSet, PageHeaderConfig } from '../types';
 import { FileText, ArrowLeft, Play, Pause, Music, User, Calendar, Tag, Disc, Volume2 } from 'lucide-react';
@@ -26,10 +27,22 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
   headerConfig
 }) => {
 
-  // Helper to find the linked song object
+  // Helper to find the linked song object from ANY source (Song or DJ)
+  // SAFETY: Handle potentially undefined arrays
   const getLinkedSong = (id?: string) => {
       if(!id) return null;
-      return songs.find(s => s.id === id) || djSets.find(d => d.id === id);
+      
+      if (Array.isArray(songs)) {
+          const songMatch = songs.find(s => s.id === id);
+          if (songMatch) return songMatch;
+      }
+      
+      if (Array.isArray(djSets)) {
+          const djMatch = djSets.find(d => d.id === id);
+          if (djMatch) return djMatch;
+      }
+
+      return null;
   };
 
   const getFontFamily = (font?: string) => {
@@ -60,13 +73,14 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
       const contentFont = getFontFamily(selectedArticle.style?.fontFamily);
       const contentSize = getFontSize(selectedArticle.style?.fontSize);
 
-      const artistName = linkedMedia ? ('artist' in linkedMedia ? linkedMedia.artist : linkedMedia.djName) : '';
-
       const handlePlayLinkedMedia = (e: React.MouseEvent) => {
+          e.preventDefault();
           e.stopPropagation();
+          
           if (!linkedMedia) return;
+          
+          // Determine if it's a DJ set or Song and play it
           if ('djName' in linkedMedia) {
-               // Adapt DJSet to Song
                const adaptedSong: Song = {
                   id: linkedMedia.id,
                   title: linkedMedia.title,
@@ -79,7 +93,7 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
               };
               onPlaySong(adaptedSong);
           } else {
-              onPlaySong(linkedMedia);
+              onPlaySong(linkedMedia as Song);
           }
       };
 
@@ -88,7 +102,7 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
               {/* Back Button */}
               <button 
                 onClick={() => onSelectArticle(null)}
-                className="flex items-center gap-2 text-gray-400 hover:text-white mb-8 transition-colors group px-4 lg:px-0"
+                className="relative z-50 flex items-center gap-2 text-gray-400 hover:text-white mb-8 transition-colors group px-4 lg:px-0 cursor-pointer pointer-events-auto"
               >
                   <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
                   返回专栏列表
@@ -103,7 +117,7 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                       <div className="relative z-10 pointer-events-auto">
                           <div className="flex flex-wrap items-center gap-4 mb-6">
                               <span className="px-3 py-1 rounded bg-brand-lime text-black font-black uppercase text-xs tracking-widest shadow-[0_0_15px_rgba(204,255,0,0.4)]">
-                                  {selectedArticle.tags[0]}
+                                  {selectedArticle.tags?.[0] || 'ARTICLE'}
                               </span>
                               <span className="flex items-center gap-2 text-gray-300 font-mono text-sm backdrop-blur-md bg-black/20 px-3 py-1 rounded-full border border-white/10">
                                   <Calendar className="w-3 h-3" /> {selectedArticle.date}
@@ -118,38 +132,36 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                       </div>
                   </div>
 
-                  {/* EMBEDDED PLAYER CARD (MOVED TO LEFT SIDE) */}
+                  {/* EMBEDDED PLAYER CARD (Floating Action) - High Z-Index to prevent blocking */}
                   {linkedMedia && (
-                      <div className="absolute bottom-6 left-6 lg:left-16 z-20 pointer-events-auto animate-in slide-in-from-bottom-4 fade-in duration-700 delay-300">
-                          <div 
-                              onClick={handlePlayLinkedMedia}
-                              className="w-auto max-w-[280px] bg-black/60 backdrop-blur-2xl border border-white/10 p-3 pr-5 rounded-full flex items-center gap-3 cursor-pointer hover:bg-black/80 hover:border-brand-lime/50 transition-all group/card shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
-                          >
-                              {/* Circular Art with Spin */}
-                              <div className="relative w-10 h-10 shrink-0">
+                      <div 
+                        className="absolute bottom-8 right-8 z-50 pointer-events-auto cursor-pointer animate-in slide-in-from-bottom-4 fade-in duration-700 delay-300"
+                        onClick={handlePlayLinkedMedia}
+                      >
+                          <div className="bg-black/80 backdrop-blur-xl border border-white/10 p-2 pr-6 rounded-full flex items-center gap-4 hover:bg-white hover:text-black transition-all group/card shadow-2xl transform hover:scale-105 ring-1 ring-white/5">
+                              {/* Circular Art */}
+                              <div className="relative w-12 h-12 shrink-0">
                                   <img 
                                       src={linkedMedia.coverUrl} 
-                                      className={`w-full h-full rounded-full object-cover border border-white/20 shadow-sm ${isMediaPlaying ? 'animate-[spin_4s_linear_infinite]' : ''}`} 
+                                      className={`w-full h-full rounded-full object-cover border-2 border-white/20 group-hover/card:border-transparent ${isMediaPlaying ? 'animate-[spin_4s_linear_infinite]' : ''}`} 
                                   />
-                                  {/* Center dot for vinyl look */}
-                                  <div className="absolute inset-0 flex items-center justify-center">
-                                      <div className="w-1.5 h-1.5 bg-black rounded-full"></div>
-                                  </div>
+                                  {!isMediaPlaying && (
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
+                                          <Play className="w-4 h-4 text-white fill-current" />
+                                      </div>
+                                  )}
+                                  {isMediaPlaying && (
+                                     <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
+                                          <Pause className="w-4 h-4 text-brand-lime fill-current" />
+                                     </div>
+                                  )}
                               </div>
                               
-                              {/* Info Text */}
-                              <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                  <span className="text-[10px] font-bold text-brand-lime uppercase tracking-wider leading-none mb-0.5">
-                                      {isMediaPlaying ? 'Now Playing' : 'Recommended'}
-                                  </span>
-                                  <h4 className="text-white text-sm font-bold truncate max-w-[140px] leading-tight group-hover/card:text-brand-lime transition-colors">
+                              <div className="flex flex-col">
+                                  <span className="text-[9px] font-black uppercase tracking-widest opacity-60">Featured Track</span>
+                                  <h4 className="text-sm font-bold truncate max-w-[150px] leading-tight">
                                       {linkedMedia.title}
                                   </h4>
-                              </div>
-
-                              {/* Play Button Icon */}
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all ${isMediaPlaying ? 'bg-brand-lime text-black' : 'bg-white/10 text-white group-hover/card:bg-white group-hover/card:text-black'}`}>
-                                  {isMediaPlaying ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current ml-0.5" />}
                               </div>
                           </div>
                       </div>
@@ -173,7 +185,7 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
 
                   {/* Tags */}
                   <div className="mt-16 pt-8 border-t border-white/10 flex flex-wrap gap-3">
-                      {selectedArticle.tags.map(tag => (
+                      {selectedArticle.tags?.map(tag => (
                           <span key={tag} className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors cursor-pointer text-xs font-bold border border-white/10 hover:border-white/30 bg-white/5 px-4 py-2 rounded-full uppercase tracking-wider">
                               <Tag className="w-3 h-3" /> {tag}
                           </span>
@@ -209,7 +221,7 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-80 group-hover:opacity-60 transition-opacity"></div>
                       
                       <div className="absolute top-6 right-6 px-3 py-1 bg-black/50 backdrop-blur-md rounded-full text-xs font-bold text-white border border-white/10 shadow-lg">
-                          {article.tags[0]}
+                          {article.tags?.[0] || 'Article'}
                       </div>
 
                       {/* Mood Indicator */}
