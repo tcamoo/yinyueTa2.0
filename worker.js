@@ -227,20 +227,26 @@ export default {
         if (!targetUrl) return new Response("Missing URL", { status: 400 });
 
         try {
-            let referer = 'https://google.com';
+            let referer = '';
+            // Generic Chrome UA
             let userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
             let cookie = '';
 
             // Strict headers for Netease
             if (strategy === 'netease' || targetUrl.includes('163.com') || targetUrl.includes('126.net')) {
                 referer = 'https://music.163.com/';
+                // Use a different UA for Netease to potentially bypass blocking
                 userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
                 cookie = 'os=pc; appver=2.9.7; channel=netease;';
             }
 
             const proxyHeaders = new Headers();
             proxyHeaders.set('User-Agent', userAgent);
-            proxyHeaders.set('Referer', referer);
+            // Only set Referer if specifically needed (e.g. Netease). 
+            // Archive.org and others often reject "google.com" referers or random ones.
+            if (referer) {
+                proxyHeaders.set('Referer', referer);
+            }
             if (cookie) proxyHeaders.set('Cookie', cookie);
             
             // Pass range header for seeking
