@@ -229,22 +229,23 @@ export default {
 
         try {
             let referer = '';
-            // Generic Chrome UA
-            let userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
+            // Use a standard, modern browser User-Agent
+            let userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
             let cookie = '';
 
             // Strict headers for Netease
             if (strategy === 'netease' || targetUrl.includes('163.com') || targetUrl.includes('126.net')) {
                 referer = 'https://music.163.com/';
-                // Use a different UA for Netease to potentially bypass blocking
+                // Use a UA known to work well with Netease
                 userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
                 cookie = 'os=pc; appver=2.9.7; channel=netease;';
             }
 
             const proxyHeaders = new Headers();
             proxyHeaders.set('User-Agent', userAgent);
-            // Only set Referer if specifically needed (e.g. Netease). 
-            // Archive.org and others often reject "google.com" referers or random ones.
+            
+            // For general requests (like archive.org), DO NOT send a Referer unless explicitly required.
+            // Sending a fake Referer like 'google.com' often triggers hotlink protection.
             if (referer) {
                 proxyHeaders.set('Referer', referer);
             }
@@ -264,6 +265,11 @@ export default {
             const newHeaders = new Headers(response.headers);
             Object.keys(corsHeaders).forEach(k => newHeaders.set(k, corsHeaders[k]));
             
+            // Handle redirect URLs in location header (though fetch usually follows)
+            if (response.redirected) {
+                // newHeaders.set('X-Redirected-Url', response.url);
+            }
+
             // Force content type if missing
             const contentType = newHeaders.get('Content-Type');
             if ((targetUrl.endsWith('.mp3') || targetUrl.includes('.mp3')) && (!contentType || contentType.includes('text'))) {
