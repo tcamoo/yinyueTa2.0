@@ -33,12 +33,13 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
       if(!id) return null;
       
       if (Array.isArray(songs)) {
-          const songMatch = songs.find(s => s.id === id);
+          // Loose comparison for ID to handle string/number mismatch
+          const songMatch = songs.find(s => String(s.id) === String(id));
           if (songMatch) return songMatch;
       }
       
       if (Array.isArray(djSets)) {
-          const djMatch = djSets.find(d => d.id === id);
+          const djMatch = djSets.find(d => String(d.id) === String(id));
           if (djMatch) return djMatch;
       }
 
@@ -135,7 +136,7 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                   {/* EMBEDDED PLAYER CARD (Floating Action) - High Z-Index to prevent blocking */}
                   {linkedMedia && (
                       <div 
-                        className="absolute bottom-8 right-8 z-50 pointer-events-auto cursor-pointer animate-in slide-in-from-bottom-4 fade-in duration-700 delay-300"
+                        className="absolute bottom-8 right-8 z-[60] pointer-events-auto cursor-pointer animate-in slide-in-from-bottom-4 fade-in duration-700 delay-300"
                         onClick={handlePlayLinkedMedia}
                       >
                           <div className="bg-black/80 backdrop-blur-xl border border-white/10 p-2 pr-6 rounded-full flex items-center gap-4 hover:bg-white hover:text-black transition-all group/card shadow-2xl transform hover:scale-105 ring-1 ring-white/5">
