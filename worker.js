@@ -1,6 +1,6 @@
 
 // --- CONSTANTS ---
-// High-availability Fallback Sets (Internal Library)
+// High-availability Fallback Sets (Internal Library) - UPDATED TO PURE ELECTRONIC/DJ GENRE
 // Used if live API scraping fails due to IP blocking
 const FALLBACK_LIBRARY = [
     {
@@ -50,6 +50,7 @@ const FALLBACK_LIBRARY = [
 ];
 
 // Reliable Netease Playlist IDs (Electronic/Club/Dance/DJ)
+// Removed pop playlists, added specific DJ/Electronic charts
 const HOT_PLAYLIST_IDS = [
     "3001923057", // 蹦迪 (Clubbing)
     "452968369",  // 驾车 (Driving/Electronic)
