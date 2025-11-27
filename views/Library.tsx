@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link as LinkIcon, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink, RefreshCcw, Play, Pause, AlertOctagon, Music2, Search, Check } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem, NavItem } from '../types';
@@ -993,18 +992,34 @@ export const Library: React.FC<LibraryProps> = ({
                           </div>
                       )}
                       
-                      {/* Gallery Fields */}
+                      {/* Gallery Fields - UPDATED */}
                       {editingType === 'gallery' && (
                           <div className="space-y-4">
                               <div className="relative aspect-video bg-black/50 border border-white/10 rounded-xl overflow-hidden group">
                                   {galleryForm.imageUrl ? <img src={galleryForm.imageUrl} className="w-full h-full object-contain" /> : <div className="flex items-center justify-center h-full text-gray-600">No Image</div>}
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <button className="relative px-4 py-2 bg-white text-black rounded-lg font-bold text-sm">
-                                          Upload Image
+                                  
+                                  {/* Upload Overlay */}
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button className="relative px-4 py-2 bg-brand-cyan text-black rounded-lg font-bold text-sm hover:bg-white transition-colors">
+                                          点击上传本地图片 (Upload)
                                           <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileUpload(e, 'imageUrl', 'gallery')} />
                                       </button>
                                   </div>
                               </div>
+                              
+                              <div>
+                                  <label className="text-xs font-bold text-gray-500 uppercase">图片链接 (Image URL)</label>
+                                  <div className="flex gap-2">
+                                      <input 
+                                        value={galleryForm.imageUrl || ''} 
+                                        onChange={e => setGalleryForm({...galleryForm, imageUrl: e.target.value})} 
+                                        placeholder="https://example.com/photo.jpg" 
+                                        className="flex-1 bg-black border border-white/10 rounded-lg p-2 text-white text-xs font-mono focus:border-brand-cyan outline-none" 
+                                      />
+                                  </div>
+                                  <p className="text-[10px] text-gray-500 mt-1">可直接粘贴外部图片链接，或点击上方图片区域上传。</p>
+                              </div>
+
                               <input value={galleryForm.title} onChange={e => setGalleryForm({...galleryForm, title: e.target.value})} placeholder="图片标题" className="w-full bg-black border border-white/10 rounded-lg p-2 text-white" />
                               <input value={galleryForm.photographer} onChange={e => setGalleryForm({...galleryForm, photographer: e.target.value})} placeholder="摄影师" className="w-full bg-black border border-white/10 rounded-lg p-2 text-white" />
                           </div>
