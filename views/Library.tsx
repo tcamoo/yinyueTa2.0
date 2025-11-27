@@ -210,8 +210,16 @@ export const Library: React.FC<LibraryProps> = ({
            const data = await res.json();
            
            if(data.success && data.count > 0) {
-               notify('success', `成功抓取 ${data.count} 首新曲目，请刷新页面或等待同步`);
-               // Optionally auto-reload data here if needed, but Sync covers it usually
+               // Reload data immediately after successful scrape to show new items
+               const freshData = await cloudService.loadData();
+               if (freshData) {
+                   if (freshData.djSets) setDjSets(freshData.djSets);
+                   if (freshData.songs) setSongs(freshData.songs);
+                   if (freshData.mvs) setMvs(freshData.mvs);
+                   notify('success', `成功抓取 ${data.count} 首新曲目，媒体库已更新`);
+               } else {
+                   notify('success', `抓取成功 (${data.count}首)，但同步回显失败，请刷新页面`);
+               }
            } else {
                notify('info', '爬虫完成，暂无更新');
            }
@@ -299,7 +307,7 @@ export const Library: React.FC<LibraryProps> = ({
       const newItems = currentItems.filter(i => !brokenLinks.includes(i.id));
       setItems(newItems);
       setBrokenLinks([]);
-      notify('success', `已成功清理 ${count} 个失效项目，请记得点击 "Save Changes" 同步到云端`);
+      notify('success', `已成功清理 ${count} 个失效项目，请记得点击 "保存更改" 同步到云端`);
   };
 
   // --- GENERIC ITEM HANDLING ---
