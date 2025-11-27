@@ -621,7 +621,7 @@ export const Library: React.FC<LibraryProps> = ({
           ))}
       </div>
 
-      <div className="bg-[#050505] border border-white/5 rounded-[2.5rem] p-6 min-h-[600px] shadow-2xl relative overflow-hidden">
+      <div className={`bg-[#050505] border border-white/5 rounded-[2.5rem] p-6 shadow-2xl relative overflow-hidden ${activeTab === 'netdisk' ? 'min-h-[auto]' : 'min-h-[600px]'}`}>
           
           {/* --- TAB: MEDIA (Audio/Video/DJ) --- */}
           {activeTab === 'media' && (
@@ -1021,7 +1021,7 @@ export const Library: React.FC<LibraryProps> = ({
                               <div className="p-4 rounded-xl bg-white/5 border border-white/5">
                                   <div className="flex items-center gap-2 mb-2">
                                       <Disc className="w-4 h-4 text-red-500" />
-                                      <label className="text-xs font-bold text-white uppercase">网易云音乐 (推荐)</label>
+                                      <label className="text-xs font-bold text-white uppercase">网易云音乐 ID (优先使用)</label>
                                   </div>
                                   <input 
                                       value={editingType === 'audio' ? songForm.neteaseId || '' : djForm.neteaseId || ''} 
@@ -1031,10 +1031,10 @@ export const Library: React.FC<LibraryProps> = ({
                                           if(editingType === 'dj') setDjForm({...djForm, neteaseId: val});
                                       }}
                                       className="w-full bg-black border border-white/10 rounded-lg p-2 text-white font-mono text-sm focus:border-red-500 outline-none" 
-                                      placeholder="输入 ID (例如: 186016)"
+                                      placeholder="输入纯数字 ID (例如: 186016)"
                                   />
                                   <p className="text-[10px] text-gray-500 mt-1">
-                                      如果填写了ID，将忽略下方的音频链接，自动通过代理播放。
+                                      填写 ID 后，系统会自动通过代理播放，下方文件链接可留空。
                                   </p>
                               </div>
 
