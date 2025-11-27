@@ -271,7 +271,7 @@ export const Library: React.FC<LibraryProps> = ({
       }
   };
 
-  // --- PREVIEW LOGIC ---
+  // --- PREVIEW LOGIC (Updated to support Netease Proxy) ---
   const handlePreview = (item: Song | DJSet) => {
       if (previewId === item.id) {
           if (previewPlaying) {
@@ -286,22 +286,25 @@ export const Library: React.FC<LibraryProps> = ({
           setPreviewPlaying(true);
           if (previewAudioRef.current) {
                let url = item.fileUrl || '';
-               // Ensure we use the proxy for previews in admin to avoid CORS/Mixed Content issues
-               // regardless of source (Netease, Archive.org, etc)
-               if (url.startsWith('http://') || url.startsWith('https://')) {
-                   // Netease specific construction
-                   if (item.neteaseId) {
-                        const targetUrl = `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
-                        url = `/api/proxy?strategy=netease&url=${encodeURIComponent(targetUrl)}`;
-                   } else if (!url.includes('/api/proxy')) {
-                        // Generic Proxy
+               
+               // Priority Check: If Netease ID exists, always construct a fresh proxy URL.
+               // This ensures we don't rely on potentially stale or relative URLs from the scraper.
+               if (item.neteaseId) {
+                   const targetUrl = `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
+                   url = `/api/proxy?strategy=netease&url=${encodeURIComponent(targetUrl)}`;
+               } 
+               // Fallback: Use generic proxy for external HTTP/HTTPS links to avoid CORS/Mixed Content in Admin
+               else if (url.startsWith('http://') || url.startsWith('https://')) {
+                   if (!url.includes('/api/proxy')) {
                         url = `/api/proxy?url=${encodeURIComponent(url)}`;
                    }
                }
+               
+               // Note: If url starts with /api/proxy (relative), it's used as is.
 
                previewAudioRef.current.src = url;
                previewAudioRef.current.play().catch(e => {
-                   console.error(e);
+                   console.error("Preview Play Error:", e);
                    notify('error', '无法播放预览: ' + e.message);
                    setPreviewPlaying(false);
                });
