@@ -11,37 +11,39 @@ interface DJViewProps {
   headerConfig: PageHeaderConfig;
 }
 
-export const DJView: React.FC<DJViewProps> = ({ djSets, onPlaySet, currentSongId, isPlaying, headerConfig }) => {
+export const DJView: React.FC<DJViewProps> = ({ djSets = [], onPlaySet, currentSongId, isPlaying, headerConfig }) => {
   const [activeSet, setActiveSet] = useState<DJSet | null>(null);
   const [activeCategory, setActiveCategory] = useState('All');
 
-  // Logic for subsets
+  // Logic for subsets - Safe sorting and slicing
   const topCharts = useMemo(() => {
-     return [...djSets].sort((a, b) => b.plays - a.plays).slice(0, 10);
+     return [...(djSets || [])].sort((a, b) => (b.plays || 0) - (a.plays || 0)).slice(0, 10);
   }, [djSets]);
 
   const newDrops = useMemo(() => {
-     return djSets.slice(0, 12); // Assume first 12 are new
+     return (djSets || []).slice(0, 12); 
   }, [djSets]);
 
   const filteredSets = useMemo(() => {
+     if (!djSets) return [];
      if (activeCategory === 'All') return djSets;
-     return djSets.filter(s => s.tags.some(t => t.includes(activeCategory)));
+     // Add optional chaining to tags to prevent crash if undefined
+     return djSets.filter(s => s.tags?.some(t => t.includes(activeCategory)));
   }, [djSets, activeCategory]);
 
   useEffect(() => {
-      if (currentSongId) {
+      if (currentSongId && djSets) {
           const found = djSets.find(s => s.id === currentSongId);
           if (found) setActiveSet(found);
       }
   }, [currentSongId, djSets]);
 
   const featuredSet = useMemo(() => {
-      if (headerConfig.featuredItemId) {
+      if (headerConfig?.featuredItemId && djSets) {
           return djSets.find(s => s.id === headerConfig.featuredItemId);
       }
       return null;
-  }, [djSets, headerConfig.featuredItemId]);
+  }, [djSets, headerConfig]);
 
   return (
     <div className="pb-40 animate-in fade-in duration-700">
@@ -154,8 +156,8 @@ export const DJView: React.FC<DJViewProps> = ({ djSets, onPlaySet, currentSongId
              </>
           ) : (
              <div className="relative z-10 text-center">
-                 <h1 className="text-7xl font-black text-white mb-4 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">{headerConfig.title}</h1>
-                 <p className="text-2xl text-gray-400">{headerConfig.description}</p>
+                 <h1 className="text-7xl font-black text-white mb-4 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">{headerConfig?.title || 'CLUB ZONE'}</h1>
+                 <p className="text-2xl text-gray-400">{headerConfig?.description || 'Exclusive DJ Sets & Mixes'}</p>
              </div>
           )}
       </div>
@@ -273,7 +275,7 @@ export const DJView: React.FC<DJViewProps> = ({ djSets, onPlaySet, currentSongId
                                <div className="flex justify-between items-center text-xs text-gray-500">
                                    <span>{set.djName}</span>
                                    <div className="flex gap-1">
-                                       <Activity className="w-3 h-3" /> {set.plays.toLocaleString()}
+                                       <Activity className="w-3 h-3" /> {(set.plays || 0).toLocaleString()}
                                    </div>
                                </div>
                            </div>
