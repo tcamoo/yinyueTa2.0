@@ -14,19 +14,19 @@ interface PlayerProps {
 const getPlayableUrl = (song: Song | null) => {
     if (!song) return '';
     
-    // PRIORITY 1: If it has a Netease ID (common for scraped content), 
-    // ALWAYS reconstruct the proxy URL dynamically. This fixes broken scraped links.
+    // PRIORITY 1: Existing Proxy Link
+    if (song.fileUrl?.startsWith('/api/proxy')) return song.fileUrl;
+
+    // PRIORITY 2: Netease ID (Scraped Content)
     if (song.neteaseId) {
         const targetUrl = `https://music.163.com/song/media/outer/url?id=${song.neteaseId}.mp3`;
         return `/api/proxy?strategy=netease&url=${encodeURIComponent(targetUrl)}`;
     }
 
-    // PRIORITY 2: If it's already a proxy link, use as is (Manual uploads or non-netease proxies)
-    if (song.fileUrl?.startsWith('/api/proxy')) return song.fileUrl;
-
-    // PRIORITY 3: If it's a raw Netease domain (Manually added URL), route through proxy
-    if (song.fileUrl && (song.fileUrl.includes('music.163.com') || song.fileUrl.includes('music.126.net'))) {
-        return `/api/proxy?strategy=netease&url=${encodeURIComponent(song.fileUrl)}`;
+    // PRIORITY 3: External URL (Archive.org, R2 public links, direct MP3s)
+    // We force proxy to bypass CORS issues which break the AudioContext (Visualizer)
+    if (song.fileUrl && (song.fileUrl.startsWith('http://') || song.fileUrl.startsWith('https://'))) {
+        return `/api/proxy?url=${encodeURIComponent(song.fileUrl)}`;
     }
 
     return song.fileUrl || '';
@@ -318,7 +318,9 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
     
     // Only update src if it changed to prevent reloading
     if (audio.src !== new URL(playableUrl, window.location.href).href) {
+        console.log("Setting Audio Source:", playableUrl);
         audio.src = playableUrl;
+        audio.load();
     }
 
     const handlePlayback = async () => {
@@ -489,13 +491,12 @@ export const Player: React.FC<PlayerProps> = ({ currentSong, isPlaying, onPlayPa
             <audio 
                 key={currentSong.id} 
                 ref={audioRef}
-                crossOrigin="anonymous" // Always try anonymous now that we proxy
+                crossOrigin="anonymous" 
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={handleEnded}
                 onError={(e) => {
                     console.error("Native Audio Error", e);
                     setHasError(true);
-                    // Do not auto-pause on error for now, let it try
                 }}
             />
 
