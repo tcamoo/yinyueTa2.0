@@ -1,6 +1,7 @@
 
 // --- CONSTANTS ---
-// High-availability Fallback Sets (Hosting on Archive.org to guarantee playback if Netease fails)
+// High-availability Fallback Sets (Using Archive.org but proxy will ensure they play)
+// These are used ONLY if the scraper fails entirely.
 const FALLBACK_DJ_SETS = [
     {
         id: "backup_mix_01",
@@ -26,10 +27,19 @@ const FALLBACK_DJ_SETS = [
     }
 ];
 
+// Hardcoded HOT Playlist IDs to scrape if discovery page fails
+// These are reliable Netease Electronic/Dance playlists
+const HOT_PLAYLIST_IDS = [
+    "924376402", // Electronic Hot
+    "2075677249", // Club Life
+    "444267215", // Deep House
+    "3778678", // Hot List
+    "2829883282" // Driving
+];
+
 // --- HELPER: PROXY URL GENERATOR ---
 function makeProxyUrl(targetUrl, strategy = 'general') {
     if (!targetUrl) return '';
-    // If it's already a local path, return as is
     if (targetUrl.startsWith('/')) return targetUrl;
     return `/api/proxy?strategy=${strategy}&url=${encodeURIComponent(targetUrl)}`;
 }
@@ -38,70 +48,78 @@ function makeProxyUrl(targetUrl, strategy = 'general') {
 async function scrapeNetease(env) {
   if (!env.DB) return { success: false, message: "KV DB not bound" };
 
-  // Target: "Dance" (舞曲) category playlists
-  const LIST_URL = "https://music.163.com/discover/playlist/?cat=%E8%88%9E%E6%9B%B2&limit=35&order=hot";
-  
+  // Headers specifically mimick a real browser to avoid Netease blocking
   const headers = {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     'Referer': 'https://music.163.com/',
+    'Cookie': 'NMTID=00O; os=pc;'
   };
 
   let log = [];
   let newSets = [];
   let processedIds = new Set();
+  
+  // Strategy: 
+  // 1. Try to scrape the discovery page for dynamic playlists.
+  // 2. If that fails (returns 0 playlists), fall back to hardcoded HOT_PLAYLIST_IDS.
+
+  let targetPlaylists = [];
 
   try {
-      // 1. Get the list of playlists
-      log.push(`Fetching Playlist Directory...`);
+      log.push(`Strategy 1: Fetching Discovery Page...`);
+      const LIST_URL = "https://music.163.com/discover/playlist/?cat=%E8%88%9E%E6%9B%B2&limit=35&order=hot";
       const listRes = await fetch(LIST_URL, { headers });
-      if (!listRes.ok) throw new Error(`List fetch failed: ${listRes.status}`);
-      const listHtml = await listRes.text();
-
-      // Regex to find playlist IDs
-      const playlistRegex = /<a title="([^"]+)" href="\/playlist\?id=(\d+)"/g;
-      const playlists = [];
-      let match;
-      while ((match = playlistRegex.exec(listHtml)) !== null) {
-          playlists.push({ title: match[1], id: match[2] });
+      
+      if (listRes.ok) {
+          const listHtml = await listRes.text();
+          const playlistRegex = /<a title="([^"]+)" href="\/playlist\?id=(\d+)"/g;
+          let match;
+          while ((match = playlistRegex.exec(listHtml)) !== null) {
+              targetPlaylists.push({ title: match[1], id: match[2] });
+          }
       }
+      
+      log.push(`Found ${targetPlaylists.length} playlists via discovery.`);
+  } catch(e) {
+      log.push(`Discovery fetch error: ${e.message}`);
+  }
 
-      log.push(`Found ${playlists.length} playlists.`);
+  // If Discovery failed, use Hardcoded
+  if (targetPlaylists.length === 0) {
+      log.push(`Strategy 2: Using Hardcoded Playlists.`);
+      targetPlaylists = HOT_PLAYLIST_IDS.map(id => ({ title: "Hot Playlist", id }));
+  }
 
-      if (playlists.length === 0) throw new Error("No playlists found in HTML");
-
-      // 2. Randomly select 6 playlists to scrape deep (Increased from 2 to get more variety)
-      const shuffled = playlists.sort(() => 0.5 - Math.random()).slice(0, 6);
+  if (targetPlaylists.length > 0) {
+      // Shuffle and pick 3 to keep it fast but varied
+      const shuffled = targetPlaylists.sort(() => 0.5 - Math.random()).slice(0, 3);
 
       for (const pl of shuffled) {
-          log.push(`Scraping Playlist: ${pl.title} (${pl.id})`);
-          
-          const detailUrl = `https://music.163.com/playlist?id=${pl.id}`;
-          const detailRes = await fetch(detailUrl, { headers });
-          const detailHtml = await detailRes.text();
+          try {
+              log.push(`Scraping Playlist: ${pl.id}`);
+              const detailUrl = `https://music.163.com/playlist?id=${pl.id}`;
+              const detailRes = await fetch(detailUrl, { headers });
+              const detailHtml = await detailRes.text();
 
-          // 3. Extract Songs from the magical textarea
-          const jsonRegex = /<textarea id="song-list-pre-cache" style="display:none;">([\s\S]*?)<\/textarea>/;
-          const jsonMatch = detailHtml.match(jsonRegex);
+              const jsonRegex = /<textarea id="song-list-pre-cache" style="display:none;">([\s\S]*?)<\/textarea>/;
+              const jsonMatch = detailHtml.match(jsonRegex);
 
-          if (jsonMatch && jsonMatch[1]) {
-              try {
+              if (jsonMatch && jsonMatch[1]) {
                   const rawSongs = JSON.parse(jsonMatch[1]);
-                  // Limit to top 20 songs per playlist (Increased from 10)
-                  const topSongs = rawSongs.slice(0, 20);
+                  const topSongs = rawSongs.slice(0, 15); // Take top 15
 
                   for (const song of topSongs) {
                       const neteaseId = song.id;
-                      // IMPORTANT: Use HTTPS for Netease URL
+                      // Direct Netease MP3 URL (Proxy will handle the 302 redirect)
                       const rawMp3Url = `https://music.163.com/song/media/outer/url?id=${neteaseId}.mp3`;
-                      
+                      // Use netease strategy for proxy
                       const proxyUrl = makeProxyUrl(rawMp3Url, 'netease');
 
                       const uniqueId = `ne_${neteaseId}`;
-                      
                       const artistName = song.artists ? song.artists.map(a => a.name).join('/') : 'Unknown DJ';
                       
-                      // Higher quality cover image
+                      // Better Cover URL
                       const coverUrl = song.album && song.album.picUrl 
                           ? song.album.picUrl.replace('http:', 'https:') + '?param=600y600' 
                           : `https://picsum.photos/seed/${uniqueId}/400/400`;
@@ -114,7 +132,7 @@ async function scrapeNetease(env) {
                               coverUrl: coverUrl,
                               fileUrl: proxyUrl, 
                               neteaseId: neteaseId.toString(),
-                              duration: "03:30", // Placeholder as actual duration requires extra parsing
+                              duration: "03:30", 
                               bpm: 128, 
                               tags: ["Dance", "Club", "Netease"],
                               plays: Math.floor(Math.random() * 50000) + 1000
@@ -122,57 +140,40 @@ async function scrapeNetease(env) {
                           processedIds.add(uniqueId);
                       }
                   }
-              } catch (e) {
-                  log.push(`Failed to parse JSON for playlist ${pl.id}: ${e.message}`);
               }
-          } else {
-              log.push(`No song-list textarea found for playlist ${pl.id}`);
+          } catch(e) {
+              log.push(`Playlist ${pl.id} error: ${e.message}`);
           }
       }
-
-  } catch (e) {
-      log.push(`Critical Error: ${e.message}`);
   }
 
-  // --- FALLBACK INJECTION ---
+  // Final Fallback if EVERYTHING failed
   if (newSets.length === 0) {
-      log.push("Netease scrape failed or empty. Injecting Archive.org Backups.");
+      log.push("All Netease scraping failed. Using Archive.org backup.");
       newSets = [...FALLBACK_DJ_SETS];
   }
 
-  // --- SAVE TO KV ---
+  // Save to DB
   if (newSets.length > 0) {
       try {
           const currentDataStr = await env.DB.get('app_data');
           let currentData = currentDataStr ? JSON.parse(currentDataStr) : {};
 
+          // Merge logic: Add new sets to the top
           let existingSets = currentData.djSets || [];
           
-          // Use a Map to merge by ID, ensuring no duplicates
-          const existingMap = new Map();
+          // Deduplicate
+          const existingIds = new Set(existingSets.map(s => s.id));
+          const uniqueNewSets = newSets.filter(s => !existingIds.has(s.id));
           
-          // Add new sets FIRST to the map so they appear at the top/are prioritized
-          for (const s of newSets) {
-              existingMap.set(s.id, s);
+          if (uniqueNewSets.length > 0) {
+             const merged = [...uniqueNewSets, ...existingSets].slice(0, 1000);
+             currentData.djSets = merged;
+             await env.DB.put('app_data', JSON.stringify(currentData));
+             return { success: true, count: uniqueNewSets.length, logs: log };
+          } else {
+             return { success: true, count: 0, logs: [...log, "Duplicate content ignored"] };
           }
-          // Then add existing sets (if ID exists, it won't overwrite because we check map.has or let it overwrite? 
-          // Actually, we want to keep existing data if it has more info, but for scraping, usually new data is fine.
-          // Let's just append existing sets if they aren't in map)
-          for (const s of existingSets) {
-              if (!existingMap.has(s.id)) {
-                  existingMap.set(s.id, s);
-              }
-          }
-          
-          let merged = Array.from(existingMap.values());
-          
-          // Increased limit to 1000 to allow for larger libraries
-          if (merged.length > 1000) merged = merged.slice(0, 1000);
-
-          currentData.djSets = merged;
-          await env.DB.put('app_data', JSON.stringify(currentData));
-          
-          return { success: true, count: newSets.length, logs: log };
       } catch (e) {
           return { success: false, message: e.message, logs: log };
       }
@@ -220,16 +221,11 @@ export default {
             let userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
             let cookie = '';
 
-            // STRICT HEADER ENFORCEMENT FOR NETEASE
+            // Strict headers for Netease
             if (strategy === 'netease' || targetUrl.includes('163.com') || targetUrl.includes('126.net')) {
                 referer = 'https://music.163.com/';
-                // IMPORTANT: Use Netease specific UA and cookies to ensure redirection works for scraped links
                 userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-                cookie = 'os=pc; osver=Microsoft-Windows-10-Professional-build-10586-64bit; appver=2.0.3.131777; channel=netease;';
-            } else if (strategy === 'pixabay') {
-                referer = 'https://pixabay.com/';
-            } else if (strategy === 'djuu') {
-                referer = 'https://www.djuu.com/';
+                cookie = 'os=pc; appver=2.0; channel=netease;';
             }
 
             const proxyHeaders = new Headers();
@@ -244,16 +240,16 @@ export default {
             const response = await fetch(targetUrl, {
                 method: request.method,
                 headers: proxyHeaders,
-                redirect: 'follow' // Explicitly follow redirects for Netease 302s
+                redirect: 'follow' 
             });
 
             // Reconstruct headers for CORS
             const newHeaders = new Headers(response.headers);
             Object.keys(corsHeaders).forEach(k => newHeaders.set(k, corsHeaders[k]));
             
-            // Force content type if missing for MP3 or if Netease returns text/html on error
+            // Force content type if missing
             const contentType = newHeaders.get('Content-Type');
-            if ((targetUrl.endsWith('.mp3') || targetUrl.includes('.mp3')) && (!contentType || contentType === 'text/plain')) {
+            if ((targetUrl.endsWith('.mp3') || targetUrl.includes('.mp3')) && (!contentType || contentType.includes('text'))) {
                 newHeaders.set('Content-Type', 'audio/mpeg');
             }
 
@@ -268,51 +264,6 @@ export default {
         }
     }
 
-    // --- ADMIN LINK VALIDATOR ---
-    if (url.pathname === '/api/admin/validate' && request.method === 'POST') {
-       if (!isAuthorized(request)) {
-          return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-       }
-       try {
-           const { targetUrl } = await request.json();
-           if (!targetUrl) return new Response(JSON.stringify({ valid: false }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-           let urlToCheck = targetUrl;
-           if (targetUrl.startsWith('/')) {
-               const u = new URL(request.url);
-               urlToCheck = u.origin + targetUrl;
-           }
-
-           let valid = false;
-           let status = 0;
-           
-           try {
-              const res = await fetch(urlToCheck, { 
-                  method: 'HEAD', 
-                  headers: { 'User-Agent': 'Cloudflare Worker Health Check' } 
-              });
-              status = res.status;
-              if (res.ok) valid = true;
-              else {
-                   const resGet = await fetch(urlToCheck, { 
-                       method: 'GET', 
-                       headers: { 'Range': 'bytes=0-10', 'User-Agent': 'Cloudflare Worker Health Check' } 
-                   });
-                   status = resGet.status;
-                   valid = (status >= 200 && status < 400); 
-              }
-           } catch (e) {
-               valid = false;
-               status = 500;
-           }
-
-           return new Response(JSON.stringify({ valid, status }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-       } catch (e) {
-           return new Response(JSON.stringify({ error: e.message, valid: false }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-       }
-    }
-
     // --- ADMIN SCRAPER ---
     if (url.pathname === '/api/admin/scrape' && request.method === 'POST') {
       if (!isAuthorized(request)) {
@@ -320,15 +271,6 @@ export default {
       }
       const result = await scrapeNetease(env);
       return new Response(JSON.stringify(result), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    // --- AUTH ---
-    if (url.pathname === '/api/auth' && request.method === 'POST') {
-      try {
-        const body = await request.json();
-        const valid = !env.ADMIN_SECRET || body.key === env.ADMIN_SECRET;
-        return new Response(JSON.stringify({ valid }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      } catch (e) { return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders }); }
     }
 
     // --- DATA SYNC (KV) ---
@@ -348,7 +290,28 @@ export default {
         }
     }
 
-    // --- R2 STORAGE API ---
+    // --- ADMIN LINK VALIDATOR ---
+    if (url.pathname === '/api/admin/validate' && request.method === 'POST') {
+       if (!isAuthorized(request)) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+       try {
+           const { targetUrl } = await request.json();
+           const res = await fetch(targetUrl, { method: 'HEAD', headers: { 'User-Agent': 'CF-Health' } });
+           return new Response(JSON.stringify({ valid: res.ok, status: res.status }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+       } catch (e) {
+           return new Response(JSON.stringify({ valid: false }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+       }
+    }
+    
+    // --- AUTH ---
+    if (url.pathname === '/api/auth' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const valid = !env.ADMIN_SECRET || body.key === env.ADMIN_SECRET;
+          return new Response(JSON.stringify({ valid }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        } catch (e) { return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders }); }
+    }
+
+    // --- R2 STORAGE API (SIMPLIFIED) ---
     if (url.pathname === '/api/upload' && request.method === 'PUT') {
       if (!isAuthorized(request)) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       if (!env.BUCKET) return new Response(JSON.stringify({ error: "R2 Not Configured" }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -357,40 +320,13 @@ export default {
       const publicUrl = env.R2_PUBLIC_URL ? `${env.R2_PUBLIC_URL.replace(/\/$/, "")}/${filename}` : `/api/file/${filename}`;
       return new Response(JSON.stringify({ url: publicUrl }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    
-    if (url.pathname === '/api/storage/list' && request.method === 'GET') {
-       if (!isAuthorized(request)) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-       if (!env.BUCKET) return new Response(JSON.stringify({ files: [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-       const listed = await env.BUCKET.list({ limit: 200 });
-       const files = listed.objects.map(obj => ({
-           key: obj.key,
-           size: obj.size,
-           uploaded: obj.uploaded,
-           url: env.R2_PUBLIC_URL ? `${env.R2_PUBLIC_URL.replace(/\/$/, "")}/${obj.key}` : `/api/file/${obj.key}`
-       }));
-       return new Response(JSON.stringify({ files }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-    
-    if (url.pathname === '/api/storage/delete' && request.method === 'DELETE') {
-       if (!isAuthorized(request)) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-       const key = url.searchParams.get('key');
-       if (!env.BUCKET) return new Response("R2 Not Configured", { status: 503 });
-       await env.BUCKET.delete(key);
-       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
 
     if (url.pathname.startsWith('/api/file/') && request.method === 'GET') {
         if (!env.BUCKET) return new Response("R2 Not Configured", { status: 404 });
         const filename = url.pathname.replace('/api/file/', '');
-        try {
-            const object = await env.BUCKET.get(filename, { range: request.headers, onlyIf: request.headers });
-            if (!object) return new Response('Not Found', { status: 404 });
-            const headers = new Headers();
-            object.writeHttpMetadata(headers);
-            headers.set('etag', object.httpEtag);
-            Object.keys(corsHeaders).forEach(k => headers.set(k, corsHeaders[k]));
-            return new Response(object.body, { headers, status: object.range ? 206 : 200 });
-        } catch(e) { return new Response("Stream Error", { status: 500 }); }
+        const object = await env.BUCKET.get(filename);
+        if (!object) return new Response('Not Found', { status: 404 });
+        return new Response(object.body, { headers: { ...corsHeaders, 'etag': object.httpEtag } });
     }
 
     // --- ASSETS ---
