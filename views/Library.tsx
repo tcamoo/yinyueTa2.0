@@ -74,7 +74,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ isOpen, onClose, onSelect, ty
                     <div className="flex gap-4">
                          {/* Audio Tabs Switcher */}
                          {type === 'audio' && (
-                             <div className="flex gap-2 p-1 bg-black rounded-lg border border-white/10">
+                             <div className="flex gap-2 p-1 bg-black rounded-lg border border-white/10 shrink-0">
                                  <button 
                                     onClick={() => setAudioTab('songs')}
                                     className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors ${audioTab === 'songs' ? 'bg-brand-lime text-black' : 'text-gray-400 hover:text-white'}`}
@@ -117,7 +117,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ isOpen, onClose, onSelect, ty
                                 </div>
                                 {type === 'audio' && (
                                     <div className="absolute bottom-1 right-1">
-                                        {audioTab === 'dj' ? <Disc className="w-4 h-4 text-brand-pink"/> : <Music2 className="w-4 h-4 text-brand-lime"/>}
+                                        {audioTab === 'dj' ? <Disc className="w-4 h-4 text-brand-pink drop-shadow-md"/> : <Music2 className="w-4 h-4 text-brand-lime drop-shadow-md"/>}
                                     </div>
                                 )}
                             </div>
@@ -248,7 +248,7 @@ export const Library: React.FC<LibraryProps> = ({
            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
            if (adminKey) headers['x-admin-key'] = adminKey;
            
-           const res = await fetch('/api/admin/scrape', { method: 'POST', headers });
+           const res = await fetch(`${window.location.origin}/api/admin/scrape`, { method: 'POST', headers });
            const data = await res.json();
            
            if(data.success && data.count > 0) {
@@ -510,6 +510,16 @@ export const Library: React.FC<LibraryProps> = ({
           </div>
       );
   }
+  
+  // Helper to find title for editor display
+  const getLinkedSongTitle = (id?: string) => {
+      if(!id) return null;
+      const song = songs.find(s => s.id === id);
+      if(song) return `(Song) ${song.title}`;
+      const dj = djSets.find(d => d.id === id);
+      if(dj) return `(DJ) ${dj.title}`;
+      return 'Unknown ID';
+  };
 
   // --- MAIN LAYOUT ---
   return (
@@ -1075,8 +1085,7 @@ export const Library: React.FC<LibraryProps> = ({
                                        <div className="flex-1">
                                            <p className="text-xs font-bold text-brand-lime">已关联背景音乐 (Hero Song)</p>
                                            <p className="text-[10px] text-gray-400">
-                                               ID: {articleForm.linkedSongId} 
-                                               {songs.find(s=>s.id===articleForm.linkedSongId)?.title && ` - ${songs.find(s=>s.id===articleForm.linkedSongId)?.title}`}
+                                               {getLinkedSongTitle(articleForm.linkedSongId)}
                                            </p>
                                        </div>
                                        <button onClick={() => setArticleForm({...articleForm, linkedSongId: undefined})} className="p-1 hover:bg-black/20 rounded text-brand-lime"><X className="w-4 h-4"/></button>
