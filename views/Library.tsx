@@ -42,9 +42,17 @@ interface MediaPickerProps {
 
 const MediaPicker: React.FC<MediaPickerProps> = ({ isOpen, onClose, onSelect, type, data }) => {
     const [search, setSearch] = useState('');
+    const [audioTab, setAudioTab] = useState<'songs' | 'dj'>('songs');
+
     if (!isOpen) return null;
 
-    const items = type === 'image' ? data.images : type === 'video' ? data.mvs : [...data.songs, ...data.djSets];
+    let items: any[] = [];
+    if (type === 'image') items = data.images;
+    else if (type === 'video') items = data.mvs;
+    else {
+        // Audio Type: Split based on tab
+        items = audioTab === 'songs' ? data.songs : data.djSets;
+    }
 
     const filtered = items.filter((i: any) => {
         const text = (i.title || i.name || '').toLowerCase();
@@ -53,37 +61,65 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ isOpen, onClose, onSelect, ty
 
     return (
         <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bg-[#111] w-full max-w-4xl h-[80vh] rounded-3xl border border-white/10 flex flex-col overflow-hidden animate-in zoom-in-95">
-                <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                        {type === 'image' ? <ImageIcon className="text-brand-cyan"/> : type === 'audio' ? <Music className="text-brand-lime"/> : <Film className="text-brand-pink"/>}
-                        选择{type === 'image' ? '图片' : type === 'audio' ? '音乐' : '视频'}
-                    </h3>
-                    <div className="relative w-64">
-                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                         <input 
-                            type="text" 
-                            placeholder="搜索..." 
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            className="w-full bg-black border border-white/10 rounded-full py-2 pl-10 text-sm text-white focus:border-brand-lime outline-none"
-                         />
+            <div className="bg-[#111] w-full max-w-4xl h-[80vh] rounded-3xl border border-white/10 flex flex-col overflow-hidden animate-in zoom-in-95 shadow-2xl">
+                <div className="p-6 border-b border-white/10 flex flex-col gap-4 bg-white/[0.02]">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                            {type === 'image' ? <ImageIcon className="text-brand-cyan"/> : type === 'audio' ? <Music className="text-brand-lime"/> : <Film className="text-brand-pink"/>}
+                            选择{type === 'image' ? '图片' : type === 'audio' ? '音乐' : '视频'}
+                        </h3>
+                        <button onClick={onClose}><X className="w-6 h-6 text-gray-500 hover:text-white"/></button>
                     </div>
-                    <button onClick={onClose}><X className="w-6 h-6 text-gray-500 hover:text-white"/></button>
+
+                    <div className="flex gap-4">
+                         {/* Audio Tabs Switcher */}
+                         {type === 'audio' && (
+                             <div className="flex gap-2 p-1 bg-black rounded-lg border border-white/10">
+                                 <button 
+                                    onClick={() => setAudioTab('songs')}
+                                    className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors ${audioTab === 'songs' ? 'bg-brand-lime text-black' : 'text-gray-400 hover:text-white'}`}
+                                 >
+                                     单曲 (Songs)
+                                 </button>
+                                 <button 
+                                    onClick={() => setAudioTab('dj')}
+                                    className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors ${audioTab === 'dj' ? 'bg-brand-pink text-white' : 'text-gray-400 hover:text-white'}`}
+                                 >
+                                     DJ Sets (电台)
+                                 </button>
+                             </div>
+                         )}
+                         
+                         <div className="relative flex-1">
+                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                             <input 
+                                type="text" 
+                                placeholder="搜索..." 
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                className="w-full bg-black border border-white/10 rounded-lg py-2 pl-10 text-sm text-white focus:border-brand-lime outline-none"
+                             />
+                        </div>
+                    </div>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 custom-scrollbar bg-black/40">
                     {filtered.map((item: any) => (
                         <div 
                             key={item.id} 
                             onClick={() => { onSelect(item); onClose(); }}
-                            className="group relative cursor-pointer bg-white/5 rounded-xl overflow-hidden border border-transparent hover:border-brand-lime transition-all"
+                            className="group relative cursor-pointer bg-white/5 rounded-xl overflow-hidden border border-white/5 hover:border-brand-lime transition-all hover:bg-white/10"
                         >
                             <div className="aspect-square bg-black relative">
                                 <img src={item.coverUrl || item.imageUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <CheckCircle className="w-8 h-8 text-brand-lime" />
+                                    <CheckCircle className="w-8 h-8 text-brand-lime drop-shadow-lg" />
                                 </div>
+                                {type === 'audio' && (
+                                    <div className="absolute bottom-1 right-1">
+                                        {audioTab === 'dj' ? <Disc className="w-4 h-4 text-brand-pink"/> : <Music2 className="w-4 h-4 text-brand-lime"/>}
+                                    </div>
+                                )}
                             </div>
                             <div className="p-3">
                                 <p className="text-xs font-bold text-white truncate">{item.title || item.id}</p>
@@ -91,6 +127,12 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ isOpen, onClose, onSelect, ty
                             </div>
                         </div>
                     ))}
+                    {filtered.length === 0 && (
+                        <div className="col-span-full py-12 text-center text-gray-500 flex flex-col items-center">
+                            <Search className="w-8 h-8 mb-2 opacity-50" />
+                            <p>没有找到相关内容</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -210,7 +252,6 @@ export const Library: React.FC<LibraryProps> = ({
            const data = await res.json();
            
            if(data.success && data.count > 0) {
-               // Reload data immediately after successful scrape to show new items
                const freshData = await cloudService.loadData();
                if (freshData) {
                    if (freshData.djSets) setDjSets(freshData.djSets);
@@ -221,7 +262,7 @@ export const Library: React.FC<LibraryProps> = ({
                    notify('success', `抓取成功 (${data.count}首)，但同步回显失败，请刷新页面`);
                }
            } else {
-               notify('info', '爬虫完成，暂无更新');
+               notify('info', '爬虫完成，暂无更新。日志：' + (data.logs ? data.logs.slice(-1)[0] : ''));
            }
       } catch(e) {
           notify('error', '爬虫任务失败');
@@ -245,18 +286,23 @@ export const Library: React.FC<LibraryProps> = ({
           setPreviewPlaying(true);
           if (previewAudioRef.current) {
                let url = item.fileUrl || '';
-               // Force proxy for Netease items to fix playback in Admin
-               if (item.neteaseId) {
-                   const targetUrl = `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
-                   url = `/api/proxy?strategy=netease&url=${encodeURIComponent(targetUrl)}`;
-               } else if (url.includes('music.163.com') || url.includes('music.126.net')) {
-                   if (!url.startsWith('/api/proxy')) {
-                       url = `/api/proxy?strategy=netease&url=${encodeURIComponent(url)}`;
+               // Ensure we use the proxy for previews in admin to avoid CORS/Mixed Content issues
+               // regardless of source (Netease, Archive.org, etc)
+               if (url.startsWith('http://') || url.startsWith('https://')) {
+                   // Netease specific construction
+                   if (item.neteaseId) {
+                        const targetUrl = `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
+                        url = `/api/proxy?strategy=netease&url=${encodeURIComponent(targetUrl)}`;
+                   } else if (!url.includes('/api/proxy')) {
+                        // Generic Proxy
+                        url = `/api/proxy?url=${encodeURIComponent(url)}`;
                    }
                }
+
                previewAudioRef.current.src = url;
                previewAudioRef.current.play().catch(e => {
-                   notify('error', '无法播放预览');
+                   console.error(e);
+                   notify('error', '无法播放预览: ' + e.message);
                    setPreviewPlaying(false);
                });
           }
@@ -645,7 +691,7 @@ export const Library: React.FC<LibraryProps> = ({
               </div>
           )}
 
-          {/* --- TAB: GALLERY --- */}
+          {/* ... (REMAINING TABS LIKE GALLERY, ARTICLES, DECORATION, THEME, NETDISK KEEP AS IS) ... */}
           {activeTab === 'gallery' && (
              <div className="animate-in slide-in-from-right-4 duration-300">
                  <div className="flex justify-between mb-6">
@@ -666,12 +712,11 @@ export const Library: React.FC<LibraryProps> = ({
              </div>
           )}
 
-          {/* --- TAB: NETDISK --- */}
+          {/* ... ARTICLES, NETDISK, DECORATION, THEME, NAV tabs ... */}
           {activeTab === 'netdisk' && (
               <Netdisk notify={notify} softwareItems={softwareItems} setSoftwareItems={setSoftwareItems} onSync={handleSync} />
           )}
 
-          {/* --- TAB: ARTICLES --- */}
           {activeTab === 'articles' && (
               <div className="animate-in slide-in-from-right-4 duration-300">
                   <div className="flex justify-between mb-6">
@@ -696,7 +741,6 @@ export const Library: React.FC<LibraryProps> = ({
               </div>
           )}
           
-          {/* --- TAB: DECORATION (RESTORED) --- */}
           {activeTab === 'decoration' && (
               <div className="animate-in slide-in-from-right-4 duration-300">
                   <h2 className="text-2xl font-bold text-white mb-6">页面装修 / Page Decoration</h2>
@@ -734,7 +778,6 @@ export const Library: React.FC<LibraryProps> = ({
                                           className="w-full bg-black border border-white/10 rounded-lg p-2 text-white focus:border-brand-lime outline-none mt-1 h-20 resize-none" 
                                       />
                                   </div>
-                                  {/* Featured Item Selector for Specific Pages */}
                                   {(key === View.HOME || key === View.CHARTS || key === View.DJ) && (
                                       <div>
                                           <label className="text-xs font-bold text-gray-500 uppercase">推荐内容ID (Featured Content)</label>
