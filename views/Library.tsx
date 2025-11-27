@@ -274,7 +274,7 @@ export const Library: React.FC<LibraryProps> = ({
       }
   };
 
-  // --- PREVIEW LOGIC (Updated to support Netease Proxy) ---
+  // --- PREVIEW LOGIC ---
   const handlePreview = (item: Song | DJSet) => {
       if (previewId === item.id) {
           if (previewPlaying) {
@@ -290,25 +290,21 @@ export const Library: React.FC<LibraryProps> = ({
           if (previewAudioRef.current) {
                let url = item.fileUrl || '';
                
-               // PRIORITY: If Netease ID exists, use proxy.
                if (item.neteaseId) {
                    const targetUrl = `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
                    url = `/api/proxy?strategy=netease&url=${encodeURIComponent(targetUrl)}`;
                } else if (!url) {
-                   // No file, No ID
                    notify('error', '无有效播放源 (No URL or Netease ID)');
                    setPreviewPlaying(false);
                    return;
                }
 
-               // Fallback proxy for direct links to avoid mixed content in admin
                if (url.startsWith('http://') || url.startsWith('https://')) {
                    if (!url.includes('/api/proxy')) {
                         url = `/api/proxy?url=${encodeURIComponent(url)}`;
                    }
                }
                
-               console.log("Previewing:", url);
                previewAudioRef.current.src = url;
                previewAudioRef.current.play().catch(e => {
                    console.error("Preview Play Error:", e);
@@ -334,9 +330,9 @@ export const Library: React.FC<LibraryProps> = ({
       for(let i=0; i<total; i++) {
           const item = items[i];
           const url = 'videoUrl' in item ? item.videoUrl : item.fileUrl;
-          // Skip check if using Netease ID
+          
           if ('neteaseId' in item && item.neteaseId) {
-             // Consider valid for now
+             // Valid
           } else if(url) {
               const isValid = await cloudService.validateUrl(url);
               if(!isValid) invalidIds.push(item.id);
@@ -368,7 +364,6 @@ export const Library: React.FC<LibraryProps> = ({
       notify('success', `已成功清理 ${count} 个失效项目，请记得点击 "保存更改" 同步到云端`);
   };
 
-  // --- GENERIC ITEM HANDLING ---
   const handleDelete = (id: string, type: 'audio' | 'video' | 'dj' | 'gallery' | 'article') => {
       if(!window.confirm('确定要删除此项目吗？')) return;
       if (type === 'audio') setSongs(prev => prev.filter(i => i.id !== id));
@@ -429,7 +424,6 @@ export const Library: React.FC<LibraryProps> = ({
                ...djForm, 
                id, 
                coverUrl: finalCover,
-               // Ensure tags is array
                tags: djForm.tags || ['Club']
            } as DJSet;
            setDjSets(prev => editMode ? prev.map(i => i.id === editingId ? newItem : i) : [newItem, ...prev]);
@@ -446,7 +440,6 @@ export const Library: React.FC<LibraryProps> = ({
       notify('success', '已保存到本地，请记得点击“保存更改”同步到云端。');
   };
 
-  // --- BATCH UPLOAD FOR GALLERY ---
   const handleBatchUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files || files.length === 0) return;
@@ -553,9 +546,6 @@ export const Library: React.FC<LibraryProps> = ({
                   <button onClick={handleLogin} className="w-full py-4 bg-brand-lime text-black font-bold rounded-xl hover:bg-white transition-colors">
                       解锁系统
                   </button>
-                  {connectionStatus === 'missing_config' && (
-                      <p className="text-xs text-center text-gray-500 mt-4">请在 Cloudflare 后台配置 ADMIN_SECRET 环境变量。</p>
-                  )}
               </div>
           </div>
       );
@@ -621,7 +611,7 @@ export const Library: React.FC<LibraryProps> = ({
           ))}
       </div>
 
-      <div className={`bg-[#050505] border border-white/5 rounded-[2.5rem] p-6 shadow-2xl relative overflow-hidden ${activeTab === 'netdisk' ? 'min-h-[auto]' : 'min-h-[600px]'}`}>
+      <div className={`bg-[#050505] border border-white/5 rounded-[2.5rem] p-6 shadow-2xl relative ${activeTab === 'netdisk' ? '' : 'min-h-[600px] overflow-hidden'}`}>
           
           {/* --- TAB: MEDIA (Audio/Video/DJ) --- */}
           {activeTab === 'media' && (
@@ -751,7 +741,6 @@ export const Library: React.FC<LibraryProps> = ({
               </div>
           )}
 
-          {/* ... GALLERY, ARTICLES, ETC. (Keep existing) ... */}
           {activeTab === 'gallery' && (
              <div className="animate-in slide-in-from-right-4 duration-300">
                  <div className="flex justify-between mb-6">
