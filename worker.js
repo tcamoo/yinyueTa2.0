@@ -70,8 +70,8 @@ async function scrapeNetease(env) {
 
       if (playlists.length === 0) throw new Error("No playlists found in HTML");
 
-      // 2. Randomly select 2 playlists to scrape deep (avoiding timeouts)
-      const shuffled = playlists.sort(() => 0.5 - Math.random()).slice(0, 2);
+      // 2. Randomly select 6 playlists to scrape deep (Increased from 2 to get more variety)
+      const shuffled = playlists.sort(() => 0.5 - Math.random()).slice(0, 6);
 
       for (const pl of shuffled) {
           log.push(`Scraping Playlist: ${pl.title} (${pl.id})`);
@@ -87,12 +87,12 @@ async function scrapeNetease(env) {
           if (jsonMatch && jsonMatch[1]) {
               try {
                   const rawSongs = JSON.parse(jsonMatch[1]);
-                  const topSongs = rawSongs.slice(0, 10);
+                  // Limit to top 20 songs per playlist (Increased from 10)
+                  const topSongs = rawSongs.slice(0, 20);
 
                   for (const song of topSongs) {
                       const neteaseId = song.id;
-                      // IMPORTANT: Use HTTPS for Netease URL to avoid mixed content warnings in proxy
-                      // We save the ID specifically so the frontend can reconstruct the proxy URL robustly
+                      // IMPORTANT: Use HTTPS for Netease URL
                       const rawMp3Url = `https://music.163.com/song/media/outer/url?id=${neteaseId}.mp3`;
                       
                       const proxyUrl = makeProxyUrl(rawMp3Url, 'netease');
@@ -101,8 +101,9 @@ async function scrapeNetease(env) {
                       
                       const artistName = song.artists ? song.artists.map(a => a.name).join('/') : 'Unknown DJ';
                       
+                      // Higher quality cover image
                       const coverUrl = song.album && song.album.picUrl 
-                          ? song.album.picUrl.replace('http:', 'https:') + '?param=400y400' 
+                          ? song.album.picUrl.replace('http:', 'https:') + '?param=600y600' 
                           : `https://picsum.photos/seed/${uniqueId}/400/400`;
 
                       if (!processedIds.has(uniqueId)) {
@@ -113,10 +114,10 @@ async function scrapeNetease(env) {
                               coverUrl: coverUrl,
                               fileUrl: proxyUrl, 
                               neteaseId: neteaseId.toString(),
-                              duration: "03:30", 
+                              duration: "03:30", // Placeholder as actual duration requires extra parsing
                               bpm: 128, 
                               tags: ["Dance", "Club", "Netease"],
-                              plays: Math.floor(Math.random() * 20000) + 1000
+                              plays: Math.floor(Math.random() * 50000) + 1000
                           });
                           processedIds.add(uniqueId);
                       }
@@ -146,14 +147,27 @@ async function scrapeNetease(env) {
           let currentData = currentDataStr ? JSON.parse(currentDataStr) : {};
 
           let existingSets = currentData.djSets || [];
-          const existingMap = new Map(existingSets.map(s => [s.id, s]));
           
+          // Use a Map to merge by ID, ensuring no duplicates
+          const existingMap = new Map();
+          
+          // Add new sets FIRST to the map so they appear at the top/are prioritized
           for (const s of newSets) {
               existingMap.set(s.id, s);
           }
+          // Then add existing sets (if ID exists, it won't overwrite because we check map.has or let it overwrite? 
+          // Actually, we want to keep existing data if it has more info, but for scraping, usually new data is fine.
+          // Let's just append existing sets if they aren't in map)
+          for (const s of existingSets) {
+              if (!existingMap.has(s.id)) {
+                  existingMap.set(s.id, s);
+              }
+          }
           
           let merged = Array.from(existingMap.values());
-          if (merged.length > 200) merged = merged.slice(0, 200);
+          
+          // Increased limit to 1000 to allow for larger libraries
+          if (merged.length > 1000) merged = merged.slice(0, 1000);
 
           currentData.djSets = merged;
           await env.DB.put('app_data', JSON.stringify(currentData));
@@ -238,7 +252,6 @@ export default {
             Object.keys(corsHeaders).forEach(k => newHeaders.set(k, corsHeaders[k]));
             
             // Force content type if missing for MP3 or if Netease returns text/html on error
-            // Sometimes Netease returns 403 HTML page if blocked, we should probably check content-type
             const contentType = newHeaders.get('Content-Type');
             if ((targetUrl.endsWith('.mp3') || targetUrl.includes('.mp3')) && (!contentType || contentType === 'text/plain')) {
                 newHeaders.set('Content-Type', 'audio/mpeg');
@@ -255,7 +268,7 @@ export default {
         }
     }
 
-    // --- ADMIN LINK VALIDATOR (NEW) ---
+    // --- ADMIN LINK VALIDATOR ---
     if (url.pathname === '/api/admin/validate' && request.method === 'POST') {
        if (!isAuthorized(request)) {
           return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -265,9 +278,6 @@ export default {
            if (!targetUrl) return new Response(JSON.stringify({ valid: false }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
            let urlToCheck = targetUrl;
-           
-           // If it's a proxy link, we need to resolve what it's pointing to, OR check the proxy endpoint itself
-           // Ideally, check the underlying URL, but checking the proxy response is safer to verify the full chain
            if (targetUrl.startsWith('/')) {
                const u = new URL(request.url);
                urlToCheck = u.origin + targetUrl;
@@ -277,8 +287,6 @@ export default {
            let status = 0;
            
            try {
-              // Try HEAD first to save bandwidth
-              // Note: Worker subrequests to itself might be tricky, but usually work on same zone
               const res = await fetch(urlToCheck, { 
                   method: 'HEAD', 
                   headers: { 'User-Agent': 'Cloudflare Worker Health Check' } 
@@ -286,13 +294,11 @@ export default {
               status = res.status;
               if (res.ok) valid = true;
               else {
-                   // Fallback to GET with Range (0-10 bytes)
                    const resGet = await fetch(urlToCheck, { 
                        method: 'GET', 
                        headers: { 'Range': 'bytes=0-10', 'User-Agent': 'Cloudflare Worker Health Check' } 
                    });
                    status = resGet.status;
-                   // 200 or 206 means it exists
                    valid = (status >= 200 && status < 400); 
               }
            } catch (e) {
