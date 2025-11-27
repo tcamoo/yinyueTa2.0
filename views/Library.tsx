@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link as LinkIcon, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink, RefreshCcw, Play, Pause, AlertOctagon, Music2 } from 'lucide-react';
+import { Upload, Music, Trash2, Settings2, Palette, Edit3, Film, Image as ImageIcon, X, Database, FileText, Disc, UploadCloud, Tag, Type as FontIcon, Maximize2, Link as LinkIcon, Plus, CheckCircle, Save, Loader2, CloudLightning, AlertTriangle, Wifi, WifiOff, Key, ShieldCheck, Lock, Unlock, HardDrive, Layout, RefreshCw, Layers, Headphones, MoreHorizontal, ImagePlus, Bold, Italic, Heading1, Heading2, Menu, ArrowUp, ArrowDown, Heart, Video, Grid, ExternalLink, RefreshCcw, Play, Pause, AlertOctagon, Music2, Search, Check } from 'lucide-react';
 import { Song, Theme, MV, GalleryItem, DJSet, Article, PageHeaders, View, Playlist, SoftwareItem, NavItem } from '../types';
 import { THEMES, MOODS } from '../constants';
 import { cloudService } from '../services/cloudService';
@@ -31,6 +31,72 @@ interface LibraryProps {
   setNavItems: React.Dispatch<React.SetStateAction<NavItem[]>>; 
 }
 
+// --- MEDIA PICKER COMPONENT ---
+interface MediaPickerProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSelect: (item: any) => void;
+    type: 'image' | 'audio' | 'video';
+    data: { images: GalleryItem[], songs: Song[], djSets: DJSet[], mvs: MV[] };
+}
+
+const MediaPicker: React.FC<MediaPickerProps> = ({ isOpen, onClose, onSelect, type, data }) => {
+    const [search, setSearch] = useState('');
+    if (!isOpen) return null;
+
+    const items = type === 'image' ? data.images : type === 'video' ? data.mvs : [...data.songs, ...data.djSets];
+
+    const filtered = items.filter((i: any) => {
+        const text = (i.title || i.name || '').toLowerCase();
+        return text.includes(search.toLowerCase());
+    });
+
+    return (
+        <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-[#111] w-full max-w-4xl h-[80vh] rounded-3xl border border-white/10 flex flex-col overflow-hidden animate-in zoom-in-95">
+                <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        {type === 'image' ? <ImageIcon className="text-brand-cyan"/> : type === 'audio' ? <Music className="text-brand-lime"/> : <Film className="text-brand-pink"/>}
+                        选择{type === 'image' ? '图片' : type === 'audio' ? '音乐' : '视频'}
+                    </h3>
+                    <div className="relative w-64">
+                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                         <input 
+                            type="text" 
+                            placeholder="搜索..." 
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            className="w-full bg-black border border-white/10 rounded-full py-2 pl-10 text-sm text-white focus:border-brand-lime outline-none"
+                         />
+                    </div>
+                    <button onClick={onClose}><X className="w-6 h-6 text-gray-500 hover:text-white"/></button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 custom-scrollbar">
+                    {filtered.map((item: any) => (
+                        <div 
+                            key={item.id} 
+                            onClick={() => { onSelect(item); onClose(); }}
+                            className="group relative cursor-pointer bg-white/5 rounded-xl overflow-hidden border border-transparent hover:border-brand-lime transition-all"
+                        >
+                            <div className="aspect-square bg-black relative">
+                                <img src={item.coverUrl || item.imageUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <CheckCircle className="w-8 h-8 text-brand-lime" />
+                                </div>
+                            </div>
+                            <div className="p-3">
+                                <p className="text-xs font-bold text-white truncate">{item.title || item.id}</p>
+                                <p className="text-[10px] text-gray-500 truncate">{item.artist || item.photographer || item.djName}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const Library: React.FC<LibraryProps> = ({ 
     songs, setSongs, 
     mvs, setMvs,
@@ -49,20 +115,24 @@ export const Library: React.FC<LibraryProps> = ({
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
   
-  // TABS: 'dj' removed from top level, merged into 'media'
+  // TABS
   const [activeTab, setActiveTab] = useState<'media' | 'gallery' | 'articles' | 'decoration' | 'theme' | 'netdisk' | 'nav'>('media');
   const [mediaSubTab, setMediaSubTab] = useState<'audio' | 'video' | 'dj'>('audio');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
+  // Picker State
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerType, setPickerType] = useState<'image' | 'audio' | 'video'>('image');
+  const [pickerContext, setPickerContext] = useState<'cover' | 'editor_image' | 'editor_audio' | 'editor_video'>('cover');
+
   // Link Check State
   const [isCheckingLinks, setIsCheckingLinks] = useState(false);
   const [checkProgress, setCheckProgress] = useState(0);
   const [brokenLinks, setBrokenLinks] = useState<string[]>([]);
   
   // Article Editor State
-  const [showMediaInserter, setShowMediaInserter] = useState(false);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   
   const [editMode, setEditMode] = useState(false);
@@ -141,6 +211,7 @@ export const Library: React.FC<LibraryProps> = ({
            
            if(data.success && data.count > 0) {
                notify('success', `成功抓取 ${data.count} 首新曲目，请刷新页面或等待同步`);
+               // Optionally auto-reload data here if needed, but Sync covers it usually
            } else {
                notify('info', '爬虫完成，暂无更新');
            }
@@ -166,6 +237,7 @@ export const Library: React.FC<LibraryProps> = ({
           setPreviewPlaying(true);
           if (previewAudioRef.current) {
                let url = item.fileUrl || '';
+               // Force proxy for Netease items to fix playback in Admin
                if (item.neteaseId) {
                    const targetUrl = `https://music.163.com/song/media/outer/url?id=${item.neteaseId}.mp3`;
                    url = `/api/proxy?strategy=netease&url=${encodeURIComponent(targetUrl)}`;
@@ -299,7 +371,7 @@ export const Library: React.FC<LibraryProps> = ({
           setArticles(prev => editMode ? prev.map(i => i.id === editingId ? newItem : i) : [newItem, ...prev]);
       }
       setIsModalOpen(false);
-      notify('success', 'Saved locally. Remember to Sync!');
+      notify('success', '已保存到本地，请记得点击“保存更改”同步到云端。');
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string, context: 'audio' | 'video' | 'dj' | 'gallery' | 'article') => {
@@ -314,20 +386,48 @@ export const Library: React.FC<LibraryProps> = ({
           if (context === 'dj') setDjForm(prev => ({ ...prev, [field]: url }));
           if (context === 'gallery') setGalleryForm(prev => ({ ...prev, [field]: url }));
           if (context === 'article') setArticleForm(prev => ({ ...prev, [field]: url }));
-          notify('success', 'File uploaded successfully');
+          notify('success', '文件上传成功');
       }
   };
 
-  // --- ARTICLE EDITOR UTILS ---
-  const insertText = (before: string, after: string = '') => {
+  // --- EDITOR INSERTION LOGIC ---
+  const insertTextAtCursor = (text: string) => {
       if (!textAreaRef.current) return;
       const start = textAreaRef.current.selectionStart;
       const end = textAreaRef.current.selectionEnd;
-      const text = articleForm.content || '';
-      const newText = text.substring(0, start) + before + text.substring(start, end) + after + text.substring(end);
-      setArticleForm({ ...articleForm, content: newText });
-      // Restore focus (simulated)
-      setTimeout(() => textAreaRef.current?.focus(), 50);
+      const content = articleForm.content || '';
+      const newContent = content.substring(0, start) + text + content.substring(end);
+      setArticleForm({ ...articleForm, content: newContent });
+      setTimeout(() => {
+          textAreaRef.current?.focus();
+          textAreaRef.current?.setSelectionRange(start + text.length, start + text.length);
+      }, 50);
+  };
+
+  const openPicker = (type: 'image' | 'audio' | 'video', context: typeof pickerContext) => {
+      setPickerType(type);
+      setPickerContext(context);
+      setPickerOpen(true);
+  };
+
+  const handlePickerSelect = (item: any) => {
+      if (pickerContext === 'cover') {
+          if (editingType === 'audio') setSongForm({ ...songForm, coverUrl: item.imageUrl });
+          if (editingType === 'video') setMvForm({ ...mvForm, coverUrl: item.imageUrl });
+          if (editingType === 'dj') setDjForm({ ...djForm, coverUrl: item.imageUrl });
+          if (editingType === 'article') setArticleForm({ ...articleForm, coverUrl: item.imageUrl });
+          if (editingType === 'gallery') setGalleryForm({ ...galleryForm, imageUrl: item.imageUrl });
+      } else if (pickerContext === 'editor_image') {
+          const html = `<img src="${item.imageUrl}" alt="${item.title}" class="rounded-2xl w-full my-6 shadow-xl border border-white/10" />`;
+          insertTextAtCursor(html);
+      } else if (pickerContext === 'editor_audio') {
+          // Just set the linked song ID for the main player
+          setArticleForm({ ...articleForm, linkedSongId: item.id });
+          notify('success', `已关联音乐: ${item.title}`);
+      } else if (pickerContext === 'editor_video') {
+           const html = `<video src="${item.videoUrl}" controls class="rounded-2xl w-full my-6 shadow-xl border border-white/10"></video>`;
+           insertTextAtCursor(html);
+      }
   };
 
   // --- LOGIN SCREEN ---
@@ -338,19 +438,19 @@ export const Library: React.FC<LibraryProps> = ({
                   <div className="flex justify-center mb-6 text-brand-lime">
                       <ShieldCheck className="w-12 h-12" />
                   </div>
-                  <h2 className="text-2xl font-bold text-center text-white mb-6">Admin Access</h2>
+                  <h2 className="text-2xl font-bold text-center text-white mb-6">后台管理验证</h2>
                   <input 
                       type="password" 
                       value={passwordInput}
                       onChange={e => setPasswordInput(e.target.value)}
                       className="w-full bg-black border border-white/10 rounded-xl p-4 text-center text-white focus:border-brand-lime outline-none mb-4 tracking-widest"
-                      placeholder="ENTER KEY"
+                      placeholder="输入密钥"
                   />
                   <button onClick={handleLogin} className="w-full py-4 bg-brand-lime text-black font-bold rounded-xl hover:bg-white transition-colors">
-                      UNLOCK SYSTEM
+                      解锁系统
                   </button>
                   {connectionStatus === 'missing_config' && (
-                      <p className="text-xs text-center text-gray-500 mt-4">Please configure ADMIN_SECRET in Cloudflare.</p>
+                      <p className="text-xs text-center text-gray-500 mt-4">请在 Cloudflare 后台配置 ADMIN_SECRET 环境变量。</p>
                   )}
               </div>
           </div>
@@ -371,7 +471,7 @@ export const Library: React.FC<LibraryProps> = ({
              </h1>
              <p className="text-gray-400 mt-1 flex items-center gap-2">
                  <span className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
-                 {connectionStatus === 'connected' ? 'Cloud Systems Online' : 'Offline / Config Error'}
+                 {connectionStatus === 'connected' ? '云端服务在线' : '离线 / 配置错误'}
              </p>
          </div>
 
@@ -382,7 +482,7 @@ export const Library: React.FC<LibraryProps> = ({
                 className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl flex items-center gap-2 border border-white/10 transition-all"
              >
                  {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudLightning className="w-4 h-4 text-brand-cyan" />}
-                 {isSyncing ? 'Syncing...' : 'Save Changes'}
+                 {isSyncing ? '同步中...' : '保存更改 (Sync)'}
              </button>
          </div>
       </header>
@@ -416,8 +516,8 @@ export const Library: React.FC<LibraryProps> = ({
               <div className="animate-in slide-in-from-right-4 duration-300">
                   <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
                       <div className="flex gap-2 bg-white/5 p-1 rounded-xl">
-                          <button onClick={() => setMediaSubTab('audio')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${mediaSubTab === 'audio' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}>Audio</button>
-                          <button onClick={() => setMediaSubTab('video')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${mediaSubTab === 'video' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}>Video</button>
+                          <button onClick={() => setMediaSubTab('audio')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${mediaSubTab === 'audio' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}>音乐 (Audio)</button>
+                          <button onClick={() => setMediaSubTab('video')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${mediaSubTab === 'video' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}>视频 (Video)</button>
                           <button onClick={() => setMediaSubTab('dj')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${mediaSubTab === 'dj' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}>DJ Set</button>
                       </div>
                       
@@ -430,7 +530,7 @@ export const Library: React.FC<LibraryProps> = ({
                                   className="px-4 py-2 bg-red-600/20 text-red-500 border border-red-600/30 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all flex items-center gap-2"
                                >
                                   {isScraping ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCcw className="w-3 h-3" />}
-                                  Netease Sync
+                                  网易云抓取
                                </button>
                            )}
 
@@ -445,7 +545,7 @@ export const Library: React.FC<LibraryProps> = ({
                                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-red-400 rounded-lg flex items-center gap-2 font-bold transition-colors text-xs"
                            >
                                {isCheckingLinks ? <Loader2 className="w-3 h-3 animate-spin" /> : <LinkIcon className="w-3 h-3" />}
-                               Check Links
+                               检测失效链接
                            </button>
 
                            {brokenLinks.length > 0 && (
@@ -457,7 +557,7 @@ export const Library: React.FC<LibraryProps> = ({
                                   }}
                                   className="px-4 py-2 bg-red-500 hover:bg-red-400 text-white rounded-lg flex items-center gap-2 font-bold transition-colors text-xs animate-pulse shadow-lg shadow-red-500/20"
                                >
-                                  <Trash2 className="w-3 h-3" /> Fix All ({brokenLinks.length})
+                                  <Trash2 className="w-3 h-3" /> 一键清理失效 ({brokenLinks.length})
                                </button>
                            )}
 
@@ -465,7 +565,7 @@ export const Library: React.FC<LibraryProps> = ({
                                onClick={() => handleCreate(mediaSubTab)}
                                className="px-4 py-2 bg-brand-lime text-black rounded-lg flex items-center gap-2 font-bold hover:bg-white transition-colors text-xs"
                            >
-                               <Plus className="w-4 h-4" /> New Item
+                               <Plus className="w-4 h-4" /> 新建项目
                            </button>
                       </div>
                   </div>
@@ -519,9 +619,15 @@ export const Library: React.FC<LibraryProps> = ({
                                           <h4 className={`font-bold truncate text-white mb-1 ${brokenLinks.includes(set.id) ? 'line-through text-red-400' : ''}`}>{set.title}</h4>
                                           <p className="text-xs text-gray-500 mb-2">{set.djName}</p>
                                           <div className="flex gap-2">
-                                              <button onClick={() => handleEdit(set, 'dj')} className="px-3 py-1 bg-white/10 rounded text-xs hover:bg-white hover:text-black transition-colors">Edit</button>
-                                              <button onClick={() => handleDelete(set.id, 'dj')} className="px-3 py-1 bg-white/10 rounded text-xs hover:bg-red-500 hover:text-white transition-colors">Delete</button>
+                                              <button onClick={() => handleEdit(set, 'dj')} className="px-3 py-1 bg-white/10 rounded text-xs hover:bg-white hover:text-black transition-colors">编辑</button>
+                                              <button onClick={() => handleDelete(set.id, 'dj')} className="px-3 py-1 bg-white/10 rounded text-xs hover:bg-red-500 hover:text-white transition-colors">删除</button>
                                           </div>
+                                          {set.neteaseId && (
+                                              <div className="mt-1 flex items-center gap-1">
+                                                   <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                                   <span className="text-[9px] text-gray-500 uppercase">Netease</span>
+                                              </div>
+                                          )}
                                       </div>
                                   </div>
                               ))}
@@ -535,8 +641,8 @@ export const Library: React.FC<LibraryProps> = ({
           {activeTab === 'gallery' && (
              <div className="animate-in slide-in-from-right-4 duration-300">
                  <div className="flex justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-white">Gallery Images</h2>
-                    <button onClick={() => handleCreate('gallery')} className="px-4 py-2 bg-brand-cyan text-black rounded-lg font-bold hover:bg-white transition-colors text-sm flex items-center gap-2"><Plus className="w-4 h-4"/> Add Image</button>
+                    <h2 className="text-2xl font-bold text-white">画廊管理</h2>
+                    <button onClick={() => handleCreate('gallery')} className="px-4 py-2 bg-brand-cyan text-black rounded-lg font-bold hover:bg-white transition-colors text-sm flex items-center gap-2"><Plus className="w-4 h-4"/> 添加图片</button>
                  </div>
                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                      {galleryItems.map(item => (
@@ -561,8 +667,8 @@ export const Library: React.FC<LibraryProps> = ({
           {activeTab === 'articles' && (
               <div className="animate-in slide-in-from-right-4 duration-300">
                   <div className="flex justify-between mb-6">
-                      <h2 className="text-2xl font-bold text-white">Articles</h2>
-                      <button onClick={() => handleCreate('article')} className="px-4 py-2 bg-purple-500 text-white rounded-lg font-bold hover:bg-white hover:text-black transition-colors text-sm flex items-center gap-2"><Plus className="w-4 h-4"/> New Post</button>
+                      <h2 className="text-2xl font-bold text-white">专栏文章</h2>
+                      <button onClick={() => handleCreate('article')} className="px-4 py-2 bg-purple-500 text-white rounded-lg font-bold hover:bg-white hover:text-black transition-colors text-sm flex items-center gap-2"><Plus className="w-4 h-4"/> 新建文章</button>
                   </div>
                   <div className="space-y-3">
                       {articles.map(art => (
@@ -623,13 +729,13 @@ export const Library: React.FC<LibraryProps> = ({
                                   {/* Featured Item Selector for Specific Pages */}
                                   {(key === View.HOME || key === View.CHARTS || key === View.DJ) && (
                                       <div>
-                                          <label className="text-xs font-bold text-gray-500 uppercase">Featured Item ID (Hero Content)</label>
+                                          <label className="text-xs font-bold text-gray-500 uppercase">推荐内容ID (Featured Content)</label>
                                           <select 
                                              value={config.featuredItemId || ''}
                                              onChange={(e) => setPageHeaders(prev => ({ ...prev, [key]: { ...prev[key], featuredItemId: e.target.value } }))}
                                              className="w-full bg-black border border-white/10 rounded-lg p-2 text-white focus:border-brand-lime outline-none mt-1"
                                           >
-                                              <option value="">-- Auto / Default --</option>
+                                              <option value="">-- 自动 / 默认 --</option>
                                               {key === View.DJ ? (
                                                   djSets.map(d => <option key={d.id} value={d.id}>DJ: {d.title}</option>)
                                               ) : (
@@ -648,7 +754,7 @@ export const Library: React.FC<LibraryProps> = ({
           {activeTab === 'theme' && (
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in slide-in-from-right-4">
                   <div>
-                      <h3 className="font-bold text-white mb-4">Preset Themes</h3>
+                      <h3 className="font-bold text-white mb-4">预设主题</h3>
                       <div className="grid grid-cols-2 gap-4">
                           {THEMES.map(theme => (
                               <button 
@@ -672,7 +778,7 @@ export const Library: React.FC<LibraryProps> = ({
           
           {activeTab === 'nav' && (
               <div className="max-w-xl animate-in slide-in-from-right-4">
-                  <h3 className="font-bold text-white mb-4">Navigation Menu Visibility</h3>
+                  <h3 className="font-bold text-white mb-4">菜单显示与排序</h3>
                   <div className="space-y-2">
                       {navItems.sort((a,b) => a.order - b.order).map((item, idx) => (
                           <div key={item.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
@@ -715,7 +821,7 @@ export const Library: React.FC<LibraryProps> = ({
           <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-[#111] w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 shadow-2xl p-8 animate-in zoom-in-95 custom-scrollbar">
                   <div className="flex justify-between items-center mb-8">
-                      <h2 className="text-2xl font-bold text-white capitalize">{editMode ? 'Edit' : 'Create'} {editingType}</h2>
+                      <h2 className="text-2xl font-bold text-white capitalize">{editMode ? '编辑' : '新建'} {editingType === 'audio' ? '歌曲' : editingType === 'video' ? '视频' : editingType === 'gallery' ? '图片' : editingType === 'article' ? '文章' : 'DJ Set'}</h2>
                       <button onClick={() => setIsModalOpen(false)}><X className="w-6 h-6 text-gray-500 hover:text-white" /></button>
                   </div>
                   
@@ -729,16 +835,29 @@ export const Library: React.FC<LibraryProps> = ({
                                         editingType === 'video' ? mvForm.coverUrl : 
                                         djForm.coverUrl) || 'https://via.placeholder.com/400x400?text=Auto'
                                     } className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Upload className="w-6 h-6 text-white mb-1" />
-                                        <span className="text-[10px] text-gray-300">Change</span>
-                                        <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileUpload(e, 'coverUrl', editingType as any)} />
+                                    
+                                    {/* Cover Image Action Overlay */}
+                                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
+                                        <div className="relative cursor-pointer hover:text-brand-lime text-xs font-bold text-gray-300">
+                                            <Upload className="w-4 h-4 mx-auto mb-1" />
+                                            上传
+                                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileUpload(e, 'coverUrl', editingType as any)} />
+                                        </div>
+                                        <div className="w-full h-[1px] bg-white/20"></div>
+                                        <button 
+                                            onClick={() => openPicker('image', 'cover')}
+                                            className="hover:text-brand-lime text-xs font-bold text-gray-300"
+                                        >
+                                            <ImageIcon className="w-4 h-4 mx-auto mb-1" />
+                                            图库
+                                        </button>
                                     </div>
+                                    
                                     {isUploading && <div className="absolute inset-0 bg-black/80 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-brand-lime" /></div>}
                                 </div>
                                 <div className="flex-1 space-y-4">
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Title</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">标题 (Title)</label>
                                         <input 
                                             value={editingType === 'audio' ? songForm.title : editingType === 'video' ? mvForm.title : djForm.title} 
                                             onChange={e => {
@@ -751,7 +870,7 @@ export const Library: React.FC<LibraryProps> = ({
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">{editingType === 'dj' ? 'DJ Name' : 'Artist'}</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">{editingType === 'dj' ? 'DJ Name' : '艺术家 (Artist)'}</label>
                                         <input 
                                             value={editingType === 'audio' ? songForm.artist : editingType === 'video' ? mvForm.artist : djForm.djName} 
                                             onChange={e => {
@@ -770,7 +889,7 @@ export const Library: React.FC<LibraryProps> = ({
                       {/* File Inputs */}
                       {(editingType === 'audio' || editingType === 'dj') && (
                           <div>
-                              <label className="text-xs font-bold text-gray-500 uppercase">Audio File URL (or Upload)</label>
+                              <label className="text-xs font-bold text-gray-500 uppercase">音频文件链接 (Audio URL)</label>
                               <div className="flex gap-2">
                                   <input 
                                       value={editingType === 'audio' ? songForm.fileUrl : djForm.fileUrl} 
@@ -782,9 +901,9 @@ export const Library: React.FC<LibraryProps> = ({
                                       className="flex-1 bg-black border border-white/10 rounded-lg p-2 text-white font-mono text-xs focus:border-brand-lime outline-none" 
                                       placeholder="https://..."
                                   />
-                                  <div className="relative">
+                                  <div className="relative group">
                                       <button className="h-full px-4 bg-brand-pink text-white rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-white hover:text-black transition-colors shadow-lg">
-                                          <UploadCloud className="w-4 h-4" /> Upload (R2)
+                                          <UploadCloud className="w-4 h-4" /> 上传/R2
                                           <input 
                                               type="file" 
                                               className="absolute inset-0 opacity-0 cursor-pointer" 
@@ -801,7 +920,7 @@ export const Library: React.FC<LibraryProps> = ({
                       {/* Video URL */}
                       {editingType === 'video' && (
                           <div>
-                              <label className="text-xs font-bold text-gray-500 uppercase">Video URL (MP4)</label>
+                              <label className="text-xs font-bold text-gray-500 uppercase">视频链接 (MP4 URL)</label>
                               <input 
                                   value={mvForm.videoUrl} 
                                   onChange={e => setMvForm({...mvForm, videoUrl: e.target.value})}
@@ -822,66 +941,116 @@ export const Library: React.FC<LibraryProps> = ({
                                       </button>
                                   </div>
                               </div>
-                              <input value={galleryForm.title} onChange={e => setGalleryForm({...galleryForm, title: e.target.value})} placeholder="Title" className="w-full bg-black border border-white/10 rounded-lg p-2 text-white" />
-                              <input value={galleryForm.photographer} onChange={e => setGalleryForm({...galleryForm, photographer: e.target.value})} placeholder="Photographer" className="w-full bg-black border border-white/10 rounded-lg p-2 text-white" />
+                              <input value={galleryForm.title} onChange={e => setGalleryForm({...galleryForm, title: e.target.value})} placeholder="图片标题" className="w-full bg-black border border-white/10 rounded-lg p-2 text-white" />
+                              <input value={galleryForm.photographer} onChange={e => setGalleryForm({...galleryForm, photographer: e.target.value})} placeholder="摄影师" className="w-full bg-black border border-white/10 rounded-lg p-2 text-white" />
                           </div>
                       )}
 
                       {/* Super Article Editor */}
                       {editingType === 'article' && (
                           <div className="space-y-4">
-                               <input value={articleForm.title} onChange={e => setArticleForm({...articleForm, title: e.target.value})} placeholder="Article Title" className="w-full bg-black border border-white/10 rounded-lg p-3 text-xl font-bold text-white" />
+                               <div className="relative h-40 rounded-xl bg-black border border-white/10 overflow-hidden group">
+                                   <img src={articleForm.coverUrl || 'https://via.placeholder.com/800x400?text=Cover'} className="w-full h-full object-cover opacity-60" />
+                                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity gap-4">
+                                       <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">文章封面</span>
+                                       <div className="flex gap-4">
+                                            <div className="relative px-4 py-2 bg-white text-black rounded-full font-bold text-xs cursor-pointer hover:bg-brand-lime">
+                                                上传新图
+                                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileUpload(e, 'coverUrl', 'article')} />
+                                            </div>
+                                            <button 
+                                                onClick={() => openPicker('image', 'cover')}
+                                                className="px-4 py-2 bg-transparent border border-white text-white rounded-full font-bold text-xs hover:bg-white hover:text-black transition-colors"
+                                            >
+                                                选择图库
+                                            </button>
+                                       </div>
+                                   </div>
+                               </div>
+
+                               <input value={articleForm.title} onChange={e => setArticleForm({...articleForm, title: e.target.value})} placeholder="文章标题" className="w-full bg-black border border-white/10 rounded-lg p-3 text-xl font-bold text-white" />
+                               
                                <div className="grid grid-cols-2 gap-4">
-                                   <input value={articleForm.author} onChange={e => setArticleForm({...articleForm, author: e.target.value})} placeholder="Author" className="w-full bg-black border border-white/10 rounded-lg p-2 text-white" />
+                                   <input value={articleForm.author} onChange={e => setArticleForm({...articleForm, author: e.target.value})} placeholder="作者" className="w-full bg-black border border-white/10 rounded-lg p-2 text-white" />
                                    <input value={articleForm.date} type="date" onChange={e => setArticleForm({...articleForm, date: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-2 text-white" />
                                </div>
-                               <textarea value={articleForm.excerpt} onChange={e => setArticleForm({...articleForm, excerpt: e.target.value})} placeholder="Excerpt..." className="w-full bg-black border border-white/10 rounded-lg p-2 text-white h-20 resize-none" />
+                               
+                               <textarea value={articleForm.excerpt} onChange={e => setArticleForm({...articleForm, excerpt: e.target.value})} placeholder="摘要..." className="w-full bg-black border border-white/10 rounded-lg p-2 text-white h-20 resize-none" />
                                
                                {/* Rich Toolbar */}
                                <div className="border border-white/10 rounded-xl overflow-hidden">
                                    <div className="bg-white/5 border-b border-white/10 p-2 flex items-center gap-1 overflow-x-auto">
-                                       <button onClick={() => insertText('<b>', '</b>')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="Bold"><Bold className="w-4 h-4" /></button>
-                                       <button onClick={() => insertText('<i>', '</i>')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="Italic"><Italic className="w-4 h-4" /></button>
-                                       <button onClick={() => insertText('<h1>', '</h1>')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="H1"><Heading1 className="w-4 h-4" /></button>
-                                       <button onClick={() => insertText('<h2>', '</h2>')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="H2"><Heading2 className="w-4 h-4" /></button>
+                                       <button onClick={() => insertTextAtCursor('<b></b>')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="加粗"><Bold className="w-4 h-4" /></button>
+                                       <button onClick={() => insertTextAtCursor('<i></i>')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="斜体"><Italic className="w-4 h-4" /></button>
+                                       <button onClick={() => insertTextAtCursor('<h1></h1>')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="标题1"><Heading1 className="w-4 h-4" /></button>
+                                       <button onClick={() => insertTextAtCursor('<h2></h2>')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="标题2"><Heading2 className="w-4 h-4" /></button>
                                        <div className="w-[1px] h-4 bg-white/10 mx-1"></div>
-                                       <button onClick={() => insertText('<img src="URL" alt="" />')} className="p-1.5 hover:bg-white/10 rounded text-gray-300" title="Image"><ImagePlus className="w-4 h-4" /></button>
                                        
-                                       <div className="relative">
-                                           <button onClick={() => setShowMediaInserter(!showMediaInserter)} className={`p-1.5 rounded flex items-center gap-1 ${showMediaInserter ? 'bg-brand-lime text-black' : 'hover:bg-white/10 text-gray-300'}`} title="Insert Media">
-                                               <Music2 className="w-4 h-4" /> <span className="text-xs font-bold">Link Song</span>
-                                           </button>
-                                           {showMediaInserter && (
-                                               <div className="absolute top-full left-0 mt-2 w-64 bg-[#1a1a1a] border border-white/20 rounded-xl shadow-2xl p-2 z-50 max-h-60 overflow-y-auto">
-                                                   <div className="text-xs font-bold text-gray-500 px-2 py-1 uppercase">Select to link</div>
-                                                   {songs.map(s => (
-                                                       <div key={s.id} onClick={() => { setArticleForm({ ...articleForm, linkedSongId: s.id }); setShowMediaInserter(false); notify('success', 'Song Linked!'); }} className="px-2 py-1.5 hover:bg-white/10 rounded cursor-pointer text-xs truncate text-white">
-                                                           {s.title}
-                                                       </div>
-                                                   ))}
-                                               </div>
-                                           )}
-                                       </div>
+                                       {/* Media Insert Buttons */}
+                                       <button 
+                                          onClick={() => openPicker('image', 'editor_image')}
+                                          className="flex items-center gap-1 px-2 py-1 bg-white/5 hover:bg-brand-cyan/20 text-gray-300 hover:text-brand-cyan rounded text-xs font-bold transition-colors"
+                                       >
+                                           <ImagePlus className="w-4 h-4" /> 插图
+                                       </button>
+                                       
+                                       <button 
+                                          onClick={() => openPicker('audio', 'editor_audio')}
+                                          className={`flex items-center gap-1 px-2 py-1 bg-white/5 hover:bg-brand-lime/20 text-gray-300 hover:text-brand-lime rounded text-xs font-bold transition-colors ${articleForm.linkedSongId ? 'text-brand-lime border border-brand-lime/50' : ''}`}
+                                       >
+                                           <Music2 className="w-4 h-4" /> {articleForm.linkedSongId ? '更换BGM' : '关联BGM'}
+                                       </button>
+
+                                       <button 
+                                          onClick={() => openPicker('video', 'editor_video')}
+                                          className="flex items-center gap-1 px-2 py-1 bg-white/5 hover:bg-brand-pink/20 text-gray-300 hover:text-brand-pink rounded text-xs font-bold transition-colors"
+                                       >
+                                           <Film className="w-4 h-4" /> 插入视频
+                                       </button>
                                    </div>
                                    <textarea 
                                        ref={textAreaRef}
                                        value={articleForm.content} 
                                        onChange={e => setArticleForm({...articleForm, content: e.target.value})} 
-                                       placeholder="Write content (HTML supported)..." 
+                                       placeholder="输入正文内容 (支持 HTML)..." 
                                        className="w-full bg-black p-4 text-white font-mono text-sm h-64 outline-none border-none resize-none" 
                                    />
                                </div>
+                               
+                               {/* Linked BGM Indicator */}
+                               {articleForm.linkedSongId && (
+                                   <div className="flex items-center gap-3 p-3 bg-brand-lime/10 border border-brand-lime/20 rounded-xl">
+                                       <Music className="w-5 h-5 text-brand-lime" />
+                                       <div className="flex-1">
+                                           <p className="text-xs font-bold text-brand-lime">已关联背景音乐 (Hero Song)</p>
+                                           <p className="text-[10px] text-gray-400">
+                                               ID: {articleForm.linkedSongId} 
+                                               {songs.find(s=>s.id===articleForm.linkedSongId)?.title && ` - ${songs.find(s=>s.id===articleForm.linkedSongId)?.title}`}
+                                           </p>
+                                       </div>
+                                       <button onClick={() => setArticleForm({...articleForm, linkedSongId: undefined})} className="p-1 hover:bg-black/20 rounded text-brand-lime"><X className="w-4 h-4"/></button>
+                                   </div>
+                               )}
                           </div>
                       )}
 
                       <button onClick={handleSave} disabled={isUploading} className="w-full py-3 bg-brand-lime text-black font-bold rounded-xl hover:bg-white transition-colors flex items-center justify-center gap-2">
                           {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                          Save Item
+                          保存项目 (Save)
                       </button>
                   </div>
               </div>
           </div>
       )}
+
+      {/* MEDIA PICKER MODAL */}
+      <MediaPicker 
+         isOpen={pickerOpen} 
+         onClose={() => setPickerOpen(false)}
+         onSelect={handlePickerSelect}
+         type={pickerType}
+         data={{ images: galleryItems, songs, djSets, mvs }}
+      />
 
     </div>
   );
